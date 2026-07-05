@@ -2,7 +2,6 @@ name: Autonomous PR Agent
 
 on:
   pull_request:
-    branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
   merge_group:
 
@@ -109,7 +108,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: python scripts/review_pull_request.py
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p .pr-agent
+          python scripts/review_pull_request.py 2>&1 | tee .pr-agent/generate-review.log
 
       - name: Ensure review summary exists
         if: always()
@@ -134,7 +137,16 @@ jobs:
               echo "### Findings"
               echo "- **CRITICAL - Review automation did not complete**"
               echo "  - The PR cannot be approved automatically because the AI review step failed before producing a valid review."
-              echo "  - Fix: Open the failed GitHub Actions log, resolve the setup/API/configuration error, and push again."
+              echo "  - Fix: Read the captured error below, resolve the setup/API/configuration error, and push again."
+              echo ""
+              echo "### Captured reviewer error"
+              echo '```text'
+              if [[ -f .pr-agent/generate-review.log ]]; then
+                tail -n 120 .pr-agent/generate-review.log
+              else
+                echo "No reviewer log was produced."
+              fi
+              echo '```'
               echo ""
               echo "### Suggested tests"
               echo "- Re-run the GitHub Actions workflow after fixing the failure."

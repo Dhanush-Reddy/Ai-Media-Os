@@ -2,11 +2,6 @@ name: Auto Create Pull Request
 
 on:
   push:
-    branches-ignore:
-      - main
-      - develop
-      - "release/**"
-      - "dependabot/**"
 
 permissions:
   contents: read
@@ -29,10 +24,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          default_branch="$(gh repo view "$REPOSITORY" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+
+          if [[ "$BRANCH" == "$default_branch" ]]; then
+            echo "Skipping default branch $BRANCH."
+            exit 0
+          fi
+
+          if [[ "$BRANCH" == dependabot/* ]]; then
+            echo "Skipping dependabot branch $BRANCH."
+            exit 0
+          fi
+
           existing_pr="$(gh pr list \
             --repo "$REPOSITORY" \
             --head "$BRANCH" \
-            --base main \
+            --base "$default_branch" \
             --state open \
             --json number \
             --jq '.[0].number // empty')"
@@ -45,12 +52,14 @@ jobs:
           gh pr create \
             --repo "$REPOSITORY" \
             --head "$BRANCH" \
-            --base main \
+            --base "$default_branch" \
             --title "Auto PR: ${BRANCH}" \
             --body-file - <<EOF
           ## Automatically created pull request
 
           A push was detected on \`${BRANCH}\`.
+
+          Base branch: \`${default_branch}\`
 
           The autonomous PR agent will:
           - run tests and static checks;

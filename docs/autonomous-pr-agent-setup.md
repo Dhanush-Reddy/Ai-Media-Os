@@ -2,7 +2,9 @@
 
 This repository includes GitHub Actions automation for branch-to-PR creation,
 quality gates, AI pull-request review, and squash auto-merge when the AI review
-returns an explicit approval.
+returns an explicit approval. The workflows are branch-independent: PRs are
+created against the repository default branch, and the reviewer runs for PRs
+targeting any branch.
 
 ## Installed Files
 
@@ -32,7 +34,7 @@ Enable these repository settings:
 - Allow GitHub Actions to create and approve pull requests
 - Read and write workflow permissions
 
-Protect `main` with:
+Protect your default branch, usually `main`, with:
 
 - Pull requests required before merge
 - Required status checks

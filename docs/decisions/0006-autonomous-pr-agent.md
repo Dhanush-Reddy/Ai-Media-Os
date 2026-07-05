@@ -13,10 +13,12 @@ dependencies to the application or require paid services for local development.
 
 ## Decision
 
-Add GitHub Actions workflows that create pull requests from non-protected
+Add GitHub Actions workflows that create pull requests from non-default
 branches, run the project verification commands, request an NVIDIA NIM AI
 review, post a review summary comment, and enable squash auto-merge when the AI
-review returns an explicit approval.
+review returns an explicit approval. The auto-PR workflow resolves the
+repository default branch at runtime, and the review workflow runs for pull
+requests targeting any branch.
 
 The review policy is stored in `config/pr-review-rules.json`, and the review
 script is stored in `scripts/review_pull_request.py`. The project root
