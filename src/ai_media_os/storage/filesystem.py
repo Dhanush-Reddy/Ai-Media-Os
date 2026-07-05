@@ -4,7 +4,7 @@ import os
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
@@ -31,7 +31,14 @@ class FileStorage:
 
     def validate_relative_path(self, value: str | Path) -> Path:
         path = Path(value)
-        if path.is_absolute() or ".." in path.parts:
+        windows_path = PureWindowsPath(value)
+        if (
+            path.is_absolute()
+            or windows_path.is_absolute()
+            or windows_path.drive
+            or ".." in path.parts
+            or ".." in windows_path.parts
+        ):
             raise StorageError(f"Unsafe relative path: {value}")
         return path
 

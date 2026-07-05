@@ -85,6 +85,8 @@ def test_storage_rejects_unsafe_paths_and_atomic_failure(settings: AppSettings) 
     with pytest.raises(StorageError):
         storage.resolve_inside(storage.cache_root, "C:/outside")
     with pytest.raises(StorageError):
+        storage.resolve_inside(storage.cache_root, "C:\\outside")
+    with pytest.raises(StorageError):
         storage.resolve_inside(storage.cache_root, "//server/share/outside")
     with pytest.raises(StorageError):
         storage.cache_content_path("a" * 64, "../txt")
