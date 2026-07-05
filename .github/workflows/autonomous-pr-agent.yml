@@ -1,0 +1,213 @@
+name: Autonomous PR Agent
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autonomous-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    if: github.event_name == 'merge_group' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out tested revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and verification tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [[ -f requirements.txt ]]; then
+            pip install -r requirements.txt
+          fi
+          if [[ -f requirements-dev.txt ]]; then
+            pip install -r requirements-dev.txt
+          fi
+          if [[ -f pyproject.toml ]]; then
+            pip install -e ".[dev]" || pip install -e .
+          fi
+          pip install pytest ruff mypy alembic
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Run Ruff lint
+        run: python -m ruff check .
+
+      - name: Check Ruff formatting
+        run: python -m ruff format --check .
+
+      - name: Run mypy
+        run: python -m mypy src
+
+      - name: Validate Alembic state
+        env:
+          AI_MEDIA_OS_ENVIRONMENT: test
+          AI_MEDIA_OS_DATABASE_URL: sqlite:///./pr_agent_check.db
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f alembic.ini ]]; then
+            python -m alembic upgrade head
+            python -m alembic check
+          else
+            echo "No alembic.ini found; skipping Alembic checks."
+          fi
+
+  ai-review:
+    name: AI Review
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate NVIDIA AI review
+        id: generate_review
+        continue-on-error: true
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
+          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'nvidia/llama-3.3-nemotron-super-49b-v1.5' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python scripts/review_pull_request.py
+
+      - name: Ensure review summary exists
+        if: always()
+        env:
+          QUALITY_GATE_RESULT: ${{ needs.quality-gate.result }}
+          AI_REVIEW_RESULT: ${{ steps.generate_review.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .pr-agent
+
+          if [[ ! -f .pr-agent/review.md ]]; then
+            {
+              echo "<!-- autonomous-pr-agent-review -->"
+              echo "## Autonomous PR Review"
+              echo ""
+              echo "**Decision:** [block] \`block\`"
+              echo "**Risk:** \`critical\`"
+              echo ""
+              echo "The automated reviewer could not produce a normal review."
+              echo ""
+              echo "### Findings"
+              echo "- **CRITICAL - Review automation did not complete**"
+              echo "  - The PR cannot be approved automatically because the AI review step failed before producing a valid review."
+              echo "  - Fix: Open the failed GitHub Actions log, resolve the setup/API/configuration error, and push again."
+              echo ""
+              echo "### Suggested tests"
+              echo "- Re-run the GitHub Actions workflow after fixing the failure."
+            } > .pr-agent/review.md
+          fi
+
+          {
+            echo "## Workflow Gate Summary"
+            echo ""
+            echo "- Quality Gate: \`${QUALITY_GATE_RESULT}\`"
+            echo "- AI Review Generation: \`${AI_REVIEW_RESULT}\`"
+            echo ""
+            echo "If Quality Gate is not \`success\`, fix tests/lint/type/migration checks first."
+            echo ""
+            cat .pr-agent/review.md
+          } > .pr-agent/comment.md
+
+      - name: Publish review comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr comment "$PR_URL" --body-file .pr-agent/comment.md
+
+      - name: Upload review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-agent-review-${{ github.event.pull_request.number }}
+          path: .pr-agent/
+          retention-days: 30
+
+      - name: Enforce AI decision
+        if: always()
+        env:
+          QUALITY_GATE_RESULT: ${{ needs.quality-gate.result }}
+          AI_REVIEW_RESULT: ${{ steps.generate_review.outcome }}
+        shell: bash
+        run: |
+          if [[ "$QUALITY_GATE_RESULT" != "success" ]]; then
+            echo "Quality Gate did not pass: $QUALITY_GATE_RESULT"
+            exit 1
+          fi
+
+          if [[ "$AI_REVIEW_RESULT" != "success" ]]; then
+            echo "AI review did not complete: $AI_REVIEW_RESULT"
+            exit 1
+          fi
+
+          decision="$(python -c "import json; print(json.load(open('.pr-agent/review.json'))['decision'])")"
+          risk="$(python -c "import json; print(json.load(open('.pr-agent/review.json'))['risk'])")"
+
+          echo "Decision: $decision"
+          echo "Risk: $risk"
+
+          if [[ "$decision" != "approve" ]]; then
+            echo "AI reviewer blocked this pull request."
+            exit 1
+          fi
+
+  enable-auto-merge:
+    name: Enable Auto Merge
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    needs: [quality-gate, ai-review]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Enable squash auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
