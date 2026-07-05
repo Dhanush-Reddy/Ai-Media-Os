@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Approvals · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Approval Inbox</h1>
+      <p>Review items that are waiting for a human decision.</p>
+    </div>
+  </section>
+
+  {% if approvals %}
+    <section class="approval-list">
+      {% for approval in approvals %}
+        <article class="panel approval-card">
+          <header>
+            <div>
+              <h2>{{ approval.approval_type }}</h2>
+              <p><a href="/projects/{{ approval.project_id }}">{{ approval.project_title }}</a> · {{ approval.content_type }}{% if approval.version_number %} v{{ approval.version_number }}{% endif %}</p>
+            </div>
+            <span class="badge warning">{{ approval.status }}</span>
+          </header>
+          <dl class="counts">
+            <div><dt>Requested</dt><dd>{{ approval.requested_at.strftime("%Y-%m-%d %H:%M") }}</dd></div>
+            <div><dt>Expires</dt><dd>{{ approval.expires_at.strftime("%Y-%m-%d %H:%M") if approval.expires_at else "No expiration" }}</dd></div>
+          </dl>
+          <details>
+            <summary>Preview</summary>
+            <pre>{{ approval.preview }}</pre>
+          </details>
+          <form method="post" action="/approvals/{{ approval.id }}/approve">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <label for="approve-feedback-{{ approval.id }}">Feedback</label>
+            <textarea id="approve-feedback-{{ approval.id }}" name="feedback" rows="2"></textarea>
+            <button type="submit">Approve</button>
+          </form>
+          <form method="post" action="/approvals/{{ approval.id }}/request-changes">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <label for="changes-feedback-{{ approval.id }}">Requested changes</label>
+            <textarea id="changes-feedback-{{ approval.id }}" name="feedback" rows="2"></textarea>
+            <button type="submit">Request changes</button>
+          </form>
+          <form method="post" action="/approvals/{{ approval.id }}/reject" data-confirm="Reject this approval?">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <label for="reject-feedback-{{ approval.id }}">Rejection reason</label>
+            <textarea id="reject-feedback-{{ approval.id }}" name="feedback" rows="2"></textarea>
+            <button class="danger" type="submit">Reject</button>
+          </form>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="empty">No approvals are waiting.</p>
+  {% endif %}
+{% endblock %}

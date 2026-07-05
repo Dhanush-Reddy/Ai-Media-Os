@@ -1,0 +1,15 @@
+<div id="activity-fragment">
+  {% if activity %}
+    <ol class="timeline">
+      {% for item in activity %}
+        <li class="{{ item.tone }}">
+          <time>{{ item.timestamp.strftime("%Y-%m-%d %H:%M") }}</time>
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.detail }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="empty">No activity yet.</p>
+  {% endif %}
+</div>

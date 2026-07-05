@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from secrets import token_urlsafe
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -48,6 +49,12 @@ class AppSettings(BaseSettings):
     research_min_primary_sources: int = 1
     research_max_source_concentration: float = 0.6
     research_require_primary_for_critical: bool = True
+    dashboard_enabled: bool = True
+    dashboard_host: str = "127.0.0.1"
+    dashboard_port: int = 8000
+    dashboard_poll_seconds: int = 8
+    dashboard_timezone: str = "Asia/Kolkata"
+    dashboard_csrf_secret: str = Field(default_factory=lambda: token_urlsafe(32))
 
     @field_validator("database_url")
     @classmethod
@@ -92,6 +99,18 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if not 0 <= self.research_max_source_concentration <= 1:
             msg = "Research max source concentration must be between 0 and 1."
+            raise ValueError(msg)
+        if self.dashboard_host not in {"127.0.0.1", "localhost", "::1"}:
+            msg = "Dashboard host must be localhost unless authentication is added."
+            raise ValueError(msg)
+        if not 1 <= self.dashboard_port <= 65535:
+            msg = "Dashboard port must be between 1 and 65535."
+            raise ValueError(msg)
+        if self.dashboard_poll_seconds <= 0:
+            msg = "Dashboard poll seconds must be positive."
+            raise ValueError(msg)
+        if not self.dashboard_csrf_secret:
+            msg = "Dashboard CSRF secret cannot be empty."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:

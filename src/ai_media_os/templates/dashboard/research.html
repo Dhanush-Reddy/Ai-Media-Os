@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Research · {{ project.working_title }}{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Research</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <article class="metric"><span>Total sources</span><strong>{{ research.source_summary.total }}</strong></article>
+    <article class="metric success"><span>Approved</span><strong>{{ research.source_summary.approved }}</strong></article>
+    <article class="metric warning"><span>Unreviewed</span><strong>{{ research.source_summary.unreviewed }}</strong></article>
+    <article class="metric error"><span>Rejected</span><strong>{{ research.source_summary.rejected }}</strong></article>
+    <article class="metric"><span>Tier 1</span><strong>{{ research.source_summary.tier_1 }}</strong></article>
+    <article class="metric"><span>Tier 2</span><strong>{{ research.source_summary.tier_2 }}</strong></article>
+    <article class="metric"><span>Tier 3</span><strong>{{ research.source_summary.tier_3 }}</strong></article>
+    <article class="metric warning"><span>Duplicates</span><strong>{{ research.source_summary.duplicate_warnings }}</strong></article>
+  </section>
+
+  <section class="panel">
+    <h2>Readiness</h2>
+    <p><span class="badge {{ research.readiness_tone }}">{{ research.readiness_status }}</span></p>
+    {% if research.readiness_blockers %}
+      <h3>Blocking reasons</h3>
+      <ul>{% for item in research.readiness_blockers %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if research.readiness_warnings %}
+      <h3>Warnings</h3>
+      <ul>{% for item in research.readiness_warnings %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Sources</h2>
+    {% if project.sources %}
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Publisher</th>
+            <th>Type</th>
+            <th>Authority tier</th>
+            <th>Status</th>
+            <th>Publication date</th>
+            <th>Claims linked</th>
+            <th>Snapshot</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for source in project.sources %}
+            <tr>
+              <td>
+                <details>
+                  <summary>{{ source.title or source.canonical_url }}</summary>
+                  <p>{{ source.notes or "No source notes recorded." }}</p>
+                </details>
+              </td>
+              <td>{{ source.publisher or "Unknown" }}</td>
+              <td>{{ source.source_type|source_type_label }}</td>
+              <td>{{ source.authority_tier|authority_tier_label }}</td>
+              <td>{{ source.status|source_status_label }}</td>
+              <td>{{ source.publication_date.strftime("%Y-%m-%d") if source.publication_date else "Missing" }}</td>
+              <td>{{ source.claim_links|length }}</td>
+              <td>{{ "Stored" if source.snapshot_path else "Missing" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No sources have been imported yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Claims</h2>
+      <dl class="counts vertical">
+        <div><dt>Verified</dt><dd>{{ research.claim_summary.verified }}</dd></div>
+        <div><dt>Partially verified</dt><dd>{{ research.claim_summary.partially_verified }}</dd></div>
+        <div><dt>Unverified</dt><dd>{{ research.claim_summary.unverified }}</dd></div>
+        <div><dt>Contradicted</dt><dd>{{ research.claim_summary.contradicted }}</dd></div>
+        <div><dt>Disputed</dt><dd>{{ research.claim_summary.disputed }}</dd></div>
+        <div><dt>High priority needing review</dt><dd>{{ research.claim_summary.high_priority_needing_review }}</dd></div>
+      </dl>
+      {% if project.claims %}
+        <ul class="compact-list">
+          {% for claim in project.claims %}
+            <li><strong>{{ claim.importance.value|title }}</strong> · {{ claim.claim_text }} · {{ claim.verification_status|verification_label }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Source Report</h2>
+      {% if research.latest_source_report %}
+        {% if research.latest_source_report is mapping %}
+          <pre>{{ research.latest_source_report }}</pre>
+        {% else %}
+          <pre>{{ research.latest_source_report }}</pre>
+        {% endif %}
+        {% if research.older_source_report_versions %}
+          <p>Older versions: {{ research.older_source_report_versions|join(", ") }}</p>
+        {% endif %}
+      {% else %}
+        <p class="empty">No source report has been generated.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Research Brief</h2>
+    {% if research.latest_brief_html %}
+      <div class="markdown">{{ research.latest_brief_html|safe }}</div>
+      {% if research.older_brief_versions %}
+        <p>Older versions: {{ research.older_brief_versions|join(", ") }}</p>
+      {% endif %}
+    {% else %}
+      <p class="empty">No research brief has been generated.</p>
+    {% endif %}
+  </section>
+{% endblock %}

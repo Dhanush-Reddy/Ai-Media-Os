@@ -839,6 +839,24 @@ Status: implemented as a local manual research pipeline. Automated web search, s
 
 ---
 
+### Milestone 4.5 - Minimal Operations Dashboard
+
+Deliverables:
+
+* Local-only FastAPI dashboard
+* Project list and project detail views
+* Research output visibility
+* Approval inbox
+* Job queue visibility
+* Friendly status labels
+* Derived progress indicators
+* Small HTMX-style polling fragments
+* CSRF-protected local form actions
+
+Status: implemented as a minimal local operations dashboard. Authentication, WebSockets, React, script generation, media generation, publishing, analytics and Content Safety implementation remain deferred.
+
+---
+
 ### Milestone 5 — Script and Scene Planning
 
 Deliverables:

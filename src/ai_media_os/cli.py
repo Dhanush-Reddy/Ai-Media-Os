@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+import uvicorn
 from sqlalchemy import select
 
 from ai_media_os.application.approvals import ApprovalService
@@ -32,6 +33,7 @@ from ai_media_os.domain.enums import (
 )
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.infrastructure.database.session import SessionLocal
+from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.research_handlers import research_job_handlers
 
@@ -195,12 +197,26 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_research = subcommands.add_parser("evaluate-research")
     evaluate_research.add_argument("--project-id", required=True)
 
+    dashboard = subcommands.add_parser("dashboard")
+    dashboard.add_argument("--host")
+    dashboard.add_argument("--port", type=int)
+
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "dashboard":
+        settings = get_settings()
+        uvicorn.run(
+            "ai_media_os.web:app",
+            host=args.host or settings.dashboard_host,
+            port=args.port or settings.dashboard_port,
+            reload=False,
+        )
+        return 0
 
     with SessionLocal() as session:
         queue = QueueService(session)

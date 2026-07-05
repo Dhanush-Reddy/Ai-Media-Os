@@ -1,0 +1,14 @@
+<div id="pending-approvals-fragment">
+  {% if approvals %}
+    <ul class="compact-list">
+      {% for approval in approvals[:5] %}
+        <li>
+          <strong>{{ approval.approval_type }}</strong>
+          <span>{{ approval.project_title }} · {{ approval.content_type }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No approvals are waiting.</p>
+  {% endif %}
+</div>

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>{{ project.working_title }}</h1>
+      <p>{{ project.channel.name }} · {{ project.topic }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}/research">Research</a>
+      <a class="button" href="/projects">All Projects</a>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Progress</h2>
+      <div class="progress-block wide">
+        <label>Research progress</label>
+        <progress value="{{ item.progress.research_progress }}" max="100"></progress>
+        <span>{{ item.progress.research_progress }}%</span>
+      </div>
+      <div class="progress-block wide">
+        <label>Overall media pipeline</label>
+        <progress value="{{ item.progress.overall_progress }}" max="100"></progress>
+        <span>{{ item.progress.overall_progress }}%</span>
+      </div>
+      <p><strong>Current stage:</strong> {{ item.progress.current_stage }}</p>
+      <p><strong>Next action:</strong> {{ item.progress.next_action }}</p>
+    </article>
+
+    <article class="panel">
+      <h2>Research Output</h2>
+      <p><strong>Readiness:</strong> <span class="badge {{ research.readiness_tone }}">{{ research.readiness_status }}</span></p>
+      {% if research.latest_brief_html %}
+        <p>Latest research brief is available.</p>
+      {% else %}
+        <p class="empty">No research brief has been generated yet.</p>
+      {% endif %}
+      {% if research.latest_source_report %}
+        <p>Latest source report is available.</p>
+      {% else %}
+        <p class="empty">No source report has been generated yet.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Pipeline</h2>
+    <div class="stage-grid">
+      {% for stage in stages %}
+        <div class="stage {{ stage.tone }}">
+          <strong>{{ stage.name }}</strong>
+          <span>{{ stage.status }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Pending Approvals</h2>
+      {% if pending_approvals %}
+        <ul class="compact-list">
+          {% for approval in pending_approvals %}
+            <li>{{ approval.approval_type }} · {{ approval.content_type }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No pending approvals for this project.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Recent Jobs</h2>
+      {% if recent_jobs %}
+        <ul class="compact-list">
+          {% for job in recent_jobs %}
+            <li>{{ job.job_type }} · {{ job.status }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No jobs have been queued for this project.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Activity</h2>
+    {% include "dashboard/fragments/activity.html" %}
+  </section>
+{% endblock %}

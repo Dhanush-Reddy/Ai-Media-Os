@@ -1,0 +1,26 @@
+<div id="running-jobs-fragment">
+  {% if groups.running %}
+    <table>
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Project</th>
+          <th>Started</th>
+          <th>Worker</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in groups.running %}
+          <tr>
+            <td>{{ job.job_type }}</td>
+            <td><a href="/projects/{{ job.project_id }}">{{ job.project_title }}</a></td>
+            <td>{{ job.started_at.strftime("%Y-%m-%d %H:%M") if job.started_at else "Not started" }}</td>
+            <td>{{ job.worker or "Unassigned" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No jobs are currently running.</p>
+  {% endif %}
+</div>
