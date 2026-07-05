@@ -7,15 +7,16 @@ Accepted
 ## Context
 
 The project needs repeatable quality gates and lightweight pull-request review
-automation while preserving manual control for risky changes. The repository is
-still local-first and cost-sensitive, so automation must not add runtime
+automation while avoiding manual review for routine development. The repository
+is still local-first and cost-sensitive, so automation must not add runtime
 dependencies to the application or require paid services for local development.
 
 ## Decision
 
 Add GitHub Actions workflows that create pull requests from non-protected
 branches, run the project verification commands, request an NVIDIA NIM AI
-review, and enable squash auto-merge only for low or medium risk changes.
+review, post a review summary comment, and enable squash auto-merge when the AI
+review returns an explicit approval.
 
 The review policy is stored in `config/pr-review-rules.json`, and the review
 script is stored in `scripts/review_pull_request.py`. The project root
@@ -23,10 +24,11 @@ script is stored in `scripts/review_pull_request.py`. The project root
 
 ## Alternatives Considered
 
-- Manual-only pull requests: simpler, but less consistent and easier to skip
-  verification.
+- Manual-only pull requests: simpler, but less consistent and slower to review.
 - Fully autonomous direct pushes to `main`: rejected because it bypasses branch
   protection and human control for risky changes.
+- Blocking high and critical PRs from auto-merge: safer, but rejected because
+  this repository now prioritizes fully autonomous PR review and merge gates.
 - Adding the downloaded package's root `AGENTS.md`: rejected because it would
   conflict with this repository's permanent coding-agent instructions.
 
@@ -38,4 +40,5 @@ script is stored in `scripts/review_pull_request.py`. The project root
 - The default NVIDIA endpoint is `https://integrate.api.nvidia.com/v1`, and the
   model is configurable through `NVIDIA_MODEL`.
 - Changes to workflows, migrations, reviewer code, and reviewer policy are
-  classified as high or critical risk and require manual attention.
+  classified as high or critical risk in the review comment, but an explicit AI
+  approval can still pass and enable auto-merge.

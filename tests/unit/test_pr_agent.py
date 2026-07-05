@@ -25,11 +25,11 @@ def test_path_risk_blocks_reviewer_policy_changes() -> None:
     assert risk == "critical"
     assert notes == [
         "config/pr-review-rules.json -> critical: "
-        "The reviewer must not approve changes to its own policy."
+        "Changes the reviewer policy and needs strict AI review."
     ]
 
 
-def test_high_path_risk_overrides_ai_approval() -> None:
+def test_high_path_risk_is_labeled_but_can_be_approved() -> None:
     module = load_review_module()
     config: dict[str, Any] = module.load_config()
     review = {
@@ -42,7 +42,7 @@ def test_high_path_risk_overrides_ai_approval() -> None:
 
     combined = module.combine_decisions(review, "high", ["workflow changed"], config)
 
-    assert combined["decision"] == "block"
+    assert combined["decision"] == "approve"
     assert combined["risk"] == "high"
     assert combined["path_risk_notes"] == ["workflow changed"]
 
