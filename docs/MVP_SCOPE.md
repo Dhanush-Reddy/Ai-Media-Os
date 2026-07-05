@@ -835,6 +835,8 @@ Deliverables:
 
 Online search automation may be added later.
 
+Status: implemented as a local manual research pipeline. Automated web search, scraping, browser automation, AI summarization and network-dependent tests remain deferred.
+
 ---
 
 ### Milestone 5 — Script and Scene Planning

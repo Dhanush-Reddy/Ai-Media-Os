@@ -30,6 +30,7 @@ from ai_media_os.domain.enums import (
     PromptTemplateStatus,
     RenderStatus,
     RenderType,
+    ResearchNoteType,
     ResourceClass,
     SceneStatus,
     SourceStatus,
@@ -105,6 +106,7 @@ class VideoProject(TimestampMixin, Base):
     approvals: Mapped[list["Approval"]] = relationship(back_populates="video_project")
     sources: Mapped[list["Source"]] = relationship(back_populates="video_project")
     claims: Mapped[list["Claim"]] = relationship(back_populates="video_project")
+    research_notes: Mapped[list["ResearchNote"]] = relationship(back_populates="video_project")
     scenes: Mapped[list["Scene"]] = relationship(back_populates="video_project")
     assets: Mapped[list["Asset"]] = relationship(back_populates="video_project")
     jobs: Mapped[list["Job"]] = relationship(back_populates="video_project")
@@ -204,8 +206,10 @@ class Source(Base):
         index=True,
     )
     url: Mapped[str] = mapped_column(Text, nullable=False)
+    canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str | None] = mapped_column(String(500))
     publisher: Mapped[str | None] = mapped_column(String(250))
+    author: Mapped[str | None] = mapped_column(String(250))
     source_type: Mapped[SourceType] = mapped_column(
         enum_column(SourceType),
         nullable=False,
@@ -213,25 +217,71 @@ class Source(Base):
     )
     authority_tier: Mapped[int | None] = mapped_column(Integer)
     publication_date: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    language: Mapped[str | None] = mapped_column(String(20))
     retrieved_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default=utc_now,
         nullable=False,
     )
     content_hash: Mapped[str | None] = mapped_column(String(64))
-    local_snapshot_path: Mapped[str | None] = mapped_column(Text)
+    snapshot_path: Mapped[str | None] = mapped_column(Text)
+    duplicate_of_source_id: Mapped[str | None] = mapped_column(ForeignKey("sources.id"))
+    notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[SourceStatus] = mapped_column(
         enum_column(SourceStatus),
         nullable=False,
-        default=SourceStatus.CANDIDATE,
+        default=SourceStatus.IMPORTED,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
     )
 
     video_project: Mapped[VideoProject] = relationship(back_populates="sources")
     claim_links: Mapped[list["ClaimSource"]] = relationship(back_populates="source")
+    research_notes: Mapped[list["ResearchNote"]] = relationship(back_populates="source")
+    duplicate_of_source: Mapped["Source | None"] = relationship(remote_side=[id])
 
     __table_args__ = (
-        UniqueConstraint("video_project_id", "url"),
+        UniqueConstraint("video_project_id", "canonical_url"),
         CheckConstraint("authority_tier IS NULL OR authority_tier BETWEEN 1 AND 3"),
+        Index("ix_sources_project_content_hash", "video_project_id", "content_hash"),
+    )
+
+
+class ResearchNote(TimestampMixin, Base):
+    __tablename__ = "research_notes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    video_project_id: Mapped[str] = mapped_column(
+        ForeignKey("video_projects.id"),
+        nullable=False,
+        index=True,
+    )
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), nullable=False, index=True)
+    note_type: Mapped[ResearchNoteType] = mapped_column(
+        enum_column(ResearchNoteType),
+        nullable=False,
+        default=ResearchNoteType.KEY_POINT,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_location: Mapped[str | None] = mapped_column(String(500))
+    metadata_json: Mapped[JsonDict] = mapped_column("metadata", JSON, nullable=False, default=dict)
+
+    video_project: Mapped[VideoProject] = relationship(back_populates="research_notes")
+    source: Mapped[Source] = relationship(back_populates="research_notes")
+
+    __table_args__ = (
+        CheckConstraint("length(trim(content)) > 0"),
+        Index("ix_research_notes_project_type", "video_project_id", "note_type"),
     )
 
 
@@ -277,6 +327,12 @@ class ClaimSource(Base):
     )
     quoted_excerpt: Mapped[str | None] = mapped_column(Text)
     source_location: Mapped[str | None] = mapped_column(String(500))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        nullable=False,
+    )
 
     claim: Mapped[Claim] = relationship(back_populates="source_links")
     source: Mapped[Source] = relationship(back_populates="claim_links")
