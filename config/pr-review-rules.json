@@ -1,0 +1,71 @@
+{
+  "provider": {
+    "name": "nvidia",
+    "base_url_env": "NVIDIA_BASE_URL",
+    "model_env": "NVIDIA_MODEL",
+    "api_key_env": "NVIDIA_API_KEY"
+  },
+  "autonomous_merge": {
+    "allowed_risk_levels": [
+      "low",
+      "medium"
+    ],
+    "merge_method": "squash",
+    "delete_branch": true
+  },
+  "path_risk_rules": [
+    {
+      "prefix": ".github/workflows/",
+      "risk": "high",
+      "reason": "Changes automation permissions and execution."
+    },
+    {
+      "prefix": "alembic/versions/",
+      "risk": "high",
+      "reason": "Can modify production data or schema."
+    },
+    {
+      "prefix": "migrations/",
+      "risk": "high",
+      "reason": "Can modify production data or schema."
+    },
+    {
+      "prefix": "src/auth/",
+      "risk": "high",
+      "reason": "Authentication and authorization are security-sensitive."
+    },
+    {
+      "prefix": "src/security/",
+      "risk": "critical",
+      "reason": "Security control changes require manual approval."
+    },
+    {
+      "prefix": "infra/",
+      "risk": "high",
+      "reason": "Infrastructure changes can affect production."
+    },
+    {
+      "prefix": "deploy/",
+      "risk": "high",
+      "reason": "Deployment changes can affect production."
+    },
+    {
+      "prefix": "scripts/review_pull_request.py",
+      "risk": "critical",
+      "reason": "The reviewer must not approve modifications to itself."
+    },
+    {
+      "prefix": "config/pr-review-rules.json",
+      "risk": "critical",
+      "reason": "The reviewer must not approve changes to its own policy."
+    }
+  ],
+  "review_rules": [
+    "Preserve existing public API behavior unless the PR explicitly documents a breaking change.",
+    "Require tests for new behavior and regression tests for fixed defects.",
+    "Block obvious secret exposure, command injection, SQL injection, unsafe deserialization, or permission escalation.",
+    "Block migrations that are irreversible, destructive without safeguards, or inconsistent with the application model.",
+    "Flag race conditions, missing transaction boundaries, unhandled failures, and resource leaks.",
+    "Do not block solely for naming, formatting, or subjective refactoring preferences."
+  ]
+}

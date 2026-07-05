@@ -576,7 +576,26 @@ Provide concise engineering explanations.
 
 ---
 
-## 22. Initial Task
+## 22. AI Provider
+
+The autonomous reviewer uses NVIDIA NIM.
+
+Required GitHub secret:
+
+* `NVIDIA_API_KEY`
+
+Optional GitHub variables:
+
+* `NVIDIA_BASE_URL`
+* `NVIDIA_MODEL`
+
+The reviewer must fail closed when the API is unavailable, the response cannot
+be parsed, the response schema is invalid, or the model does not return an
+explicit approval decision.
+
+---
+
+## 23. Initial Task
 
 The first implementation task is Milestone 1 only.
 

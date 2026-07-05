@@ -1,0 +1,60 @@
+name: Auto Create Pull Request
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - develop
+      - "release/**"
+      - "dependabot/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create PR when one does not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          existing_pr="$(gh pr list \
+            --repo "$REPOSITORY" \
+            --head "$BRANCH" \
+            --base main \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "Open PR #$existing_pr already exists for $BRANCH."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$REPOSITORY" \
+            --head "$BRANCH" \
+            --base main \
+            --title "Auto PR: ${BRANCH}" \
+            --body-file - <<EOF
+          ## Automatically created pull request
+
+          A push was detected on \`${BRANCH}\`.
+
+          The autonomous PR agent will:
+          - run tests and static checks;
+          - review the changed code;
+          - classify risk;
+          - enable automatic squash merging when the change is safe.
+          EOF
