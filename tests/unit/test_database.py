@@ -15,6 +15,7 @@ from ai_media_os.domain.enums import (
     LicenseStatus,
     RenderStatus,
     RenderType,
+    ResearchNoteType,
     ResourceClass,
     VersionStatus,
     VisualType,
@@ -32,6 +33,7 @@ from ai_media_os.infrastructure.database.models import (
     JobDependency,
     PromptTemplate,
     Render,
+    ResearchNote,
     Scene,
     Source,
     VideoProject,
@@ -73,6 +75,7 @@ def test_database_initialization_creates_expected_tables(engine: Engine) -> None
         "content_versions",
         "approvals",
         "sources",
+        "research_notes",
         "claims",
         "claim_sources",
         "scenes",
@@ -193,9 +196,21 @@ def test_model_creation_and_relationships(session: Session) -> None:
     approval = Approval(
         video_project=project, content_version=content_version, approval_type="script"
     )
-    source = Source(video_project=project, url="https://example.com/source", authority_tier=1)
+    source = Source(
+        video_project=project,
+        url="https://example.com/source",
+        canonical_url="https://example.com/source",
+        authority_tier=1,
+    )
     claim = Claim(video_project=project, claim_text="A verifiable claim.", confidence=0.9)
     claim_source = ClaimSource(claim=claim, source=source)
+    note = ResearchNote(
+        video_project=project,
+        source=source,
+        note_type=ResearchNoteType.KEY_POINT,
+        content="A useful note.",
+        content_hash="e" * 64,
+    )
     scene = Scene(
         video_project=project,
         scene_plan_version=scene_plan,
@@ -253,6 +268,7 @@ def test_model_creation_and_relationships(session: Session) -> None:
             channel,
             approval,
             claim_source,
+            note,
             asset,
             dependency,
             cache_entry,
@@ -268,6 +284,7 @@ def test_model_creation_and_relationships(session: Session) -> None:
     assert project.approvals == [approval]
     assert claim.source_links == [claim_source]
     assert source.claim_links == [claim_source]
+    assert source.research_notes == [note]
     assert scene.assets == [asset]
     assert second_job.dependencies == [dependency]
 

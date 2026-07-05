@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers **Milestone 1: Project Foundation**, **Milestone 2: Database-Backed Job Queue**, and **Milestone 3: Content Versioning and Cache** only:
+The current implementation covers **Milestone 1: Project Foundation**, **Milestone 2: Database-Backed Job Queue**, **Milestone 3: Content Versioning and Cache**, and **Milestone 4: Local Research Pipeline**:
 
 - Python project configuration
 - Environment-based settings
@@ -13,8 +13,9 @@ The current implementation covers **Milestone 1: Project Foundation**, **Milesto
 - Unit tests for settings, database initialization, and model constraints
 - Database-backed job creation, dependencies, claiming, heartbeats, retries, stale recovery, cancellation, pausing, and a minimal local CLI
 - Immutable content-version services, approval records, prompt-template metadata, deterministic hashing, safe filesystem storage, and content-addressed cache lookup/write/verification
+- Manual local research source import, canonical URL deduplication, UTF-8 source snapshots, duplicate-content detection, deterministic source classification, research notes, claim-source linking, claim verification rules, research briefs, source reports, readiness evaluation, queue handlers, and CLI commands
 
-The next planned task is the Milestone 3 audit in `docs/tasks/milestone-3-audit.md`. Do not begin Milestone 4 until that audit is complete.
+The next planned task is Milestone 5. Do not begin script generation, scene planning, image generation, TTS, FFmpeg rendering, Telegram, publishing, analytics, Shorts, automated search, scraping, AI generation, or Content Safety implementation until explicitly scoped.
 
 ## Setup
 
@@ -54,6 +55,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not yet include Telegram, ComfyUI, local language models, text-to-speech, FFmpeg rendering, content-addressed cache workflows, approval workflows, publishing automation, analytics, Redis, Celery, Docker, Kubernetes, or a frontend dashboard.
+This repository intentionally does not yet include Telegram, ComfyUI, local language models, text-to-speech, FFmpeg rendering, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, or a frontend dashboard.
 
 The planned Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`; it is not implemented yet.

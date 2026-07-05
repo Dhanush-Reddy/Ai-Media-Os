@@ -2,6 +2,7 @@
 
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -10,10 +11,29 @@ from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.prompt_templates import PromptTemplateService
-from ai_media_os.domain.enums import ApprovalType, ContentFormat, ContentType, ResourceClass
+from ai_media_os.application.research import (
+    ClaimService,
+    ResearchNoteService,
+    ResearchReportService,
+    SourceService,
+)
+from ai_media_os.domain.enums import (
+    ApprovalType,
+    ClaimImportance,
+    ClaimSupportType,
+    ContentFormat,
+    ContentType,
+    ResearchNoteType,
+    ResourceClass,
+    SourceAuthorityTier,
+    SourceStatus,
+    SourceType,
+    VerificationStatus,
+)
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.workers.job_worker import JobWorker
+from ai_media_os.workers.research_handlers import research_job_handlers
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -99,6 +119,82 @@ def build_parser() -> argparse.ArgumentParser:
     cache_invalidate.add_argument("cache_key")
     cache_invalidate.add_argument("--reason", default="Manual invalidation")
 
+    import_source = subcommands.add_parser("import-source")
+    import_source.add_argument("--project-id", required=True)
+    import_source.add_argument("--url", required=True)
+    import_source.add_argument("--title")
+    import_source.add_argument("--publisher")
+    import_source.add_argument("--author")
+    import_source.add_argument("--source-type", choices=[item.value for item in SourceType])
+    import_source.add_argument(
+        "--authority-tier", choices=[item.value for item in SourceAuthorityTier]
+    )
+    import_source.add_argument("--text")
+    import_source.add_argument("--file")
+    import_source.add_argument("--notes")
+
+    list_sources = subcommands.add_parser("list-sources")
+    list_sources.add_argument("--project-id", required=True)
+
+    review_source = subcommands.add_parser("review-source")
+    review_source.add_argument("source_id")
+    review_source.add_argument(
+        "--status",
+        required=True,
+        choices=[item.value for item in SourceStatus],
+    )
+
+    add_note = subcommands.add_parser("add-research-note")
+    add_note.add_argument("--project-id", required=True)
+    add_note.add_argument("--source-id", required=True)
+    add_note.add_argument(
+        "--type",
+        required=True,
+        choices=[item.value for item in ResearchNoteType],
+    )
+    add_note.add_argument("--content", required=True)
+    add_note.add_argument("--source-location")
+
+    list_notes = subcommands.add_parser("list-research-notes")
+    list_notes.add_argument("--project-id", required=True)
+
+    create_claim = subcommands.add_parser("create-claim")
+    create_claim.add_argument("--project-id", required=True)
+    create_claim.add_argument("--text", required=True)
+    create_claim.add_argument(
+        "--importance", choices=[item.value for item in ClaimImportance], default="medium"
+    )
+    create_claim.add_argument("--confidence", type=float)
+
+    link_claim = subcommands.add_parser("link-claim-source")
+    link_claim.add_argument("--claim-id", required=True)
+    link_claim.add_argument("--source-id", required=True)
+    link_claim.add_argument(
+        "--support-type", required=True, choices=[item.value for item in ClaimSupportType]
+    )
+    link_claim.add_argument("--excerpt")
+    link_claim.add_argument("--source-location")
+    link_claim.add_argument("--notes")
+
+    verify_claim = subcommands.add_parser("verify-claim")
+    verify_claim.add_argument("claim_id")
+    verify_claim.add_argument(
+        "--status",
+        required=True,
+        choices=[item.value for item in VerificationStatus],
+    )
+    verify_claim.add_argument("--override-reason")
+
+    research_brief = subcommands.add_parser("generate-research-brief")
+    research_brief.add_argument("--project-id", required=True)
+
+    source_report = subcommands.add_parser("generate-source-report")
+    source_report.add_argument("--project-id", required=True)
+    source_report.add_argument("--format", choices=["markdown", "json"], default="markdown")
+
+    evaluate_research = subcommands.add_parser("evaluate-research")
+    evaluate_research.add_argument("--project-id", required=True)
+
     return parser
 
 
@@ -122,7 +218,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{job.id}\t{job.status.value}\t{job.job_type}\t{job.claimed_by or ''}")
             return 0
         if args.command == "run-worker":
-            worker = JobWorker(session, handlers={}, worker_id=args.worker_id)
+            worker = JobWorker(session, handlers=research_job_handlers(), worker_id=args.worker_id)
             worker_result = worker.run_once()
             print(worker_result)
             return 0
@@ -217,6 +313,93 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "cache-invalidate":
             print(CacheService(session).invalidate_entry(args.cache_key, args.reason))
+            return 0
+        if args.command == "import-source":
+            result = SourceService(session).import_source(
+                video_project_id=args.project_id,
+                url=args.url,
+                title=args.title,
+                publisher=args.publisher,
+                author=args.author,
+                source_type=SourceType(args.source_type) if args.source_type else None,
+                authority_tier=(
+                    SourceAuthorityTier(args.authority_tier) if args.authority_tier else None
+                ),
+                text=args.text,
+                snapshot_file=None if args.file is None else Path(args.file),
+                notes=args.notes,
+            )
+            print(result.source.id)
+            return 0
+        if args.command == "list-sources":
+            sources = SourceService(session).list_project_sources(args.project_id)
+            for source in sources:
+                print(f"{source.id}\t{source.status.value}\t{source.canonical_url}")
+            return 0
+        if args.command == "review-source":
+            source = SourceService(session).update_source_status(
+                args.source_id,
+                SourceStatus(args.status),
+            )
+            print(source.status.value)
+            return 0
+        if args.command == "add-research-note":
+            note = ResearchNoteService(session).create_note(
+                video_project_id=args.project_id,
+                source_id=args.source_id,
+                note_type=ResearchNoteType(args.type),
+                content=args.content,
+                source_location=args.source_location,
+            )
+            print(note.id)
+            return 0
+        if args.command == "list-research-notes":
+            notes = ResearchNoteService(session).list_project_notes(args.project_id)
+            for note in notes:
+                print(f"{note.id}\t{note.note_type.value}\t{note.source_id}\t{note.content}")
+            return 0
+        if args.command == "create-claim":
+            claim = ClaimService(session).create_claim(
+                video_project_id=args.project_id,
+                claim_text=args.text,
+                importance=ClaimImportance(args.importance),
+                confidence=args.confidence,
+            )
+            print(claim.id)
+            return 0
+        if args.command == "link-claim-source":
+            link = ClaimService(session).link_source(
+                claim_id=args.claim_id,
+                source_id=args.source_id,
+                support_type=ClaimSupportType(args.support_type),
+                quoted_excerpt=args.excerpt,
+                source_location=args.source_location,
+                notes=args.notes,
+            )
+            print(link.id)
+            return 0
+        if args.command == "verify-claim":
+            claim = ClaimService(session).update_verification_status(
+                args.claim_id,
+                VerificationStatus(args.status),
+                override_reason=args.override_reason,
+            )
+            print(claim.verification_status.value)
+            return 0
+        if args.command == "generate-research-brief":
+            version = ResearchReportService(session).generate_research_brief(args.project_id)
+            print(version.id)
+            return 0
+        if args.command == "generate-source-report":
+            version = ResearchReportService(session).generate_source_report(
+                args.project_id,
+                content_format=ContentFormat(args.format),
+            )
+            print(version.id)
+            return 0
+        if args.command == "evaluate-research":
+            readiness_result = ResearchReportService(session).evaluate_readiness(args.project_id)
+            print(readiness_result.as_dict())
             return 0
     return 1
 

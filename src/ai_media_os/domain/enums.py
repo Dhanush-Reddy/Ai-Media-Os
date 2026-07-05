@@ -69,39 +69,66 @@ class ApprovalStatus(StringEnum):
 
 class SourceType(StringEnum):
     OFFICIAL = "official"
+    DOCUMENTATION = "documentation"
     RESEARCH_PAPER = "research_paper"
+    REGULATORY = "regulatory"
+    GOVERNMENT = "government"
     NEWS = "news"
-    SOCIAL = "social"
+    INDUSTRY_PUBLICATION = "industry_publication"
     BLOG = "blog"
     FORUM = "forum"
+    SOCIAL_MEDIA = "social_media"
+    VIDEO = "video"
     OTHER = "other"
 
 
+class SourceAuthorityTier(StringEnum):
+    TIER_1_PRIMARY = "tier_1_primary"
+    TIER_2_RELIABLE_SECONDARY = "tier_2_reliable_secondary"
+    TIER_3_DISCOVERY = "tier_3_discovery"
+    UNRATED = "unrated"
+
+
 class SourceStatus(StringEnum):
-    CANDIDATE = "candidate"
-    ACCEPTED = "accepted"
+    IMPORTED = "imported"
+    REVIEWED = "reviewed"
+    APPROVED = "approved"
     REJECTED = "rejected"
     ARCHIVED = "archived"
+
+
+class ResearchNoteType(StringEnum):
+    SUMMARY = "summary"
+    KEY_POINT = "key_point"
+    QUOTE = "quote"
+    CONTEXT = "context"
+    CONTRADICTION = "contradiction"
+    RISK = "risk"
+    IDEA = "idea"
 
 
 class ClaimImportance(StringEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+    CRITICAL = "critical"
 
 
 class VerificationStatus(StringEnum):
     UNVERIFIED = "unverified"
+    PARTIALLY_VERIFIED = "partially_verified"
     VERIFIED = "verified"
-    CONFLICTED = "conflicted"
-    UNSUPPORTED = "unsupported"
-    EXPIRED = "expired"
+    CONTRADICTED = "contradicted"
+    DISPUTED = "disputed"
+    REJECTED = "rejected"
 
 
 class ClaimSupportType(StringEnum):
     SUPPORTS = "supports"
+    PARTIALLY_SUPPORTS = "partially_supports"
     CONTRADICTS = "contradicts"
-    CONTEXT = "context"
+    MENTIONS = "mentions"
+    PRIMARY_EVIDENCE = "primary_evidence"
 
 
 class SceneStatus(StringEnum):

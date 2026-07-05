@@ -42,6 +42,12 @@ class AppSettings(BaseSettings):
     queue_retry_base_delay_seconds: int = 60
     queue_retry_max_delay_seconds: int = 3600
     workflow_max_script_revisions: int = 1
+    research_max_source_bytes: int = 1_000_000
+    research_allowed_text_extensions: set[str] = Field(default_factory=lambda: {".txt", ".md"})
+    research_duplicate_content_warning_threshold: float = 0.5
+    research_min_primary_sources: int = 1
+    research_max_source_concentration: float = 0.6
+    research_require_primary_for_critical: bool = True
 
     @field_validator("database_url")
     @classmethod
@@ -74,6 +80,18 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if self.workflow_max_script_revisions < 0:
             msg = "Workflow max script revisions cannot be negative."
+            raise ValueError(msg)
+        if self.research_max_source_bytes <= 0:
+            msg = "Research max source bytes must be positive."
+            raise ValueError(msg)
+        if not 0 <= self.research_duplicate_content_warning_threshold <= 1:
+            msg = "Research duplicate content warning threshold must be between 0 and 1."
+            raise ValueError(msg)
+        if self.research_min_primary_sources < 0:
+            msg = "Research minimum primary sources cannot be negative."
+            raise ValueError(msg)
+        if not 0 <= self.research_max_source_concentration <= 1:
+            msg = "Research max source concentration must be between 0 and 1."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:
