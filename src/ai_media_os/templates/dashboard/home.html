@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Dashboard Home</h1>
+      <p>Local status for projects, approvals, jobs, and research outputs.</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects">Projects</a>
+      <a class="button" href="/approvals">Approvals</a>
+      <a class="button" href="/jobs">Jobs</a>
+    </div>
+  </section>
+
+  <div
+    hx-get="/ui/fragments/status-counters"
+    hx-trigger="load, every {{ poll_seconds }}s"
+    hx-swap="outerHTML"
+  >
+    {% include "dashboard/fragments/status_counters.html" %}
+  </div>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Recent Activity</h2>
+      <div
+        hx-get="/ui/fragments/activity"
+        hx-trigger="every {{ poll_seconds }}s"
+        hx-swap="outerHTML"
+      >
+        {% with activity=home.recent_activity %}
+          {% include "dashboard/fragments/activity.html" %}
+        {% endwith %}
+      </div>
+    </article>
+    <article class="panel">
+      <h2>Running Jobs</h2>
+      <div
+        hx-get="/ui/fragments/running-jobs"
+        hx-trigger="every {{ poll_seconds }}s"
+        hx-swap="outerHTML"
+      >
+        <p class="empty">Loading running jobs…</p>
+      </div>
+      <h2>Approvals</h2>
+      <div
+        hx-get="/ui/fragments/pending-approvals"
+        hx-trigger="every {{ poll_seconds }}s"
+        hx-swap="outerHTML"
+      >
+        <p class="empty">Loading approvals…</p>
+      </div>
+    </article>
+  </section>
+{% endblock %}

@@ -11,8 +11,10 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.13",
     "fastapi>=0.115",
+    "jinja2>=3.1",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    "python-multipart>=0.0.9",
     "sqlalchemy>=2.0",
     "structlog>=24.4",
     "uvicorn>=0.30",
@@ -23,6 +25,7 @@ ai-media-os = "ai_media_os.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "httpx2>=0.28",
     "mypy>=1.11",
     "pytest>=8.3",
     "pytest-cov>=5.0",

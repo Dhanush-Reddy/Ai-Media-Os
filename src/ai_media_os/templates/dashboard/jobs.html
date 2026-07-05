@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Jobs · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Jobs</h1>
+      <p>Work queue status grouped by what needs attention now.</p>
+    </div>
+  </section>
+
+  <form class="filters form-row" method="get" action="/jobs">
+    <label>Status <input name="status" value="{{ filters.status }}" placeholder="RUNNING"></label>
+    <label>Project ID <input name="project_id" value="{{ filters.project_id }}"></label>
+    <label>Resource <input name="resource_class" value="{{ filters.resource_class }}" placeholder="CPU_LIGHT"></label>
+    <label>Job type <input name="job_type" value="{{ filters.job_type }}"></label>
+    <button type="submit">Filter</button>
+    <a class="button" href="/jobs">Clear</a>
+  </form>
+
+  {% for title, jobs in [
+    ("Running", groups.running),
+    ("Waiting", groups.waiting),
+    ("Scheduled", groups.scheduled),
+    ("Retrying", groups.retrying),
+    ("Failed", groups.failed),
+    ("Completed", groups.completed),
+    ("Paused", groups.paused),
+    ("Cancelled", groups.cancelled)
+  ] %}
+    <section class="panel">
+      <h2>{{ title }}</h2>
+      {% if jobs %}
+        <table>
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Project</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Resource</th>
+              <th>Created</th>
+              <th>Attempts</th>
+              <th>Worker</th>
+              <th>Error</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in jobs %}
+              <tr>
+                <td>{{ job.job_type }}</td>
+                <td><a href="/projects/{{ job.project_id }}">{{ job.project_title }}</a></td>
+                <td><span class="badge">{{ job.status }}</span></td>
+                <td>{{ job.priority }}</td>
+                <td>{{ job.resource_class }}</td>
+                <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                <td>{{ job.attempts }}/{{ job.max_attempts }}</td>
+                <td>{{ job.worker or "Unassigned" }}</td>
+                <td>
+                  {% if job.error_summary %}
+                    <details>
+                      <summary>{{ job.error_summary }}</summary>
+                      <pre>{{ job.technical_details }}</pre>
+                    </details>
+                  {% else %}
+                    None
+                  {% endif %}
+                </td>
+                <td>
+                  {% if job.status_value not in ["COMPLETED", "CANCELLED"] %}
+                    <form method="post" action="/jobs/{{ job.id }}/cancel">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <button type="submit">Cancel</button>
+                    </form>
+                  {% endif %}
+                  {% if job.status_value not in ["COMPLETED", "FAILED", "CANCELLED", "PAUSED"] %}
+                    <form method="post" action="/jobs/{{ job.id }}/pause">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <button type="submit">Pause</button>
+                    </form>
+                  {% endif %}
+                  {% if job.status_value == "PAUSED" %}
+                    <form method="post" action="/jobs/{{ job.id }}/resume">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <button type="submit">Resume</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">No {{ title|lower }} jobs.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+{% endblock %}

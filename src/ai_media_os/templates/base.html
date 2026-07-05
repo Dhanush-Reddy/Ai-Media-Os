@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AI Media OS{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/htmx.min.js" defer></script>
+    <script src="/static/js/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <a class="brand" href="/">AI Media OS</a>
+        <p>Local Operations Dashboard</p>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="/projects">Projects</a>
+        <a href="/approvals">Approvals</a>
+        <a href="/jobs">Jobs</a>
+      </nav>
+    </header>
+    <main class="page">
+      {% if error %}
+        <div class="notice error" role="alert">{{ error }}</div>
+      {% endif %}
+      {% if success %}
+        <div class="notice success" role="status">{{ success }}</div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

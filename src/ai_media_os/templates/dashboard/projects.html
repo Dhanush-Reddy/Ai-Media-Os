@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Projects · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Projects</h1>
+      <p>All video projects and their current research-stage status.</p>
+    </div>
+  </section>
+
+  <nav class="filters" aria-label="Project filters">
+    {% for key, label in [("all", "All"), ("active", "Active"), ("waiting", "Waiting for approval"), ("completed", "Completed"), ("attention", "Needs attention")] %}
+      <a class="{{ 'active' if active_filter == key else '' }}" href="/projects?filter={{ key }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if projects %}
+    <section class="project-list">
+      {% for project in projects %}
+        <article class="project-row">
+          <div>
+            <h2><a href="/projects/{{ project.id }}">{{ project.working_title }}</a></h2>
+            <p>{{ project.channel_name }} · {{ project.topic }}</p>
+          </div>
+          <div class="status-stack">
+            <span class="badge">{{ project.status_label }}</span>
+            <span>{{ project.workflow_stage }}</span>
+          </div>
+          <div class="progress-block">
+            <label>Research progress</label>
+            <progress value="{{ project.progress.research_progress }}" max="100"></progress>
+            <span>{{ project.progress.research_progress }}%</span>
+          </div>
+          <dl class="counts">
+            <div><dt>Sources</dt><dd>{{ project.source_count }}</dd></div>
+            <div><dt>Claims</dt><dd>{{ project.claim_count }}</dd></div>
+            <div><dt>Approvals</dt><dd>{{ project.pending_approval_count }}</dd></div>
+            <div><dt>Running</dt><dd>{{ project.running_job_count }}</dd></div>
+            <div><dt>Failed</dt><dd>{{ project.failed_job_count }}</dd></div>
+          </dl>
+          <time>{{ project.updated_at.strftime("%Y-%m-%d %H:%M") }}</time>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="empty">No projects match this filter.</p>
+  {% endif %}
+{% endblock %}

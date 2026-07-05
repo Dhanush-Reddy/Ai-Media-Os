@@ -1,0 +1,8 @@
+<section class="metrics" id="status-counters">
+  {% for card in home.cards %}
+    <article class="metric {{ card.tone }}">
+      <span>{{ card.label }}</span>
+      <strong>{{ card.value }}</strong>
+    </article>
+  {% endfor %}
+</section>
