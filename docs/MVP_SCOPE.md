@@ -875,12 +875,16 @@ Deliverables:
 Deliverables:
 
 * Image-provider interface
-* ComfyUI adapter
+* Fake image provider
+* Manual image import
 * TTS-provider interface
-* Local TTS adapter
+* Fake voice provider
+* Manual audio import
 * Per-scene audio generation
 * Asset metadata
 * Cache integration
+
+Status: implemented as a local provider foundation. Real ComfyUI, real TTS, FFmpeg rendering, thumbnails, publishing, analytics, Shorts, Telegram, and Content Safety implementation remain deferred.
 
 ---
 

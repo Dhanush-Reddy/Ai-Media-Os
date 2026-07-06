@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers **Milestone 1: Project Foundation**, **Milestone 2: Database-Backed Job Queue**, **Milestone 3: Content Versioning and Cache**, **Milestone 4: Local Research Pipeline**, and **Milestone 4.5: Minimal Operations Dashboard**:
+The current implementation covers Milestones 1 through 6:
 
 - Python project configuration
 - Environment-based settings
@@ -15,8 +15,10 @@ The current implementation covers **Milestone 1: Project Foundation**, **Milesto
 - Immutable content-version services, approval records, prompt-template metadata, deterministic hashing, safe filesystem storage, and content-addressed cache lookup/write/verification
 - Manual local research source import, canonical URL deduplication, UTF-8 source snapshots, duplicate-content detection, deterministic source classification, research notes, claim-source linking, claim verification rules, research briefs, source reports, readiness evaluation, queue handlers, and CLI commands
 - Local FastAPI/Jinja operations dashboard for projects, research output, approvals, jobs, friendly status labels, derived progress, small HTMX-style polling fragments, and CSRF-protected form actions
+- Local deterministic script generation, fact-check reports, strict scene-plan validation, scene storage, script/scene dashboard views, and queue-compatible handlers
+- Provider-neutral image and voice interfaces, deterministic fake image and voice providers, manual image/audio import, per-scene asset planning, cache reuse, asset review statuses, asset dashboard visibility, and asset workflow/CLI handlers
 
-The next planned task is Milestone 5. Do not begin script generation, scene planning, image generation, TTS, FFmpeg rendering, Telegram, publishing, analytics, Shorts, automated search, scraping, AI generation, or Content Safety implementation until explicitly scoped.
+The next planned task is Milestone 7. Do not begin FFmpeg rendering, thumbnail generation, Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
 
 ## Setup
 
@@ -74,6 +76,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not yet include Telegram, ComfyUI, local language models, text-to-speech, FFmpeg rendering, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
+This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, FFmpeg rendering, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
 
 The planned Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`; it is not implemented yet.

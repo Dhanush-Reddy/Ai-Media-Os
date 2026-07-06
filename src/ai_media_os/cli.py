@@ -8,6 +8,12 @@ import uvicorn
 from sqlalchemy import select
 
 from ai_media_os.application.approvals import ApprovalService
+from ai_media_os.application.assets import (
+    AssetPlanningService,
+    AssetReviewService,
+    ImageAssetService,
+    VoiceAssetService,
+)
 from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
@@ -22,6 +28,7 @@ from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.domain.enums import (
     ApprovalType,
+    AssetReviewStatus,
     ClaimImportance,
     ClaimSupportType,
     ContentFormat,
@@ -36,6 +43,7 @@ from ai_media_os.domain.enums import (
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
+from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.research_handlers import research_job_handlers
 from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
@@ -224,6 +232,45 @@ def build_parser() -> argparse.ArgumentParser:
     list_scenes = subcommands.add_parser("list-scenes")
     list_scenes.add_argument("--scene-plan-version-id", required=True)
 
+    plan_assets = subcommands.add_parser("plan-scene-assets")
+    plan_assets.add_argument("--project-id", required=True)
+    plan_assets.add_argument("--scene-plan-version-id")
+
+    generate_image = subcommands.add_parser("generate-scene-image")
+    generate_image.add_argument("--scene-id", required=True)
+    generate_image.add_argument("--width", type=int)
+    generate_image.add_argument("--height", type=int)
+    generate_image.add_argument("--seed", type=int, default=1)
+
+    import_image = subcommands.add_parser("import-scene-image")
+    import_image.add_argument("--scene-id", required=True)
+    import_image.add_argument("--file", required=True)
+
+    generate_voice = subcommands.add_parser("generate-scene-voice")
+    generate_voice.add_argument("--scene-id", required=True)
+    generate_voice.add_argument("--voice-name")
+    generate_voice.add_argument("--language")
+    generate_voice.add_argument("--speaking-rate", type=float, default=1.0)
+    generate_voice.add_argument("--seed", type=int, default=1)
+
+    import_audio = subcommands.add_parser("import-scene-audio")
+    import_audio.add_argument("--scene-id", required=True)
+    import_audio.add_argument("--file", required=True)
+
+    list_assets = subcommands.add_parser("list-assets")
+    list_assets.add_argument("--project-id", required=True)
+
+    review_asset = subcommands.add_parser("review-asset")
+    review_asset.add_argument("asset_id")
+    review_asset.add_argument(
+        "--status",
+        required=True,
+        choices=[item.value for item in AssetReviewStatus],
+    )
+
+    verify_asset = subcommands.add_parser("verify-asset-file")
+    verify_asset.add_argument("asset_id")
+
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
     dashboard.add_argument("--port", type=int)
@@ -261,7 +308,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{job.id}\t{job.status.value}\t{job.job_type}\t{job.claimed_by or ''}")
             return 0
         if args.command == "run-worker":
-            handlers = research_job_handlers() | script_scene_job_handlers()
+            handlers = research_job_handlers() | script_scene_job_handlers() | asset_job_handlers()
             worker = JobWorker(session, handlers=handlers, worker_id=args.worker_id)
             worker_result = worker.run_once()
             print(worker_result)
@@ -489,6 +536,60 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{scene.scene_number}\t{scene.duration_seconds}\t"
                     f"{scene.visual_type.value}\t{scene.narration[:80]}"
                 )
+            return 0
+        if args.command == "plan-scene-assets":
+            assets = AssetPlanningService(session).plan_scene_assets(
+                args.project_id,
+                scene_plan_version_id=args.scene_plan_version_id,
+            )
+            print(len(assets))
+            return 0
+        if args.command == "generate-scene-image":
+            asset = ImageAssetService(session).generate_for_scene(
+                args.scene_id,
+                width=args.width,
+                height=args.height,
+                seed=args.seed,
+            )
+            print(asset.id)
+            return 0
+        if args.command == "import-scene-image":
+            asset = ImageAssetService(session).import_manual(args.scene_id, Path(args.file))
+            print(asset.id)
+            return 0
+        if args.command == "generate-scene-voice":
+            asset = VoiceAssetService(session).generate_for_scene(
+                args.scene_id,
+                voice_name=args.voice_name,
+                language=args.language,
+                speaking_rate=args.speaking_rate,
+                seed=args.seed,
+            )
+            print(asset.id)
+            return 0
+        if args.command == "import-scene-audio":
+            asset = VoiceAssetService(session).import_manual(args.scene_id, Path(args.file))
+            print(asset.id)
+            return 0
+        if args.command == "list-assets":
+            assets = AssetReviewService(session).list_project_assets(args.project_id)
+            for asset in assets:
+                scene_number = asset.scene.scene_number if asset.scene is not None else ""
+                print(
+                    f"{asset.id}\t{scene_number}\t{asset.asset_role.value}\t"
+                    f"{asset.generation_status.value}\t{asset.review_status.value}"
+                )
+            return 0
+        if args.command == "review-asset":
+            asset = AssetReviewService(session).review_asset(
+                args.asset_id,
+                AssetReviewStatus(args.status),
+            )
+            print(asset.review_status.value)
+            return 0
+        if args.command == "verify-asset-file":
+            verify_result = AssetReviewService(session).verify_asset_file(args.asset_id)
+            print("OK" if verify_result.ok else f"FAIL:{verify_result.reason}")
             return 0
     return 1
 

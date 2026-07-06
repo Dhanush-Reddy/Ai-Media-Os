@@ -10,6 +10,7 @@
       <a class="button" href="/projects/{{ project.id }}/research">Research</a>
       <a class="button" href="/projects/{{ project.id }}/script">Script</a>
       <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
+      <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
       <a class="button" href="/projects">All Projects</a>
     </div>
   </section>
@@ -45,6 +46,15 @@
         <p class="empty">No source report has been generated yet.</p>
       {% endif %}
     </article>
+  </section>
+
+  <section class="panel">
+    <h2>Assets</h2>
+    {% if assets.assets %}
+      <p>{{ assets.visual_count }} visual assets and {{ assets.narration_count }} narration assets tracked.</p>
+    {% else %}
+      <p class="empty">No scene assets have been planned yet.</p>
+    {% endif %}
   </section>
 
   <section class="grid two">

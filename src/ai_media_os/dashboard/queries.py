@@ -25,6 +25,8 @@ from ai_media_os.dashboard.progress import calculate_progress, stage_statuses
 from ai_media_os.dashboard.view_models import (
     ActivityItem,
     ApprovalItem,
+    AssetItem,
+    AssetView,
     ClaimSummary,
     DashboardHome,
     JobGroups,
@@ -41,6 +43,8 @@ from ai_media_os.dashboard.view_models import (
 )
 from ai_media_os.domain.enums import (
     ApprovalStatus,
+    AssetRole,
+    AssetType,
     ClaimImportance,
     ContentFormat,
     ContentType,
@@ -52,6 +56,7 @@ from ai_media_os.domain.enums import (
 )
 from ai_media_os.infrastructure.database.models import (
     Approval,
+    Asset,
     Channel,
     Claim,
     ContentVersion,
@@ -143,6 +148,7 @@ class DashboardQueries:
                 selectinload(VideoProject.jobs),
                 selectinload(VideoProject.content_versions),
                 selectinload(VideoProject.scenes),
+                selectinload(VideoProject.assets).selectinload(Asset.scene),
             )
         )
 
@@ -288,6 +294,63 @@ class DashboardQueries:
             visual_description=scene.visual_description,
             image_prompt=scene.image_prompt,
             source_claim_ids=scene.source_claim_ids,
+        )
+
+    def asset_view(self, project: VideoProject) -> AssetView:
+        items = [self.asset_item(asset) for asset in sorted(project.assets, key=_asset_sort_key)]
+        return AssetView(
+            assets=items,
+            visual_count=sum(
+                asset.asset_role == AssetRole.SCENE_VISUAL for asset in project.assets
+            ),
+            narration_count=sum(
+                asset.asset_role == AssetRole.SCENE_NARRATION for asset in project.assets
+            ),
+            missing_count=sum(not item.has_file for item in items),
+            pending_review_count=sum(item.review_status == "Pending Review" for item in items),
+        )
+
+    def asset_item(self, asset: Asset) -> AssetItem:
+        has_file = False
+        warning: str | None = None
+        if asset.content_hash and asset.file_path:
+            try:
+                path = self.settings.data_dir.resolve() / asset.file_path
+                has_file = path.exists()
+                if not has_file:
+                    warning = "Missing file"
+            except OSError:
+                warning = "File cannot be checked"
+        else:
+            warning = "No generated file"
+        next_action = "Review asset" if has_file else "Generate or import asset"
+        if asset.review_status.value == "approved":
+            next_action = "Ready for next milestone"
+        preview_url = (
+            f"/assets/{asset.id}/preview"
+            if has_file
+            and asset.asset_type in {AssetType.IMAGE, AssetType.CHART, AssetType.SCREENSHOT}
+            else None
+        )
+        return AssetItem(
+            id=asset.id,
+            scene_number=asset.scene.scene_number if asset.scene is not None else None,
+            asset_type=asset.asset_type.value.replace("_", " ").title(),
+            asset_role=asset.asset_role.value.replace("_", " ").title(),
+            generation_status=asset.generation_status.value.replace("_", " ").title(),
+            review_status=asset.review_status.value.replace("_", " ").title(),
+            provider=asset.provider,
+            model=asset.model,
+            seed=asset.seed,
+            content_hash=asset.content_hash,
+            mime_type=asset.mime_type,
+            duration_seconds=asset.duration_seconds,
+            width=asset.width,
+            height=asset.height,
+            has_file=has_file,
+            file_warning=warning,
+            preview_url=preview_url,
+            next_action=next_action,
         )
 
     def source_summary(self, sources: list[Source]) -> SourceSummary:
@@ -597,3 +660,8 @@ def grouped_source_status_counts(sources: list[Source]) -> dict[str, int]:
 
 def source_authority_display(source: Source) -> str:
     return authority_tier_label(source.authority_tier)
+
+
+def _asset_sort_key(asset: Asset) -> tuple[int, str, datetime]:
+    scene_number = asset.scene.scene_number if asset.scene is not None else 0
+    return (scene_number, asset.asset_role.value, asset.created_at)

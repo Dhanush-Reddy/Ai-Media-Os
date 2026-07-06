@@ -18,6 +18,7 @@ from ai_media_os.infrastructure.database.models import (
     WorkflowInstance,
 )
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
+from ai_media_os.workers.asset_handlers import JOB_PLAN_SCENE_ASSETS
 from ai_media_os.workflows.models import (
     WorkflowEvent,
     WorkflowEventType,
@@ -97,6 +98,14 @@ class SimpleWorkflowOrchestrator:
                 self._handle_script_changes_requested(workflow, event)
             case WorkflowEventType.SCRIPT_REJECTED:
                 self._handle_script_rejected(workflow, event)
+            case WorkflowEventType.SCENE_PLAN_APPROVED:
+                self._handle_scene_plan_approved(workflow, event)
+            case WorkflowEventType.ASSETS_PLANNED:
+                self._handle_assets_planned(workflow, event)
+            case WorkflowEventType.ASSETS_GENERATED:
+                self._handle_assets_generated(workflow, event)
+            case WorkflowEventType.ASSETS_APPROVED:
+                self._handle_assets_approved(workflow, event)
             case WorkflowEventType.WORKFLOW_CANCELLED:
                 self._handle_cancelled(workflow, event)
 
@@ -195,6 +204,49 @@ class SimpleWorkflowOrchestrator:
         workflow.current_stage = WorkflowStage.REJECTED.value
         workflow.status = WorkflowStatus.REJECTED.value
         workflow.error_message = event.feedback
+
+    def _handle_scene_plan_approved(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        version = self._validate_content_version(
+            event.content_version_id,
+            workflow.video_project_id,
+            ContentType.SCENE_PLAN,
+        )
+        asset_job = self.queue.create_job(
+            video_project_id=workflow.video_project_id,
+            job_type=JOB_PLAN_SCENE_ASSETS,
+            payload={"workflow_id": workflow.id, "scene_plan_version_id": version.id},
+            resource_class=ResourceClass.CPU_LIGHT,
+        )
+        workflow.current_stage = WorkflowStage.ASSET_PLANNING.value
+        workflow.status = WorkflowStatus.RUNNING.value
+        workflow.metadata_json = {
+            **dict(workflow.metadata_json),
+            "scene_plan_content_version_id": version.id,
+            "asset_planning_job_id": asset_job.id,
+        }
+
+    def _handle_assets_planned(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        expected_job_id = dict(workflow.metadata_json).get("asset_planning_job_id")
+        self._validate_job(
+            event.job_id,
+            workflow.video_project_id,
+            str(expected_job_id) if expected_job_id else None,
+        )
+        workflow.current_stage = WorkflowStage.ASSET_GENERATION.value
+        workflow.status = WorkflowStatus.RUNNING.value
+        workflow.metadata_json = {**dict(workflow.metadata_json), "assets_planned": True}
+
+    def _handle_assets_generated(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        self._require_stage(workflow, WorkflowStage.ASSET_GENERATION)
+        workflow.current_stage = WorkflowStage.ASSET_REVIEW.value
+        workflow.status = WorkflowStatus.WAITING_FOR_APPROVAL.value
+        workflow.metadata_json = {**dict(workflow.metadata_json), "assets_generated": True}
+
+    def _handle_assets_approved(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        self._require_stage(workflow, WorkflowStage.ASSET_REVIEW)
+        workflow.current_stage = WorkflowStage.MILESTONE_6_COMPLETE.value
+        workflow.status = WorkflowStatus.COMPLETED.value
+        workflow.metadata_json = {**dict(workflow.metadata_json), "assets_approved": True}
 
     def _handle_failure(
         self, workflow: WorkflowInstance, event: WorkflowEvent, stage: WorkflowStage

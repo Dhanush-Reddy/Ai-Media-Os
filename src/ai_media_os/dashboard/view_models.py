@@ -136,6 +136,37 @@ class ScenePlanView:
 
 
 @dataclass(frozen=True)
+class AssetItem:
+    id: str
+    scene_number: int | None
+    asset_type: str
+    asset_role: str
+    generation_status: str
+    review_status: str
+    provider: str | None
+    model: str | None
+    seed: int | None
+    content_hash: str | None
+    mime_type: str | None
+    duration_seconds: float | None
+    width: int | None
+    height: int | None
+    has_file: bool
+    file_warning: str | None
+    preview_url: str | None
+    next_action: str
+
+
+@dataclass(frozen=True)
+class AssetView:
+    assets: list[AssetItem]
+    visual_count: int
+    narration_count: int
+    missing_count: int
+    pending_review_count: int
+
+
+@dataclass(frozen=True)
 class ApprovalItem:
     id: str
     approval_type: str

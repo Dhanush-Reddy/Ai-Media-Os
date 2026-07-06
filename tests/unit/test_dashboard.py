@@ -1,3 +1,4 @@
+import re
 from collections.abc import Generator
 from pathlib import Path
 
@@ -9,6 +10,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ai_media_os.api.app import create_app
 from ai_media_os.application.approvals import ApprovalService
+from ai_media_os.application.assets import (
+    AssetPlanningService,
+    ImageAssetService,
+    VoiceAssetService,
+)
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import FailureInfo, QueueService
 from ai_media_os.application.research import ClaimService, SourceService
@@ -135,7 +141,19 @@ def project_id(session: Session, settings: AppSettings) -> str:
     assert pending_script is not None
     ApprovalService(session).approve(pending_script.id, reviewer="fixture")
     ScriptGenerationService(session).generate_fact_check_report(project.id)
-    ScenePlanService(session).generate_scene_plan(project.id)
+    scene_plan = ScenePlanService(session).generate_scene_plan(project.id)
+    scene_approval = session.scalar(
+        select(Approval).where(Approval.content_version_id == scene_plan.id)
+    )
+    assert scene_approval is not None
+    ApprovalService(session).approve(scene_approval.id, reviewer="fixture")
+    assets = AssetPlanningService(session, settings).plan_scene_assets(
+        project.id,
+        scene_plan_version_id=scene_plan.id,
+    )
+    scene_id = str(assets[0].scene_id)
+    ImageAssetService(session, settings).generate_for_scene(scene_id, width=16, height=9)
+    VoiceAssetService(session, settings).generate_for_scene(scene_id)
     return project.id
 
 
@@ -166,6 +184,20 @@ def test_project_routes_and_research_rendering(
     scenes = client.get(f"/projects/{project_id}/scenes")
     assert scenes.status_code == 200
     assert "Scene Breakdown" in scenes.text
+    assets = client.get(f"/projects/{project_id}/assets")
+    assert assets.status_code == 200
+    assert "Scene Assets" in assets.text
+    assert "fake-placeholder-voice" in assets.text
+    assert "seconds" in assets.text
+    assert "data/projects" not in assets.text
+    assert f"projects/{project_id}/images" not in assets.text
+    assert "/assets/" in assets.text
+    preview_match = re.search(r'class="asset-preview" src="([^"]+)"', assets.text)
+    assert preview_match is not None
+    preview_url = preview_match.group(1)
+    preview = client.get(preview_url)
+    assert preview.status_code == 200
+    assert preview.headers["content-type"].startswith("image/png")
 
 
 def test_unknown_and_invalid_project_return_404(client: TestClient) -> None:

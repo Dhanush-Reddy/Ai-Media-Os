@@ -18,6 +18,9 @@ from sqlalchemy.types import JSON
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
+    AssetGenerationStatus,
+    AssetReviewStatus,
+    AssetRole,
     AssetType,
     CacheEntryStatus,
     ChannelStatus,
@@ -398,16 +401,35 @@ class Asset(Base):
     )
     scene_id: Mapped[str | None] = mapped_column(ForeignKey("scenes.id"), index=True)
     asset_type: Mapped[AssetType] = mapped_column(enum_column(AssetType), nullable=False)
+    asset_role: Mapped[AssetRole] = mapped_column(
+        enum_column(AssetRole),
+        nullable=False,
+        default=AssetRole.REFERENCE,
+    )
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
     mime_type: Mapped[str | None] = mapped_column(String(100))
     provider: Mapped[str | None] = mapped_column(String(100))
     model: Mapped[str | None] = mapped_column(String(100))
+    model_version: Mapped[str | None] = mapped_column(String(100))
+    prompt_version: Mapped[str | None] = mapped_column(String(100))
     prompt: Mapped[str | None] = mapped_column(Text)
+    negative_prompt: Mapped[str | None] = mapped_column(Text)
     seed: Mapped[int | None] = mapped_column(Integer)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     duration_seconds: Mapped[float | None]
     content_hash: Mapped[str | None] = mapped_column(String(64))
+    generation_status: Mapped[AssetGenerationStatus] = mapped_column(
+        enum_column(AssetGenerationStatus),
+        nullable=False,
+        default=AssetGenerationStatus.PLANNED,
+    )
+    review_status: Mapped[AssetReviewStatus] = mapped_column(
+        enum_column(AssetReviewStatus),
+        nullable=False,
+        default=AssetReviewStatus.PENDING_REVIEW,
+    )
+    generation_metadata: Mapped[JsonDict] = mapped_column(JSON, nullable=False, default=dict)
     license_status: Mapped[LicenseStatus] = mapped_column(
         enum_column(LicenseStatus),
         nullable=False,
@@ -424,6 +446,12 @@ class Asset(Base):
         default=utc_now,
         nullable=False,
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
 
     video_project: Mapped[VideoProject] = relationship(back_populates="assets")
     scene: Mapped[Scene | None] = relationship(back_populates="assets")
@@ -433,6 +461,7 @@ class Asset(Base):
         CheckConstraint("height IS NULL OR height > 0"),
         CheckConstraint("duration_seconds IS NULL OR duration_seconds > 0"),
         Index("ix_assets_project_type_license", "video_project_id", "asset_type", "license_status"),
+        Index("ix_assets_scene_role", "scene_id", "asset_role"),
     )
 
 

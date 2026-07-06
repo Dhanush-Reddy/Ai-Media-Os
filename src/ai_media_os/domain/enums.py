@@ -160,6 +160,33 @@ class AssetType(StringEnum):
     VIDEO = "video"
     CHART = "chart"
     SCREENSHOT = "screenshot"
+    PLACEHOLDER = "placeholder"
+
+
+class AssetRole(StringEnum):
+    SCENE_VISUAL = "scene_visual"
+    SCENE_NARRATION = "scene_narration"
+    BACKGROUND_MUSIC = "background_music"
+    SOUND_EFFECT = "sound_effect"
+    REFERENCE = "reference"
+    PLACEHOLDER = "placeholder"
+
+
+class AssetGenerationStatus(StringEnum):
+    PLANNED = "planned"
+    GENERATING = "generating"
+    GENERATED = "generated"
+    IMPORTED = "imported"
+    FAILED = "failed"
+    REJECTED = "rejected"
+    APPROVED = "approved"
+
+
+class AssetReviewStatus(StringEnum):
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CHANGES_REQUESTED = "changes_requested"
 
 
 class LicenseStatus(StringEnum):
