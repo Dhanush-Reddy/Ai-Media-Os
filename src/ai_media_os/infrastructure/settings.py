@@ -55,6 +55,15 @@ class AppSettings(BaseSettings):
     dashboard_poll_seconds: int = 8
     dashboard_timezone: str = "Asia/Kolkata"
     dashboard_csrf_secret: str = Field(default_factory=lambda: token_urlsafe(32))
+    image_default_width: int = 1280
+    image_default_height: int = 720
+    image_default_provider: str = "fake_image"
+    image_allowed_extensions: set[str] = Field(default_factory=lambda: {".png", ".jpg", ".jpeg"})
+    voice_default_provider: str = "fake_voice"
+    voice_default_name: str = "ai-future-neutral"
+    voice_default_language: str = "en"
+    voice_allowed_extensions: set[str] = Field(default_factory=lambda: {".wav", ".mp3"})
+    asset_max_file_bytes: int = 20_000_000
 
     @field_validator("database_url")
     @classmethod
@@ -111,6 +120,18 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if not self.dashboard_csrf_secret:
             msg = "Dashboard CSRF secret cannot be empty."
+            raise ValueError(msg)
+        if self.image_default_width <= 0 or self.image_default_height <= 0:
+            msg = "Image dimensions must be positive."
+            raise ValueError(msg)
+        if self.asset_max_file_bytes <= 0:
+            msg = "Asset max file bytes must be positive."
+            raise ValueError(msg)
+        if not self.image_allowed_extensions:
+            msg = "At least one image extension must be allowed."
+            raise ValueError(msg)
+        if not self.voice_allowed_extensions:
+            msg = "At least one voice extension must be allowed."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:

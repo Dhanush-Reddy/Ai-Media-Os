@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Assets · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Assets</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <article class="metric"><span>Visuals</span><strong>{{ assets.visual_count }}</strong></article>
+    <article class="metric"><span>Narration</span><strong>{{ assets.narration_count }}</strong></article>
+    <article class="metric warning"><span>Pending Review</span><strong>{{ assets.pending_review_count }}</strong></article>
+    <article class="metric error"><span>Missing Files</span><strong>{{ assets.missing_count }}</strong></article>
+  </section>
+
+  <section class="panel">
+    <h2>Scene Assets</h2>
+    {% if assets.assets %}
+      <table>
+        <thead>
+          <tr>
+            <th>Scene</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Media</th>
+            <th>Provider</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in assets.assets %}
+            <tr>
+              <td>{{ asset.scene_number or "" }}</td>
+              <td>{{ asset.asset_role }}<br><span class="muted">{{ asset.asset_type }}</span></td>
+              <td>
+                {{ asset.generation_status }}<br>
+                {% if asset.file_warning %}<span class="badge warning">{{ asset.file_warning }}</span>{% endif %}
+              </td>
+              <td>
+                {% if asset.preview_url %}
+                  <img class="asset-preview" src="{{ asset.preview_url }}" alt="Scene {{ asset.scene_number }} visual preview">
+                {% endif %}
+                {% if asset.duration_seconds %}
+                  <p>{{ "%.2f"|format(asset.duration_seconds) }} seconds · {{ asset.mime_type or "" }}</p>
+                {% endif %}
+                {% if asset.width and asset.height %}
+                  <p>{{ asset.width }}×{{ asset.height }}</p>
+                {% endif %}
+                {% if asset.content_hash %}
+                  <code>{{ asset.content_hash[:12] }}</code>
+                {% endif %}
+              </td>
+              <td>
+                {{ asset.provider or "Not generated" }}<br>
+                <span class="muted">{{ asset.model or "" }}{% if asset.seed is not none %} · seed {{ asset.seed }}{% endif %}</span>
+              </td>
+              <td>
+                <strong>{{ asset.review_status }}</strong>
+                <p>{{ asset.next_action }}</p>
+                <form method="post" action="/assets/{{ asset.id }}/approve">
+                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                  <button type="submit">Approve</button>
+                </form>
+                <form method="post" action="/assets/{{ asset.id }}/request-changes">
+                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                  <button type="submit">Request Changes</button>
+                </form>
+                <form method="post" action="/assets/{{ asset.id }}/reject">
+                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                  <button class="danger" type="submit">Reject</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No assets have been planned yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

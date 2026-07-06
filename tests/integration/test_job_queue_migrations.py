@@ -13,6 +13,11 @@ BACKUP_SELECT_SCENE = text(
     "SELECT * FROM migration_backup_0006_scene_planning WHERE scene_id = 'scene-1'"
 )
 BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0006_scene_planning")
+ASSET_BACKUP_TABLE = "migration_backup_0007_asset_metadata"
+ASSET_BACKUP_SELECT = text(
+    "SELECT * FROM migration_backup_0007_asset_metadata WHERE asset_id = 'asset-1'"
+)
+ASSET_BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0007_asset_metadata")
 
 
 def test_job_queue_migration_upgrade_downgrade_upgrade(
@@ -45,7 +50,7 @@ def test_scene_planning_downgrade_preserves_removed_column_data(
     engine = sa.create_engine(f"sqlite:///{database_path}")
     _insert_scene_planning_row(engine)
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0005_local_research_pipeline")
 
     with engine.connect() as connection:
         scene = (
@@ -86,7 +91,7 @@ def test_scene_planning_downgrade_reupgrade_and_check_are_safe(
     command.upgrade(config, "head")
     engine = sa.create_engine(f"sqlite:///{database_path}")
     _insert_scene_planning_row(engine)
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0005_local_research_pipeline")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
@@ -111,12 +116,104 @@ def test_scene_planning_downgrade_creates_empty_backup_table(
 
     command.upgrade(config, "head")
     engine = sa.create_engine(f"sqlite:///{database_path}")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0005_local_research_pipeline")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
         assert BACKUP_TABLE in inspector.get_table_names()
         assert connection.execute(BACKUP_COUNT).scalar_one() == 0
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_asset_metadata_downgrade_preserves_removed_column_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "asset-metadata-downgrade.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        asset = (
+            connection.execute(
+                text("SELECT id, asset_type, file_path FROM assets WHERE id = 'asset-1'")
+            )
+            .mappings()
+            .one()
+        )
+        backup = connection.execute(ASSET_BACKUP_SELECT).mappings().one()
+
+    assert asset["asset_type"] == "image"
+    assert asset["file_path"] == "projects/project-1/images/scene_001/visual_v001.png"
+    assert backup["scene_id"] == "scene-1"
+    assert backup["asset_role"] == "scene_visual"
+    assert backup["model_version"] == "v1"
+    assert backup["prompt_version"] == "asset-prompt-v1"
+    assert backup["negative_prompt"] == "watermark"
+    assert backup["generation_status"] == "approved"
+    assert backup["review_status"] == "approved"
+    assert backup["generation_metadata"] == '{"placeholder": true}'
+    assert backup["updated_at"] is not None
+    assert backup["backed_up_at"] is not None
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_asset_metadata_downgrade_reupgrade_and_check_are_safe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "asset-metadata-cycle.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert ASSET_BACKUP_TABLE in inspector.get_table_names()
+        assert connection.execute(ASSET_BACKUP_COUNT).scalar_one() == 1
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_asset_metadata_downgrade_creates_empty_backup_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "asset-metadata-empty.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert ASSET_BACKUP_TABLE in inspector.get_table_names()
+        assert connection.execute(ASSET_BACKUP_COUNT).scalar_one() == 0
 
     engine.dispose()
     get_settings.cache_clear()
@@ -252,6 +349,66 @@ def _insert_scene_planning_row(engine: sa.Engine) -> None:
                     '["claim-1"]',
                     '1.0',
                     'planned'
+                )
+                """
+            )
+        )
+
+
+def _insert_asset_metadata_row(engine: sa.Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO assets (
+                    id,
+                    video_project_id,
+                    scene_id,
+                    asset_type,
+                    asset_role,
+                    file_path,
+                    mime_type,
+                    provider,
+                    model,
+                    model_version,
+                    prompt_version,
+                    prompt,
+                    negative_prompt,
+                    seed,
+                    width,
+                    height,
+                    content_hash,
+                    generation_status,
+                    review_status,
+                    generation_metadata,
+                    license_status,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    'asset-1',
+                    'project-1',
+                    'scene-1',
+                    'placeholder',
+                    'scene_visual',
+                    'projects/project-1/images/scene_001/visual_v001.png',
+                    'image/png',
+                    'fake_image',
+                    'fake-placeholder-image',
+                    'v1',
+                    'asset-prompt-v1',
+                    'Editorial generated image prompt',
+                    'watermark',
+                    7,
+                    1280,
+                    720,
+                    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                    'approved',
+                    'approved',
+                    '{"placeholder": true}',
+                    'SAFE',
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
                 )
                 """
             )

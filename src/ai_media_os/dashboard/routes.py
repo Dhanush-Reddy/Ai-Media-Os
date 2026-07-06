@@ -7,11 +7,12 @@ from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ai_media_os.application.approvals import ApprovalError, ApprovalService
+from ai_media_os.application.assets import AssetError, AssetReviewService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.dashboard.labels import (
     authority_tier_label,
@@ -26,9 +27,12 @@ from ai_media_os.dashboard.security import (
     csrf_token,
     validate_csrf_token,
 )
+from ai_media_os.domain.enums import AssetReviewStatus, AssetType
 from ai_media_os.domain.job_queue import QueueError
+from ai_media_os.infrastructure.database.models import Asset
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
+from ai_media_os.storage.filesystem import FileStorage, StorageError
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
@@ -130,6 +134,7 @@ def project_detail(
     context["research"] = queries.research_view(project)
     context["script"] = queries.script_view(project)
     context["scene_plan"] = queries.scene_plan_view(project)
+    context["assets"] = queries.asset_view(project)
     return templates.TemplateResponse(request, "dashboard/project_detail.html", context)
 
 
@@ -184,7 +189,80 @@ def project_scenes(
     context = template_context(request, settings=settings)
     context["project"] = project
     context["scene_plan"] = queries.scene_plan_view(project)
+    context["assets"] = queries.asset_view(project)
     return templates.TemplateResponse(request, "dashboard/scenes.html", context)
+
+
+@router.get("/projects/{project_id}/assets", response_class=HTMLResponse)
+def project_assets(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["assets"] = queries.asset_view(project)
+    return templates.TemplateResponse(request, "dashboard/assets.html", context)
+
+
+@router.get("/assets/{asset_id}/preview")
+def asset_preview(
+    request: Request,
+    asset_id: str,
+    session: DashboardSession,
+) -> FileResponse:
+    asset = session.get(Asset, asset_id)
+    if asset is None or asset.asset_type not in {
+        AssetType.IMAGE,
+        AssetType.CHART,
+        AssetType.SCREENSHOT,
+    }:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        path = FileStorage(request_settings(request)).resolve_inside(
+            request_settings(request).data_dir.resolve(),
+            asset.file_path,
+        )
+    except StorageError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return FileResponse(path, media_type=asset.mime_type or "image/png")
+
+
+@router.post("/assets/{asset_id}/{action}")
+def asset_action(
+    request: Request,
+    asset_id: str,
+    action: str,
+    session: DashboardSession,
+    csrf: str = Form(...),
+) -> RedirectResponse:
+    try:
+        validate_csrf_token(csrf, request_settings(request))
+        service = AssetReviewService(session, request_settings(request))
+        asset = session.get(Asset, asset_id)
+        if asset is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if action == "approve":
+            service.review_asset(asset_id, AssetReviewStatus.APPROVED)
+        elif action == "reject":
+            service.review_asset(asset_id, AssetReviewStatus.REJECTED)
+        elif action == "request-changes":
+            service.review_asset(asset_id, AssetReviewStatus.CHANGES_REQUESTED)
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        return _redirect(f"/projects/{asset.video_project_id}/assets", success="Asset updated.")
+    except DashboardSecurityError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN) from None
+    except AssetError as exc:
+        return _redirect("/projects", error=str(exc))
 
 
 @router.get("/approvals", response_class=HTMLResponse)
