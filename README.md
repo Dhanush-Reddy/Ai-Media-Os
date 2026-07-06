@@ -82,7 +82,7 @@ Generate planned scene asset records:
 python -m ai_media_os.cli plan-scene-assets --project-id $PROJECT_ID --scene-plan-version-id $SCENE_PLAN_VERSION_ID
 ```
 
-Generate one real PNG placeholder and one valid WAV narration placeholder:
+Generate one real PNG placeholder and one valid WAV narration placeholder using the fake providers:
 
 ```powershell
 python -m ai_media_os.cli generate-scene-image --scene-id $SCENE_ID --width 1280 --height 720 --seed 42
@@ -97,7 +97,7 @@ python -m ai_media_os.cli verify-asset-file IMAGE_ASSET_ID
 python -m ai_media_os.cli verify-asset-file VOICE_ASSET_ID
 ```
 
-The fake image provider writes a viewable PNG under `data/projects/{project_id}/images/scene_001/visual_v001.png`.
+These commands do not require real ComfyUI or real TTS. The fake image provider writes a viewable PNG under `data/projects/{project_id}/images/scene_001/visual_v001.png`.
 The fake voice provider writes a valid WAV file under `data/projects/{project_id}/audio/scene_001/narration_v001.wav`.
 
 Start the dashboard and open the project asset page:

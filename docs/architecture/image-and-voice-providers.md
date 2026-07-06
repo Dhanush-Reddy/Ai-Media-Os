@@ -20,7 +20,7 @@ Manual imports copy user-supplied files into project asset folders and store onl
 
 ## Local demo flow
 
-For an existing project with an approved scene plan and at least one scene:
+For an existing project with an approved scene plan and at least one scene, the current fake providers can generate visible local demo output:
 
 ```powershell
 $PROJECT_ID = "existing-project-id"
@@ -36,7 +36,7 @@ python -m ai_media_os.cli verify-asset-file VOICE_ASSET_ID
 python -m ai_media_os.web
 ```
 
-Open `http://127.0.0.1:8000/projects/{project_id}/assets` to inspect the generated scene assets. The fake image provider creates a real PNG file. The fake voice provider creates a WAV file that the asset verifier can read and hash.
+Open `http://127.0.0.1:8000/projects/{project_id}/assets` to inspect the generated scene assets. These commands do not require real ComfyUI or real TTS. The fake image provider creates a real PNG file. The fake voice provider creates a WAV file that the asset verifier can read and hash.
 
 Known limitations:
 

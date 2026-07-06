@@ -167,6 +167,88 @@ def test_removed_placeholder_provider_names_are_not_internal_contracts() -> None
     assert matches == []
 
 
+def test_documented_fake_asset_cli_flow_executes(
+    engine: Engine,
+    session: Session,
+    settings: AppSettings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ai_media_os.application.assets as asset_services
+    import ai_media_os.application.job_queue as job_queue
+    import ai_media_os.cli as cli
+
+    project_id, scene_id, scene_plan_id = create_project_with_scene(session)
+    cli_session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(cli, "SessionLocal", cli_session_factory)
+    monkeypatch.setattr(asset_services, "get_settings", lambda: settings)
+    monkeypatch.setattr(job_queue, "get_settings", lambda: settings)
+
+    assert (
+        cli.main(
+            [
+                "plan-scene-assets",
+                "--project-id",
+                project_id,
+                "--scene-plan-version-id",
+                scene_plan_id,
+            ]
+        )
+        == 0
+    )
+    assert (
+        cli.main(
+            [
+                "generate-scene-image",
+                "--scene-id",
+                scene_id,
+                "--width",
+                "32",
+                "--height",
+                "18",
+                "--seed",
+                "42",
+            ]
+        )
+        == 0
+    )
+    assert (
+        cli.main(
+            [
+                "generate-scene-voice",
+                "--scene-id",
+                scene_id,
+                "--voice-name",
+                "ai-future-neutral",
+                "--language",
+                "en",
+                "--seed",
+                "42",
+            ]
+        )
+        == 0
+    )
+
+    session.expire_all()
+    image_asset = session.scalar(
+        select(Asset).where(Asset.scene_id == scene_id, Asset.asset_role == AssetRole.SCENE_VISUAL)
+    )
+    voice_asset = session.scalar(
+        select(Asset).where(
+            Asset.scene_id == scene_id,
+            Asset.asset_role == AssetRole.SCENE_NARRATION,
+        )
+    )
+    assert image_asset is not None
+    assert voice_asset is not None
+    image_path = settings.data_dir / image_asset.file_path
+    voice_path = settings.data_dir / voice_asset.file_path
+    assert image_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert voice_path.read_bytes().startswith(b"RIFF")
+    assert cli.main(["list-assets", "--project-id", project_id]) == 0
+    assert cli.main(["verify-asset-file", image_asset.id]) == 0
+    assert cli.main(["verify-asset-file", voice_asset.id]) == 0
+
+
 def test_asset_planning_is_idempotent_and_links_scene(
     session: Session,
     settings: AppSettings,
