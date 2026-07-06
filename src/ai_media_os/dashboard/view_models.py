@@ -103,6 +103,39 @@ class ResearchView:
 
 
 @dataclass(frozen=True)
+class ScriptView:
+    latest_script_html: str | None
+    script_status: str | None
+    script_version_number: int | None
+    latest_fact_check: JsonDict | None
+    quality_result: JsonDict | None
+    older_script_versions: list[str]
+
+
+@dataclass(frozen=True)
+class SceneItem:
+    scene_number: int
+    start_seconds: float | None
+    duration_seconds: float
+    visual_type: str
+    narration: str
+    visual_description: str | None
+    image_prompt: str | None
+    source_claim_ids: list[str]
+
+
+@dataclass(frozen=True)
+class ScenePlanView:
+    scene_plan_status: str | None
+    scene_plan_version_number: int | None
+    total_duration_seconds: float | None
+    scene_count: int
+    quality_notes: list[str]
+    scenes: list[SceneItem]
+    older_scene_plan_versions: list[str]
+
+
+@dataclass(frozen=True)
 class ApprovalItem:
     id: str
     approval_type: str

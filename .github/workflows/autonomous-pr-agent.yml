@@ -19,6 +19,8 @@ jobs:
     if: github.event_name == 'merge_group' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      failure_note: ${{ steps.quality_summary.outputs.failure_note }}
 
     steps:
       - name: Check out tested revision
@@ -33,6 +35,7 @@ jobs:
           cache: pip
 
       - name: Install project and verification tools
+        id: install
         shell: bash
         run: |
           set -euo pipefail
@@ -49,18 +52,23 @@ jobs:
           pip install pytest ruff mypy alembic
 
       - name: Run tests
+        id: tests
         run: python -m pytest
 
       - name: Run Ruff lint
+        id: ruff_lint
         run: python -m ruff check .
 
       - name: Check Ruff formatting
+        id: ruff_format
         run: python -m ruff format --check .
 
       - name: Run mypy
+        id: mypy
         run: python -m mypy src
 
       - name: Validate Alembic state
+        id: alembic
         env:
           AI_MEDIA_OS_ENVIRONMENT: test
           AI_MEDIA_OS_DATABASE_URL: sqlite:///./pr_agent_check.db
@@ -72,6 +80,46 @@ jobs:
             python -m alembic check
           else
             echo "No alembic.ini found; skipping Alembic checks."
+          fi
+
+      - name: Summarize quality gate
+        id: quality_summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          note="All quality checks passed."
+          failed=0
+
+          if [[ "${{ steps.install.outcome }}" == "failure" ]]; then
+            note="Install failed: dependency setup or project installation failed."
+            failed=1
+          elif [[ "${{ steps.tests.outcome }}" == "failure" ]]; then
+            note="Tests failed: at least one pytest test failed."
+            failed=1
+          elif [[ "${{ steps.ruff_lint.outcome }}" == "failure" ]]; then
+            note="Ruff lint failed: fix the reported lint violations."
+            failed=1
+          elif [[ "${{ steps.ruff_format.outcome }}" == "failure" ]]; then
+            note="Ruff format failed: run Ruff formatting locally."
+            failed=1
+          elif [[ "${{ steps.mypy.outcome }}" == "failure" ]]; then
+            note="Mypy failed: fix the reported type-checking errors."
+            failed=1
+          elif [[ "${{ steps.alembic.outcome }}" == "failure" ]]; then
+            note="Alembic failed: migrations are broken or models and migrations drifted."
+            failed=1
+          elif [[ "${{ steps.install.outcome }}" != "success" || "${{ steps.tests.outcome }}" != "success" || "${{ steps.ruff_lint.outcome }}" != "success" || "${{ steps.ruff_format.outcome }}" != "success" || "${{ steps.mypy.outcome }}" != "success" || "${{ steps.alembic.outcome }}" != "success" ]]; then
+            note="Quality gate did not complete: check the first skipped or cancelled step."
+            failed=1
+          fi
+
+          echo "failure_note=$note" >> "$GITHUB_OUTPUT"
+          echo "Quality gate note: $note"
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
           fi
 
   ai-review:
@@ -115,11 +163,19 @@ jobs:
         if: always()
         env:
           QUALITY_GATE_RESULT: ${{ needs.quality-gate.result }}
+          QUALITY_GATE_NOTE: ${{ needs.quality-gate.outputs.failure_note }}
           AI_REVIEW_RESULT: ${{ steps.generate_review.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .pr-agent
+
+          ai_review_note="AI review completed."
+          if [[ -f .pr-agent/failure-note.txt ]]; then
+            ai_review_note="$(cat .pr-agent/failure-note.txt)"
+          elif [[ "$AI_REVIEW_RESULT" != "success" ]]; then
+            ai_review_note="AI review failed before producing a valid report."
+          fi
 
           if [[ ! -f .pr-agent/review.md ]]; then
             {
@@ -134,6 +190,7 @@ jobs:
               echo "### Findings"
               echo "- **CRITICAL - Review automation did not complete**"
               echo "  - The PR cannot be approved automatically because the AI review step failed before producing a valid review."
+              echo "  - Short note: ${ai_review_note}"
               echo "  - Fix: Open the failed GitHub Actions log, resolve the setup/API/configuration error, and push again."
               echo ""
               echo "### Suggested tests"
@@ -145,7 +202,9 @@ jobs:
             echo "## Workflow Gate Summary"
             echo ""
             echo "- Quality Gate: \`${QUALITY_GATE_RESULT}\`"
+            echo "- Quality Gate Note: ${QUALITY_GATE_NOTE:-No failure note recorded.}"
             echo "- AI Review Generation: \`${AI_REVIEW_RESULT}\`"
+            echo "- AI Review Note: ${ai_review_note}"
             echo ""
             echo "If Quality Gate is not \`success\`, fix tests/lint/type/migration checks first."
             echo ""

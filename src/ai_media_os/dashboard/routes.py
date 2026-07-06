@@ -128,6 +128,8 @@ def project_detail(
         if approval.status.value == "pending"
     ]
     context["research"] = queries.research_view(project)
+    context["script"] = queries.script_view(project)
+    context["scene_plan"] = queries.scene_plan_view(project)
     return templates.TemplateResponse(request, "dashboard/project_detail.html", context)
 
 
@@ -147,6 +149,42 @@ def project_research(
     context["project"] = project
     context["research"] = queries.research_view(project)
     return templates.TemplateResponse(request, "dashboard/research.html", context)
+
+
+@router.get("/projects/{project_id}/script", response_class=HTMLResponse)
+def project_script(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["script"] = queries.script_view(project)
+    return templates.TemplateResponse(request, "dashboard/script.html", context)
+
+
+@router.get("/projects/{project_id}/scenes", response_class=HTMLResponse)
+def project_scenes(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["scene_plan"] = queries.scene_plan_view(project)
+    return templates.TemplateResponse(request, "dashboard/scenes.html", context)
 
 
 @router.get("/approvals", response_class=HTMLResponse)

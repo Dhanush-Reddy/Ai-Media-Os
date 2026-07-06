@@ -18,6 +18,8 @@ from ai_media_os.application.research import (
     ResearchReportService,
     SourceService,
 )
+from ai_media_os.application.scenes import ScenePlanService
+from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.domain.enums import (
     ApprovalType,
     ClaimImportance,
@@ -36,6 +38,7 @@ from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.research_handlers import research_job_handlers
+from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -197,6 +200,30 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_research = subcommands.add_parser("evaluate-research")
     evaluate_research.add_argument("--project-id", required=True)
 
+    generate_script = subcommands.add_parser("generate-script")
+    generate_script.add_argument("--project-id", required=True)
+    generate_script.add_argument("--revision-feedback")
+
+    fact_check = subcommands.add_parser("generate-fact-check")
+    fact_check.add_argument("--project-id", required=True)
+    fact_check.add_argument("--script-version-id")
+
+    script_quality = subcommands.add_parser("evaluate-script")
+    script_quality.add_argument("--project-id", required=True)
+    script_quality.add_argument("--script-version-id")
+
+    scene_plan = subcommands.add_parser("generate-scene-plan")
+    scene_plan.add_argument("--project-id", required=True)
+    scene_plan.add_argument("--script-version-id")
+
+    import_scene_plan = subcommands.add_parser("import-scene-plan")
+    import_scene_plan.add_argument("--project-id", required=True)
+    import_scene_plan.add_argument("--script-version-id", required=True)
+    import_scene_plan.add_argument("--file", required=True)
+
+    list_scenes = subcommands.add_parser("list-scenes")
+    list_scenes.add_argument("--scene-plan-version-id", required=True)
+
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
     dashboard.add_argument("--port", type=int)
@@ -234,7 +261,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{job.id}\t{job.status.value}\t{job.job_type}\t{job.claimed_by or ''}")
             return 0
         if args.command == "run-worker":
-            worker = JobWorker(session, handlers=research_job_handlers(), worker_id=args.worker_id)
+            handlers = research_job_handlers() | script_scene_job_handlers()
+            worker = JobWorker(session, handlers=handlers, worker_id=args.worker_id)
             worker_result = worker.run_once()
             print(worker_result)
             return 0
@@ -416,6 +444,51 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "evaluate-research":
             readiness_result = ResearchReportService(session).evaluate_readiness(args.project_id)
             print(readiness_result.as_dict())
+            return 0
+        if args.command == "generate-script":
+            version = ScriptGenerationService(session).generate_script(
+                args.project_id,
+                revision_feedback=args.revision_feedback,
+            )
+            print(version.id)
+            return 0
+        if args.command == "generate-fact-check":
+            version = ScriptGenerationService(session).generate_fact_check_report(
+                args.project_id,
+                script_version_id=args.script_version_id,
+            )
+            print(version.id)
+            return 0
+        if args.command == "evaluate-script":
+            script_quality_result = ScriptGenerationService(session).evaluate_script_quality(
+                args.project_id,
+                script_version_id=args.script_version_id,
+            )
+            print(script_quality_result.as_dict())
+            return 0
+        if args.command == "generate-scene-plan":
+            version = ScenePlanService(session).generate_scene_plan(
+                args.project_id,
+                script_version_id=args.script_version_id,
+            )
+            print(version.id)
+            return 0
+        if args.command == "import-scene-plan":
+            content = Path(args.file).read_text(encoding="utf-8")
+            version = ScenePlanService(session).import_scene_plan(
+                args.project_id,
+                script_version_id=args.script_version_id,
+                content=content,
+            )
+            print(version.id)
+            return 0
+        if args.command == "list-scenes":
+            scenes = ScenePlanService(session).list_scenes(args.scene_plan_version_id)
+            for scene in scenes:
+                print(
+                    f"{scene.scene_number}\t{scene.duration_seconds}\t"
+                    f"{scene.visual_type.value}\t{scene.narration[:80]}"
+                )
             return 0
     return 1
 

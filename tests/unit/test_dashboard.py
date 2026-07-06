@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -11,6 +12,8 @@ from ai_media_os.application.approvals import ApprovalService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import FailureInfo, QueueService
 from ai_media_os.application.research import ClaimService, SourceService
+from ai_media_os.application.scenes import ScenePlanService
+from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.dashboard.markdown import render_safe_markdown
 from ai_media_os.dashboard.progress import calculate_progress
 from ai_media_os.dashboard.queries import DashboardQueries
@@ -30,7 +33,7 @@ from ai_media_os.domain.enums import (
     VerificationStatus,
 )
 from ai_media_os.infrastructure.database.base import Base
-from ai_media_os.infrastructure.database.models import Channel, VideoProject
+from ai_media_os.infrastructure.database.models import Approval, Channel, VideoProject
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
 from ai_media_os.storage.filesystem import FileStorage
@@ -125,6 +128,14 @@ def project_id(session: Session, settings: AppSettings) -> str:
         content='{"total_sources": 1}',
         content_format=ContentFormat.JSON,
     )
+    script = ScriptGenerationService(session).generate_script(project.id)
+    pending_script = session.scalar(
+        select(Approval).where(Approval.content_version_id == script.id)
+    )
+    assert pending_script is not None
+    ApprovalService(session).approve(pending_script.id, reviewer="fixture")
+    ScriptGenerationService(session).generate_fact_check_report(project.id)
+    ScenePlanService(session).generate_scene_plan(project.id)
     return project.id
 
 
@@ -149,6 +160,12 @@ def test_project_routes_and_research_rendering(
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in research.text
     assert "<script>alert(1)</script>" not in research.text
     assert "Older versions" not in research.text
+    script = client.get(f"/projects/{project_id}/script")
+    assert script.status_code == 200
+    assert "Fact Check" in script.text
+    scenes = client.get(f"/projects/{project_id}/scenes")
+    assert scenes.status_code == 200
+    assert "Scene Breakdown" in scenes.text
 
 
 def test_unknown_and_invalid_project_return_404(client: TestClient) -> None:

@@ -1,8 +1,9 @@
 # Autonomous PR Agent Setup
 
 This repository includes GitHub Actions automation for quality gates, AI
-pull-request review, and squash auto-merge when the AI review returns an
-explicit approval. Pull requests are opened manually from feature branches.
+pull-request review, a Ponytail-style senior simplification pass, and squash
+auto-merge when the AI review returns an explicit approval. Pull requests are
+opened manually from feature branches.
 
 ## Installed Files
 
@@ -60,8 +61,16 @@ python -m alembic check
 ## Safety Notes
 
 The reviewer fails closed when the API key is missing, the NVIDIA API is
-unavailable, the AI review blocks, or quality checks fail. Every PR gets a
-review summary comment before the AI decision is enforced.
+unavailable, the AI review blocks, the simplification pass cannot produce a
+valid report, or quality checks fail. Every PR gets a review summary comment
+before the AI decision is enforced.
+
+The simplification pass is based on Ponytail's `ponytail-review` guidance from
+`https://github.com/DietrichGebert/ponytail`. It is advisory for merge decisions
+but still required to complete successfully. Its job is to identify meaningful
+places where a senior developer would delete code, reuse the standard library,
+prefer native platform behavior, avoid speculative abstractions, or shrink the
+diff without weakening safety.
 
 High-risk and critical changes are still labeled in the review comment, but they
 can merge automatically when the NVIDIA reviewer explicitly approves them. Pull
