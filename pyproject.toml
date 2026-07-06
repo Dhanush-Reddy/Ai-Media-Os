@@ -25,7 +25,7 @@ ai-media-os = "ai_media_os.cli:main"
 
 [project.optional-dependencies]
 dev = [
-    "httpx2>=0.28",
+    "httpx>=0.28",
     "mypy>=1.11",
     "pytest>=8.3",
     "pytest-cov>=5.0",
@@ -58,7 +58,7 @@ ignore = ["S101"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-line-ending = "lf"
+line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.12"
