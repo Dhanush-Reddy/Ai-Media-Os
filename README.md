@@ -64,6 +64,50 @@ Default URL: `http://127.0.0.1:8000`
 
 Do not expose the dashboard beyond localhost until authentication is added.
 
+## Local Asset Demo
+
+After a project has an approved scene plan and at least one stored scene, Milestone 6 can generate local fake media assets that are visible in the filesystem and dashboard.
+
+Use PowerShell variables for the existing project and scene:
+
+```powershell
+$PROJECT_ID = "existing-project-id"
+$SCENE_PLAN_VERSION_ID = "approved-scene-plan-version-id"
+$SCENE_ID = "existing-scene-id"
+```
+
+Generate planned scene asset records:
+
+```powershell
+python -m ai_media_os.cli plan-scene-assets --project-id $PROJECT_ID --scene-plan-version-id $SCENE_PLAN_VERSION_ID
+```
+
+Generate one real PNG placeholder and one valid WAV narration placeholder using the fake providers:
+
+```powershell
+python -m ai_media_os.cli generate-scene-image --scene-id $SCENE_ID --width 1280 --height 720 --seed 42
+python -m ai_media_os.cli generate-scene-voice --scene-id $SCENE_ID --voice-name ai-future-neutral --language en --seed 42
+```
+
+List and verify the generated assets:
+
+```powershell
+python -m ai_media_os.cli list-assets --project-id $PROJECT_ID
+python -m ai_media_os.cli verify-asset-file IMAGE_ASSET_ID
+python -m ai_media_os.cli verify-asset-file VOICE_ASSET_ID
+```
+
+These commands do not require real ComfyUI or real TTS. The fake image provider writes a viewable PNG under `data/projects/{project_id}/images/scene_001/visual_v001.png`.
+The fake voice provider writes a valid WAV file under `data/projects/{project_id}/audio/scene_001/narration_v001.wav`.
+
+Start the dashboard and open the project asset page:
+
+```powershell
+python -m ai_media_os.web
+```
+
+Then visit `http://127.0.0.1:8000/projects/{project_id}/assets`.
+
 ## Verification
 
 ```bash
