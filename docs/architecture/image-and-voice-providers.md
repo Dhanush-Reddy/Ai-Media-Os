@@ -18,6 +18,26 @@ Fake voice generation produces deterministic WAV placeholders from narration, vo
 
 Manual imports copy user-supplied files into project asset folders and store only project-relative paths plus hashes. The dashboard does not expose raw filesystem paths.
 
+## Local demo flow
+
+For an existing project with an approved scene plan and at least one scene:
+
+```powershell
+$PROJECT_ID = "existing-project-id"
+$SCENE_PLAN_VERSION_ID = "approved-scene-plan-version-id"
+$SCENE_ID = "existing-scene-id"
+
+python -m ai_media_os.cli plan-scene-assets --project-id $PROJECT_ID --scene-plan-version-id $SCENE_PLAN_VERSION_ID
+python -m ai_media_os.cli generate-scene-image --scene-id $SCENE_ID --width 1280 --height 720 --seed 42
+python -m ai_media_os.cli generate-scene-voice --scene-id $SCENE_ID --voice-name ai-future-neutral --language en --seed 42
+python -m ai_media_os.cli list-assets --project-id $PROJECT_ID
+python -m ai_media_os.cli verify-asset-file IMAGE_ASSET_ID
+python -m ai_media_os.cli verify-asset-file VOICE_ASSET_ID
+python -m ai_media_os.web
+```
+
+Open `http://127.0.0.1:8000/projects/{project_id}/assets` to inspect the generated scene assets. The fake image provider creates a real PNG file. The fake voice provider creates a WAV file that the asset verifier can read and hash.
+
 Known limitations:
 
 - No real ComfyUI integration.
