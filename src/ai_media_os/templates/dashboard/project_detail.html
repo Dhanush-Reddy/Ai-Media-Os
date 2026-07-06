@@ -11,6 +11,7 @@
       <a class="button" href="/projects/{{ project.id }}/script">Script</a>
       <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
       <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
+      <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
       <a class="button" href="/projects">All Projects</a>
     </div>
   </section>
@@ -54,6 +55,16 @@
       <p>{{ assets.visual_count }} visual assets and {{ assets.narration_count }} narration assets tracked.</p>
     {% else %}
       <p class="empty">No scene assets have been planned yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Latest Render</h2>
+    {% if renders.latest %}
+      <p>Render v{{ renders.latest.version_number }} is {{ renders.latest.status }}.</p>
+      <p><a href="/projects/{{ project.id }}/renders/{{ renders.latest.id }}">Open render</a></p>
+    {% else %}
+      <p class="empty">No preview render has been planned yet.</p>
     {% endif %}
   </section>
 

@@ -64,6 +64,16 @@ class AppSettings(BaseSettings):
     voice_default_language: str = "en"
     voice_allowed_extensions: set[str] = Field(default_factory=lambda: {".wav", ".mp3"})
     asset_max_file_bytes: int = 20_000_000
+    ffmpeg_path: str = "ffmpeg"
+    ffprobe_path: str = "ffprobe"
+    render_default_width: int = 1280
+    render_default_height: int = 720
+    render_default_fps: int = 24
+    render_default_format: str = "mp4"
+    render_default_provider: str = "local_ffmpeg"
+    render_max_seconds: int = 3600
+    render_default_background_color: str = "black"
+    render_allow_pending_assets: bool = True
 
     @field_validator("database_url")
     @classmethod
@@ -132,6 +142,21 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if not self.voice_allowed_extensions:
             msg = "At least one voice extension must be allowed."
+            raise ValueError(msg)
+        if self.render_default_width <= 0 or self.render_default_height <= 0:
+            msg = "Render dimensions must be positive."
+            raise ValueError(msg)
+        if self.render_default_fps <= 0:
+            msg = "Render FPS must be positive."
+            raise ValueError(msg)
+        if self.render_max_seconds <= 0:
+            msg = "Render max seconds must be positive."
+            raise ValueError(msg)
+        if self.render_default_format != "mp4":
+            msg = "Milestone 7 supports MP4 renders only."
+            raise ValueError(msg)
+        if not self.ffmpeg_path:
+            msg = "FFmpeg path cannot be empty."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:

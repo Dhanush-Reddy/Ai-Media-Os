@@ -17,6 +17,7 @@ from ai_media_os.application.assets import (
 )
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import FailureInfo, QueueService
+from ai_media_os.application.renders import RenderPlanningService, VideoCompositionService
 from ai_media_os.application.research import ClaimService, SourceService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
@@ -42,6 +43,7 @@ from ai_media_os.infrastructure.database.base import Base
 from ai_media_os.infrastructure.database.models import Approval, Channel, VideoProject
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
+from ai_media_os.providers.video_composition import FakeVideoComposer
 from ai_media_os.storage.filesystem import FileStorage
 
 
@@ -151,9 +153,18 @@ def project_id(session: Session, settings: AppSettings) -> str:
         project.id,
         scene_plan_version_id=scene_plan.id,
     )
-    scene_id = str(assets[0].scene_id)
-    ImageAssetService(session, settings).generate_for_scene(scene_id, width=16, height=9)
-    VoiceAssetService(session, settings).generate_for_scene(scene_id)
+    scene_ids = {str(asset.scene_id) for asset in assets if asset.scene_id is not None}
+    for scene_id in scene_ids:
+        ImageAssetService(session, settings).generate_for_scene(scene_id, width=16, height=9)
+        VoiceAssetService(session, settings).generate_for_scene(scene_id)
+    render = RenderPlanningService(session, settings).plan_render(
+        project.id,
+        scene_plan_version_id=scene_plan.id,
+    )
+    VideoCompositionService(session, settings, provider=FakeVideoComposer()).compose_video(
+        project.id,
+        render_id=render.id,
+    )
     return project.id
 
 
@@ -198,6 +209,22 @@ def test_project_routes_and_research_rendering(
     preview = client.get(preview_url)
     assert preview.status_code == 200
     assert preview.headers["content-type"].startswith("image/png")
+    renders = client.get(f"/projects/{project_id}/renders")
+    assert renders.status_code == 200
+    assert "Video Renders" in renders.text
+    render_detail_match = re.search(r'href="([^"]+/renders/[^"]+)"', renders.text)
+    assert render_detail_match is not None
+    render_detail = client.get(render_detail_match.group(1))
+    assert render_detail.status_code == 200
+    assert "Render Detail" in render_detail.text
+    render_preview_match = re.search(
+        r'class="render-player"[^>]+src="([^"]+)"',
+        render_detail.text,
+    )
+    assert render_preview_match is not None
+    render_preview = client.get(render_preview_match.group(1))
+    assert render_preview.status_code == 200
+    assert render_preview.headers["content-type"].startswith("video/mp4")
 
 
 def test_unknown_and_invalid_project_return_404(client: TestClient) -> None:

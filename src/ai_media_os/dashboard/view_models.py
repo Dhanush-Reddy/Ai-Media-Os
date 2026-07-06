@@ -167,6 +167,34 @@ class AssetView:
 
 
 @dataclass(frozen=True)
+class RenderItem:
+    id: str
+    version_number: int
+    status: str
+    provider: str | None
+    output_path: str
+    content_hash: str | None
+    duration_seconds: float | None
+    width: int | None
+    height: int | None
+    fps: int | None
+    file_size: int | None
+    has_file: bool
+    file_warning: str | None
+    preview_url: str | None
+    error_message: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class RenderView:
+    renders: list[RenderItem]
+    latest: RenderItem | None
+    rendered_count: int
+    failed_count: int
+
+
+@dataclass(frozen=True)
 class ApprovalItem:
     id: str
     approval_type: str

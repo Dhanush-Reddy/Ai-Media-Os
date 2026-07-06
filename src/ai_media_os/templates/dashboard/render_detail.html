@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Render v{{ render.version_number }} · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Render Detail v{{ render.version_number }}</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Preview</h2>
+    {% if render.preview_url %}
+      <video class="render-player" controls src="{{ render.preview_url }}"></video>
+    {% else %}
+      <p class="empty">Render file is not available yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Status</h2>
+      <p><strong>Status:</strong> {{ render.status }}</p>
+      <p><strong>Provider:</strong> {{ render.provider or "Not rendered" }}</p>
+      <p><strong>File:</strong> {{ render.output_path }}</p>
+      {% if render.file_warning %}<p><span class="badge warning">{{ render.file_warning }}</span></p>{% endif %}
+      {% if render.error_message %}<p class="badge error">{{ render.error_message }}</p>{% endif %}
+    </article>
+    <article class="panel">
+      <h2>Media</h2>
+      <p><strong>Duration:</strong> {% if render.duration_seconds %}{{ "%.2f"|format(render.duration_seconds) }} seconds{% else %}Unknown{% endif %}</p>
+      <p><strong>Resolution:</strong> {% if render.width and render.height %}{{ render.width }}×{{ render.height }}{% else %}Unknown{% endif %}</p>
+      <p><strong>FPS:</strong> {{ render.fps or "Unknown" }}</p>
+      <p><strong>File size:</strong> {{ render.file_size or "Unknown" }}</p>
+      {% if render.content_hash %}<p><strong>Hash:</strong> <code>{{ render.content_hash[:16] }}</code></p>{% endif %}
+    </article>
+  </section>
+{% endblock %}
