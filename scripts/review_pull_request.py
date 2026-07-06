@@ -34,6 +34,32 @@ def load_config() -> dict[str, Any]:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def failure_note(exc: Exception) -> str:
+    """Return a short, PR-comment-safe failure note."""
+
+    message = str(exc).strip() or exc.__class__.__name__
+    if "NVIDIA_API_KEY repository secret is required" in message:
+        return "AI review failed: NVIDIA_API_KEY is missing."
+    if message.startswith("NVIDIA API returned HTTP"):
+        return message.split(":", maxsplit=1)[0] + "."
+    if message.startswith("NVIDIA simplification review returned HTTP"):
+        return message.split(":", maxsplit=1)[0] + "."
+    if message.startswith("Unable to reach NVIDIA"):
+        return message
+    if "missing required fields" in message:
+        return "AI review failed: model response did not match the required schema."
+    if "did not contain a JSON object" in message:
+        return "AI review failed: model response did not contain valid JSON."
+    if "No changed files were found" in message:
+        return "AI review failed: no changed files were found for the PR diff."
+    return f"AI review failed: {message[:180]}"
+
+
+def write_failure_note(exc: Exception) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUTPUT_DIR / "failure-note.txt").write_text(failure_note(exc) + "\n", encoding="utf-8")
+
+
 def changed_files(base_sha: str, head_sha: str) -> list[str]:
     output = run("git", "diff", "--name-only", f"{base_sha}...{head_sha}")
     return [line.strip() for line in output.splitlines() if line.strip()]
@@ -569,5 +595,7 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(f"PR review failed safely: {exc}", file=sys.stderr)
+        note = failure_note(exc)
+        write_failure_note(exc)
+        print(f"PR review failed safely: {note}", file=sys.stderr)
         raise

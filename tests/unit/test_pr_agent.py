@@ -78,6 +78,20 @@ def test_validate_review_rejects_missing_required_fields() -> None:
         raise AssertionError("validate_review should fail closed on invalid schema")
 
 
+def test_failure_note_is_short_and_safe_for_known_failures() -> None:
+    module = load_review_module()
+
+    missing_key = module.failure_note(RuntimeError("NVIDIA_API_KEY repository secret is required."))
+    http_error = module.failure_note(RuntimeError("NVIDIA API returned HTTP 401: secret body"))
+    invalid_json = module.failure_note(
+        RuntimeError("NVIDIA response did not contain a JSON object.")
+    )
+
+    assert missing_key == "AI review failed: NVIDIA_API_KEY is missing."
+    assert http_error == "NVIDIA API returned HTTP 401."
+    assert invalid_json == "AI review failed: model response did not contain valid JSON."
+
+
 def test_validate_simplification_review_rejects_missing_required_fields() -> None:
     module = load_review_module()
 
