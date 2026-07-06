@@ -162,7 +162,7 @@ def validate_review(review: dict[str, Any]) -> dict[str, Any]:
 def validate_simplification_review(review: dict[str, Any]) -> dict[str, Any]:
     """Validate the Ponytail-derived simplification review schema."""
 
-    required_fields = {"summary", "opportunities", "net_lines_possible"}
+    required_fields = {"summary", "opportunities"}
     missing = required_fields - review.keys()
 
     if missing:
@@ -173,6 +173,7 @@ def validate_simplification_review(review: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("Simplification review summary must be a string.")
     if not isinstance(review["opportunities"], list):
         raise RuntimeError("Simplification review opportunities must be a list.")
+    review.setdefault("net_lines_possible", 0)
     if not isinstance(review["net_lines_possible"], int):
         raise RuntimeError("Simplification review net_lines_possible must be an integer.")
 

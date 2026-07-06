@@ -103,6 +103,19 @@ def test_validate_simplification_review_rejects_missing_required_fields() -> Non
         raise AssertionError("validate_simplification_review should fail closed")
 
 
+def test_validate_simplification_review_defaults_missing_line_count() -> None:
+    module = load_review_module()
+
+    review = module.validate_simplification_review(
+        {
+            "summary": "Lean already. Ship.",
+            "opportunities": [],
+        }
+    )
+
+    assert review["net_lines_possible"] == 0
+
+
 def test_render_markdown_includes_senior_simplification_review() -> None:
     module = load_review_module()
     review = {
