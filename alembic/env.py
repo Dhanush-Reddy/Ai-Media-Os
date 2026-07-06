@@ -35,6 +35,20 @@ def _compare_type(
     return None
 
 
+def _include_object(
+    object_: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object | None,
+) -> bool:
+    """Ignore migration backup tables that intentionally preserve downgrade data."""
+
+    if type_ == "table" and reflected and compare_to is None:
+        return not (name or "").startswith("migration_backup_")
+    return True
+
+
 def _enable_sqlite_pragmas(connection: object, _record: object) -> None:
     cursor = connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
@@ -49,6 +63,7 @@ def run_migrations_offline() -> None:
         url=settings.database_url,
         target_metadata=target_metadata,
         compare_type=_compare_type,
+        include_object=_include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -74,6 +89,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=_compare_type,
+            include_object=_include_object,
         )
 
         with context.begin_transaction():

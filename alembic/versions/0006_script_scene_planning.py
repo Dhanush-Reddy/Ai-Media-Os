@@ -49,6 +49,62 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Downgrade preserves data from columns removed by this migration in
+    # migration_backup_0006_scene_planning because scene plan data is historical
+    # and should not be silently destroyed.
+    connection = op.get_bind()
+    connection.execute(
+        sa.text(
+            """
+            CREATE TABLE IF NOT EXISTS migration_backup_0006_scene_planning (
+                scene_id VARCHAR(36) PRIMARY KEY,
+                video_project_id VARCHAR(36) NOT NULL,
+                scene_plan_version_id VARCHAR(36) NOT NULL,
+                scene_number INTEGER NOT NULL,
+                schema_version VARCHAR(20),
+                source_claim_ids JSON,
+                sound_effect VARCHAR(200),
+                negative_prompt TEXT,
+                visual_description TEXT,
+                start_seconds FLOAT,
+                backed_up_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    connection.execute(
+        sa.text(
+            """
+            INSERT OR REPLACE INTO migration_backup_0006_scene_planning (
+                scene_id,
+                video_project_id,
+                scene_plan_version_id,
+                scene_number,
+                schema_version,
+                source_claim_ids,
+                sound_effect,
+                negative_prompt,
+                visual_description,
+                start_seconds,
+                backed_up_at
+            )
+            SELECT
+                id,
+                video_project_id,
+                scene_plan_version_id,
+                scene_number,
+                schema_version,
+                source_claim_ids,
+                sound_effect,
+                negative_prompt,
+                visual_description,
+                start_seconds,
+                CURRENT_TIMESTAMP
+            FROM scenes
+            """
+        )
+    )
+
     with op.batch_alter_table("scenes") as batch:
         batch.drop_constraint("ck_scenes_visual_type", type_="check")
         batch.create_check_constraint(
