@@ -242,8 +242,13 @@ class RenderType(StringEnum):
 
 
 class RenderStatus(StringEnum):
+    PLANNED = "planned"
+    RENDERING = "rendering"
+    RENDERED = "rendered"
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     APPROVED = "approved"
+    REJECTED = "rejected"
+    CHANGES_REQUESTED = "changes_requested"

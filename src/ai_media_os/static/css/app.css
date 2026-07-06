@@ -300,6 +300,23 @@ pre {
   width: 100%;
 }
 
+.render-preview,
+.render-player {
+  background: #000000;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: block;
+  max-width: 100%;
+}
+
+.render-preview {
+  width: 220px;
+}
+
+.render-player {
+  width: 100%;
+}
+
 .timeline,
 .compact-list {
   list-style: none;

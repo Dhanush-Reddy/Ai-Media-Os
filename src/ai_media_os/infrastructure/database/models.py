@@ -630,6 +630,7 @@ class Render(Base):
         nullable=False,
         index=True,
     )
+    scene_plan_version_id: Mapped[str | None] = mapped_column(ForeignKey("content_versions.id"))
     render_type: Mapped[RenderType] = mapped_column(enum_column(RenderType), nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[RenderStatus] = mapped_column(
@@ -638,22 +639,44 @@ class Render(Base):
         default=RenderStatus.PENDING,
     )
     output_path: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(100))
+    provider_version: Mapped[str | None] = mapped_column(String(100))
+    content_hash: Mapped[str | None] = mapped_column(String(64))
     duration_seconds: Mapped[float | None]
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    fps: Mapped[int | None] = mapped_column(Integer)
+    format: Mapped[str | None] = mapped_column(String(20))
     resolution: Mapped[str | None] = mapped_column(String(50))
     file_size: Mapped[int | None] = mapped_column(Integer)
+    input_hashes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    settings: Mapped[JsonDict] = mapped_column(JSON, nullable=False, default=dict)
+    metadata_json: Mapped[JsonDict] = mapped_column("metadata", JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default=utc_now,
         nullable=False,
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     video_project: Mapped[VideoProject] = relationship(back_populates="renders")
+    scene_plan_version: Mapped[ContentVersion | None] = relationship()
 
     __table_args__ = (
         UniqueConstraint("video_project_id", "render_type", "version_number"),
         CheckConstraint("version_number > 0"),
         CheckConstraint("duration_seconds IS NULL OR duration_seconds > 0"),
         CheckConstraint("file_size IS NULL OR file_size >= 0"),
+        CheckConstraint("width IS NULL OR width > 0"),
+        CheckConstraint("height IS NULL OR height > 0"),
+        CheckConstraint("fps IS NULL OR fps > 0"),
     )
 
 

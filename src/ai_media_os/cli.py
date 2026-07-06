@@ -18,6 +18,11 @@ from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.prompt_templates import PromptTemplateService
+from ai_media_os.application.renders import (
+    RenderPlanningService,
+    RenderReviewService,
+    VideoCompositionService,
+)
 from ai_media_os.application.research import (
     ClaimService,
     ResearchNoteService,
@@ -33,6 +38,7 @@ from ai_media_os.domain.enums import (
     ClaimSupportType,
     ContentFormat,
     ContentType,
+    RenderStatus,
     ResearchNoteType,
     ResourceClass,
     SourceAuthorityTier,
@@ -45,6 +51,7 @@ from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
+from ai_media_os.workers.render_handlers import render_job_handlers
 from ai_media_os.workers.research_handlers import research_job_handlers
 from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
 
@@ -271,6 +278,36 @@ def build_parser() -> argparse.ArgumentParser:
     verify_asset = subcommands.add_parser("verify-asset-file")
     verify_asset.add_argument("asset_id")
 
+    plan_render = subcommands.add_parser("plan-render")
+    plan_render.add_argument("--project-id", required=True)
+    plan_render.add_argument("--scene-plan-version-id")
+    plan_render.add_argument("--width", type=int)
+    plan_render.add_argument("--height", type=int)
+    plan_render.add_argument("--fps", type=int)
+
+    compose_video = subcommands.add_parser("compose-video")
+    compose_video.add_argument("--project-id", required=True)
+    compose_video.add_argument("--render-id")
+
+    verify_render = subcommands.add_parser("verify-render")
+    verify_render.add_argument("--project-id")
+    verify_render.add_argument("--render-id")
+
+    list_renders = subcommands.add_parser("list-renders")
+    list_renders.add_argument("--project-id", required=True)
+
+    review_render = subcommands.add_parser("review-render")
+    review_render.add_argument("render_id")
+    review_render.add_argument(
+        "--status",
+        required=True,
+        choices=[
+            RenderStatus.APPROVED.value,
+            RenderStatus.REJECTED.value,
+            RenderStatus.CHANGES_REQUESTED.value,
+        ],
+    )
+
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
     dashboard.add_argument("--port", type=int)
@@ -308,7 +345,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{job.id}\t{job.status.value}\t{job.job_type}\t{job.claimed_by or ''}")
             return 0
         if args.command == "run-worker":
-            handlers = research_job_handlers() | script_scene_job_handlers() | asset_job_handlers()
+            handlers = (
+                research_job_handlers()
+                | script_scene_job_handlers()
+                | asset_job_handlers()
+                | render_job_handlers()
+            )
             worker = JobWorker(session, handlers=handlers, worker_id=args.worker_id)
             worker_result = worker.run_once()
             print(worker_result)
@@ -590,6 +632,49 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "verify-asset-file":
             verify_result = AssetReviewService(session).verify_asset_file(args.asset_id)
             print("OK" if verify_result.ok else f"FAIL:{verify_result.reason}")
+            return 0
+        if args.command == "plan-render":
+            render = RenderPlanningService(session).plan_render(
+                args.project_id,
+                scene_plan_version_id=args.scene_plan_version_id,
+                width=args.width,
+                height=args.height,
+                fps=args.fps,
+            )
+            print(render.id)
+            return 0
+        if args.command == "compose-video":
+            render = VideoCompositionService(session).compose_video(
+                args.project_id,
+                render_id=args.render_id,
+            )
+            print(render.id)
+            return 0
+        if args.command == "verify-render":
+            render_id = args.render_id
+            if render_id is None and args.project_id is not None:
+                renders = RenderReviewService(session).list_project_renders(args.project_id)
+                render_id = renders[0].id if renders else None
+            if render_id is None:
+                print("FAIL:missing-render")
+                return 1
+            render_verify_result = RenderReviewService(session).verify_render(render_id)
+            print("OK" if render_verify_result.ok else f"FAIL:{render_verify_result.reason}")
+            return 0 if render_verify_result.ok else 1
+        if args.command == "list-renders":
+            renders = RenderReviewService(session).list_project_renders(args.project_id)
+            for render in renders:
+                print(
+                    f"{render.id}\tv{render.version_number}\t{render.status.value}\t"
+                    f"{render.output_path}\t{render.content_hash or ''}"
+                )
+            return 0
+        if args.command == "review-render":
+            render = RenderReviewService(session).review_render(
+                args.render_id,
+                RenderStatus(args.status),
+            )
+            print(render.status.value)
             return 0
     return 1
 

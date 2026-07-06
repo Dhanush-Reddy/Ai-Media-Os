@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Renders · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Video Renders</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <article class="metric"><span>Total</span><strong>{{ renders.renders|length }}</strong></article>
+    <article class="metric success"><span>Rendered</span><strong>{{ renders.rendered_count }}</strong></article>
+    <article class="metric error"><span>Failed</span><strong>{{ renders.failed_count }}</strong></article>
+  </section>
+
+  <section class="panel">
+    <h2>Local Preview Renders</h2>
+    {% if renders.renders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Status</th>
+            <th>Output</th>
+            <th>Duration</th>
+            <th>Provider</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for render in renders.renders %}
+            <tr>
+              <td>v{{ render.version_number }}</td>
+              <td>
+                {{ render.status }}
+                {% if render.file_warning %}<br><span class="badge warning">{{ render.file_warning }}</span>{% endif %}
+              </td>
+              <td>
+                {% if render.preview_url %}
+                  <video class="render-preview" controls src="{{ render.preview_url }}"></video>
+                {% else %}
+                  <span class="muted">{{ render.output_path }}</span>
+                {% endif %}
+              </td>
+              <td>{% if render.duration_seconds %}{{ "%.2f"|format(render.duration_seconds) }} seconds{% else %}Unknown{% endif %}</td>
+              <td>{{ render.provider or "Not rendered" }}</td>
+              <td><a href="/projects/{{ project.id }}/renders/{{ render.id }}">Open</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No renders have been planned yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

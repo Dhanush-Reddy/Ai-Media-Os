@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 6:
+The current implementation covers Milestones 1 through 7:
 
 - Python project configuration
 - Environment-based settings
@@ -17,8 +17,9 @@ The current implementation covers Milestones 1 through 6:
 - Local FastAPI/Jinja operations dashboard for projects, research output, approvals, jobs, friendly status labels, derived progress, small HTMX-style polling fragments, and CSRF-protected form actions
 - Local deterministic script generation, fact-check reports, strict scene-plan validation, scene storage, script/scene dashboard views, and queue-compatible handlers
 - Provider-neutral image and voice interfaces, deterministic fake image and voice providers, manual image/audio import, per-scene asset planning, cache reuse, asset review statuses, asset dashboard visibility, and asset workflow/CLI handlers
+- Provider-neutral video composition, local FFmpeg preview rendering when FFmpeg is installed, render planning and verification, render review statuses, render dashboard visibility, and render workflow/CLI handlers
 
-The next planned task is Milestone 7. Do not begin FFmpeg rendering, thumbnail generation, Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
+The next planned task is Milestone 8. Do not begin thumbnail generation, Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
 
 ## Setup
 
@@ -108,6 +109,27 @@ python -m ai_media_os.web
 
 Then visit `http://127.0.0.1:8000/projects/{project_id}/assets`.
 
+## Local Render Demo
+
+After the local asset demo has produced one image and one narration asset for every scene in an approved scene plan, Milestone 7 can plan and compose a local preview render.
+
+FFmpeg must be installed and available as `ffmpeg`, or configured with `AI_MEDIA_OS_FFMPEG_PATH`. FFprobe is optional and can be configured with `AI_MEDIA_OS_FFPROBE_PATH`.
+
+```powershell
+$PROJECT_ID = "existing-project-id"
+$SCENE_PLAN_VERSION_ID = "approved-scene-plan-version-id"
+
+python -m ai_media_os.cli plan-render --project-id $PROJECT_ID --scene-plan-version-id $SCENE_PLAN_VERSION_ID
+python -m ai_media_os.cli compose-video --project-id $PROJECT_ID
+python -m ai_media_os.cli list-renders --project-id $PROJECT_ID
+python -m ai_media_os.cli verify-render --project-id $PROJECT_ID
+python -m ai_media_os.web
+```
+
+The render output is written under `data/projects/{project_id}/renders/render_v001.mp4` and is visible at `http://127.0.0.1:8000/projects/{project_id}/renders`.
+
+If FFmpeg is missing, `compose-video` fails with a clear message and stores the render error. Tests use a fake video composer, but production CLI composition does not silently create fake MP4 output.
+
 ## Verification
 
 ```bash
@@ -120,6 +142,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, FFmpeg rendering, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
+This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, thumbnail generation, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
 
 The planned Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`; it is not implemented yet.

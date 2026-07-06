@@ -29,7 +29,7 @@ from ai_media_os.dashboard.security import (
 )
 from ai_media_os.domain.enums import AssetReviewStatus, AssetType
 from ai_media_os.domain.job_queue import QueueError
-from ai_media_os.infrastructure.database.models import Asset
+from ai_media_os.infrastructure.database.models import Asset, Render
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
 from ai_media_os.storage.filesystem import FileStorage, StorageError
@@ -135,6 +135,7 @@ def project_detail(
     context["script"] = queries.script_view(project)
     context["scene_plan"] = queries.scene_plan_view(project)
     context["assets"] = queries.asset_view(project)
+    context["renders"] = queries.render_view(project)
     return templates.TemplateResponse(request, "dashboard/project_detail.html", context)
 
 
@@ -211,6 +212,44 @@ def project_assets(
     return templates.TemplateResponse(request, "dashboard/assets.html", context)
 
 
+@router.get("/projects/{project_id}/renders", response_class=HTMLResponse)
+def project_renders(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["renders"] = queries.render_view(project)
+    return templates.TemplateResponse(request, "dashboard/renders.html", context)
+
+
+@router.get("/projects/{project_id}/renders/{render_id}", response_class=HTMLResponse)
+def render_detail(
+    request: Request,
+    project_id: str,
+    render_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    render = session.get(Render, render_id)
+    if project is None or render is None or render.video_project_id != project_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["render"] = queries.render_item(render)
+    return templates.TemplateResponse(request, "dashboard/render_detail.html", context)
+
+
 @router.get("/assets/{asset_id}/preview")
 def asset_preview(
     request: Request,
@@ -234,6 +273,27 @@ def asset_preview(
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return FileResponse(path, media_type=asset.mime_type or "image/png")
+
+
+@router.get("/renders/{render_id}/preview")
+def render_preview(
+    request: Request,
+    render_id: str,
+    session: DashboardSession,
+) -> FileResponse:
+    render = session.get(Render, render_id)
+    if render is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        path = FileStorage(request_settings(request)).resolve_inside(
+            request_settings(request).data_dir.resolve(),
+            render.output_path,
+        )
+    except StorageError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
+    if not path.exists() or path.suffix.lower() != ".mp4":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return FileResponse(path, media_type="video/mp4")
 
 
 @router.post("/assets/{asset_id}/{action}")

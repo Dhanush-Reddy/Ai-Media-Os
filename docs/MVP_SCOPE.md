@@ -540,14 +540,28 @@ Fields:
 
 * id
 * video_project_id
+* scene_plan_version_id
 * render_type
 * version_number
 * status
 * output_path
+* provider
+* provider_version
+* content_hash
 * duration_seconds
+* width
+* height
+* fps
+* format
 * resolution
 * file_size
+* input_hashes
+* settings
+* metadata
+* error_message
 * created_at
+* updated_at
+* completed_at
 
 Possible render types:
 
@@ -884,7 +898,7 @@ Deliverables:
 * Asset metadata
 * Cache integration
 
-Status: implemented as a local provider foundation. Real ComfyUI, real TTS, FFmpeg rendering, thumbnails, publishing, analytics, Shorts, Telegram, and Content Safety implementation remain deferred.
+Status: implemented as a local provider foundation. Real ComfyUI, real TTS, thumbnails, publishing, analytics, Shorts, Telegram, and Content Safety implementation remain deferred.
 
 ---
 
@@ -901,6 +915,8 @@ Deliverables:
 * Preview rendering
 * Final rendering
 * Quality checks
+
+Status: partially implemented as a local preview render foundation. Render planning, FFmpeg-backed preview composition, render verification, CLI commands, queue handlers, migration metadata, and dashboard render visibility are implemented. Subtitle generation, thumbnail generation, advanced motion effects, and final publishing gates remain deferred.
 
 ---
 

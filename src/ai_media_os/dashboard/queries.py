@@ -34,6 +34,8 @@ from ai_media_os.dashboard.view_models import (
     JsonDict,
     MetricCard,
     ProjectListItem,
+    RenderItem,
+    RenderView,
     ResearchView,
     SceneItem,
     ScenePlanView,
@@ -61,6 +63,7 @@ from ai_media_os.infrastructure.database.models import (
     Claim,
     ContentVersion,
     Job,
+    Render,
     Scene,
     Source,
     VideoProject,
@@ -149,6 +152,7 @@ class DashboardQueries:
                 selectinload(VideoProject.content_versions),
                 selectinload(VideoProject.scenes),
                 selectinload(VideoProject.assets).selectinload(Asset.scene),
+                selectinload(VideoProject.renders),
             )
         )
 
@@ -351,6 +355,51 @@ class DashboardQueries:
             file_warning=warning,
             preview_url=preview_url,
             next_action=next_action,
+        )
+
+    def render_view(self, project: VideoProject) -> RenderView:
+        renders = [
+            self.render_item(render) for render in sorted(project.renders, key=_render_sort_key)
+        ]
+        return RenderView(
+            renders=renders,
+            latest=renders[0] if renders else None,
+            rendered_count=sum(
+                item.status in {"Rendered", "Completed", "Approved"} for item in renders
+            ),
+            failed_count=sum(item.status == "Failed" for item in renders),
+        )
+
+    def render_item(self, render: Render) -> RenderItem:
+        has_file = False
+        warning: str | None = None
+        if render.output_path:
+            try:
+                path = self.settings.data_dir.resolve() / render.output_path
+                has_file = path.exists()
+                if not has_file:
+                    warning = "Missing file"
+            except OSError:
+                warning = "File cannot be checked"
+        else:
+            warning = "No output path"
+        return RenderItem(
+            id=render.id,
+            version_number=render.version_number,
+            status=render.status.value.replace("_", " ").title(),
+            provider=render.provider,
+            output_path=f"render_v{render.version_number:03d}.mp4",
+            content_hash=render.content_hash,
+            duration_seconds=render.duration_seconds,
+            width=render.width,
+            height=render.height,
+            fps=render.fps,
+            file_size=render.file_size,
+            has_file=has_file,
+            file_warning=warning,
+            preview_url=f"/renders/{render.id}/preview" if has_file else None,
+            error_message=render.error_message,
+            created_at=self.display_time(render.created_at),
         )
 
     def source_summary(self, sources: list[Source]) -> SourceSummary:
@@ -665,3 +714,7 @@ def source_authority_display(source: Source) -> str:
 def _asset_sort_key(asset: Asset) -> tuple[int, str, datetime]:
     scene_number = asset.scene.scene_number if asset.scene is not None else 0
     return (scene_number, asset.asset_role.value, asset.created_at)
+
+
+def _render_sort_key(render: Render) -> tuple[int, datetime]:
+    return (-render.version_number, render.created_at)

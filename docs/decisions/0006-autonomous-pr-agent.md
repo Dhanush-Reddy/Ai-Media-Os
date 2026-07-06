@@ -44,8 +44,10 @@ the coding-agent instruction source.
 - GitHub must be configured with `NVIDIA_API_KEY`, workflow write permissions,
   branch protection, and required checks before automation can operate.
 - Contributors must open pull requests manually from feature branches.
-- AI review and simplification-review failures fail closed and prevent
-  autonomous merging.
+- Main AI review failures fail closed and prevent autonomous merging.
+- Simplification-review failures are reported in the PR comment as an advisory
+  unavailable note because they must not override correctness, security,
+  migration, or quality-gate results.
 - The default NVIDIA endpoint is `https://integrate.api.nvidia.com/v1`, and the
   model is configurable through `NVIDIA_MODEL`.
 - The simplification pass is advisory for merge decisions: it reports senior

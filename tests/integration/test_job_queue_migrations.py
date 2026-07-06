@@ -18,6 +18,11 @@ ASSET_BACKUP_SELECT = text(
     "SELECT * FROM migration_backup_0007_asset_metadata WHERE asset_id = 'asset-1'"
 )
 ASSET_BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0007_asset_metadata")
+RENDER_BACKUP_TABLE = "migration_backup_0008_render_metadata"
+RENDER_BACKUP_SELECT = text(
+    "SELECT * FROM migration_backup_0008_render_metadata WHERE render_id = 'render-1'"
+)
+RENDER_BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0008_render_metadata")
 
 
 def test_job_queue_migration_upgrade_downgrade_upgrade(
@@ -141,7 +146,7 @@ def test_asset_metadata_downgrade_preserves_removed_column_data(
     _insert_scene_planning_row(engine)
     _insert_asset_metadata_row(engine)
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0006_script_scene_planning")
 
     with engine.connect() as connection:
         asset = (
@@ -183,7 +188,7 @@ def test_asset_metadata_downgrade_reupgrade_and_check_are_safe(
     engine = sa.create_engine(f"sqlite:///{database_path}")
     _insert_scene_planning_row(engine)
     _insert_asset_metadata_row(engine)
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0006_script_scene_planning")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
@@ -208,12 +213,106 @@ def test_asset_metadata_downgrade_creates_empty_backup_table(
 
     command.upgrade(config, "head")
     engine = sa.create_engine(f"sqlite:///{database_path}")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0006_script_scene_planning")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
         assert ASSET_BACKUP_TABLE in inspector.get_table_names()
         assert connection.execute(ASSET_BACKUP_COUNT).scalar_one() == 0
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_render_metadata_downgrade_preserves_removed_column_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "render-metadata-downgrade.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_render_metadata_row(engine)
+
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        render = (
+            connection.execute(text("SELECT id, status FROM renders WHERE id = 'render-1'"))
+            .mappings()
+            .one()
+        )
+        backup = connection.execute(RENDER_BACKUP_SELECT).mappings().one()
+
+    assert render["status"] == "completed"
+    assert backup["scene_plan_version_id"] == "scene-plan-version-1"
+    assert backup["provider"] == "fake_video_composer"
+    assert backup["provider_version"] == "v1"
+    assert backup["content_hash"] == "c" * 64
+    assert backup["width"] == 1280
+    assert backup["height"] == 720
+    assert backup["fps"] == 24
+    assert backup["format"] == "mp4"
+    assert backup["input_hashes"] == '["image-hash", "audio-hash"]'
+    assert backup["settings"] == '{"provider": "fake_video_composer"}'
+    assert backup["metadata"] == '{"scene_count": 1}'
+    assert backup["error_message"] == "diagnostic"
+    assert backup["updated_at"] is not None
+    assert backup["completed_at"] is not None
+    assert backup["backed_up_at"] is not None
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_render_metadata_downgrade_reupgrade_and_check_are_safe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "render-metadata-cycle.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_render_metadata_row(engine)
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert RENDER_BACKUP_TABLE in inspector.get_table_names()
+        assert connection.execute(RENDER_BACKUP_COUNT).scalar_one() == 1
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_render_metadata_downgrade_creates_empty_backup_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "render-metadata-empty.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    command.downgrade(config, "-1")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert RENDER_BACKUP_TABLE in inspector.get_table_names()
+        assert connection.execute(RENDER_BACKUP_COUNT).scalar_one() == 0
 
     engine.dispose()
     get_settings.cache_clear()
@@ -407,6 +506,68 @@ def _insert_asset_metadata_row(engine: sa.Engine) -> None:
                     'approved',
                     '{"placeholder": true}',
                     'SAFE',
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+
+
+def _insert_render_metadata_row(engine: sa.Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO renders (
+                    id,
+                    video_project_id,
+                    scene_plan_version_id,
+                    render_type,
+                    version_number,
+                    status,
+                    output_path,
+                    provider,
+                    provider_version,
+                    content_hash,
+                    duration_seconds,
+                    width,
+                    height,
+                    fps,
+                    format,
+                    resolution,
+                    file_size,
+                    input_hashes,
+                    settings,
+                    metadata,
+                    error_message,
+                    created_at,
+                    updated_at,
+                    completed_at
+                )
+                VALUES (
+                    'render-1',
+                    'project-1',
+                    'scene-plan-version-1',
+                    'preview',
+                    1,
+                    'rendered',
+                    'projects/project-1/renders/render_v001.mp4',
+                    'fake_video_composer',
+                    'v1',
+                    'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+                    12.25,
+                    1280,
+                    720,
+                    24,
+                    'mp4',
+                    '1280x720',
+                    2048,
+                    '["image-hash", "audio-hash"]',
+                    '{"provider": "fake_video_composer"}',
+                    '{"scene_count": 1}',
+                    'diagnostic',
+                    CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP
                 )
