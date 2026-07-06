@@ -60,6 +60,30 @@ def write_failure_note(exc: Exception) -> None:
     (OUTPUT_DIR / "failure-note.txt").write_text(failure_note(exc) + "\n", encoding="utf-8")
 
 
+def simplification_failure_note(exc: Exception) -> str:
+    message = str(exc).strip() or exc.__class__.__name__
+    if message.startswith("NVIDIA simplification review returned HTTP"):
+        return message.split(":", maxsplit=1)[0] + "."
+    if message.startswith("Unable to reach NVIDIA simplification review"):
+        return message
+    if "did not contain assistant content" in message:
+        return "NVIDIA simplification review did not contain assistant content."
+    if "did not contain a JSON object" in message:
+        return "NVIDIA simplification review did not contain valid JSON."
+    if "missing required fields" in message:
+        return "NVIDIA simplification review did not match the required schema."
+    return f"NVIDIA simplification review failed: {message[:160]}"
+
+
+def unavailable_simplification_review(exc: Exception) -> dict[str, Any]:
+    return {
+        "summary": "Simplification review unavailable.",
+        "opportunities": [],
+        "net_lines_possible": 0,
+        "unavailable_reason": simplification_failure_note(exc),
+    }
+
+
 def changed_files(base_sha: str, head_sha: str) -> list[str]:
     output = run("git", "diff", "--name-only", f"{base_sha}...{head_sha}")
     return [line.strip() for line in output.splitlines() if line.strip()]
@@ -454,6 +478,16 @@ def render_simplification_markdown(review: dict[str, Any], source_url: str) -> l
         "",
     ]
 
+    if review.get("unavailable_reason"):
+        lines.extend(
+            [
+                f"- Short note: {review['unavailable_reason']}",
+                "- This advisory pass was skipped, but the main correctness and "
+                "security review still ran.",
+            ]
+        )
+        return lines
+
     opportunities = review.get("opportunities", [])
     if opportunities:
         for opportunity in opportunities:
@@ -605,12 +639,15 @@ Diff:
 
     simplification_review = None
     if simplification_config.get("enabled", False):
-        simplification_review = call_nvidia_simplification_review(
-            prompt=simplification_prompt,
-            api_key=api_key,
-            model=model,
-            base_url=base_url,
-        )
+        try:
+            simplification_review = call_nvidia_simplification_review(
+                prompt=simplification_prompt,
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+            )
+        except Exception as exc:
+            simplification_review = unavailable_simplification_review(exc)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUTPUT_DIR / "review.json").write_text(

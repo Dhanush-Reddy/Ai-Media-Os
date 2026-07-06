@@ -20,7 +20,7 @@
     "source": "DietrichGebert/ponytail",
     "source_url": "https://github.com/DietrichGebert/ponytail",
     "skill": "ponytail-review",
-    "mode": "advisory_fail_closed",
+    "mode": "advisory_warn_on_unavailable",
     "rules": [
       "Review only unnecessary complexity and over-engineering.",
       "Find code that can be deleted, replaced by the standard library, replaced by native platform features, or meaningfully shortened.",

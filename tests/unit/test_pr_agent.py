@@ -116,6 +116,50 @@ def test_validate_simplification_review_defaults_missing_line_count() -> None:
     assert review["net_lines_possible"] == 0
 
 
+def test_unavailable_simplification_review_preserves_short_note() -> None:
+    module = load_review_module()
+
+    review = module.unavailable_simplification_review(
+        RuntimeError("NVIDIA simplification review did not contain assistant content.")
+    )
+
+    assert review["summary"] == "Simplification review unavailable."
+    assert review["opportunities"] == []
+    assert review["net_lines_possible"] == 0
+    assert (
+        review["unavailable_reason"]
+        == "NVIDIA simplification review did not contain assistant content."
+    )
+
+
+def test_render_markdown_shows_unavailable_simplification_note() -> None:
+    module = load_review_module()
+    review = {
+        "decision": "approve",
+        "risk": "low",
+        "summary": "Looks safe.",
+        "findings": [],
+        "tests_to_add": [],
+    }
+    simplification_review = {
+        "summary": "Simplification review unavailable.",
+        "opportunities": [],
+        "net_lines_possible": 0,
+        "unavailable_reason": "NVIDIA simplification review did not contain assistant content.",
+    }
+
+    markdown = module.render_markdown(
+        review,
+        ["src/example.py"],
+        simplification_review,
+        "https://github.com/DietrichGebert/ponytail",
+    )
+
+    assert "Simplification review unavailable." in markdown
+    assert "Short note: NVIDIA simplification review did not contain assistant content." in markdown
+    assert "main correctness and security review still ran" in markdown
+
+
 def test_render_markdown_includes_senior_simplification_review() -> None:
     module = load_review_module()
     review = {

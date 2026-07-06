@@ -61,16 +61,17 @@ python -m alembic check
 ## Safety Notes
 
 The reviewer fails closed when the API key is missing, the NVIDIA API is
-unavailable, the AI review blocks, the simplification pass cannot produce a
-valid report, or quality checks fail. Every PR gets a review summary comment
-before the AI decision is enforced.
+unavailable for the main AI review, the AI review blocks, or quality checks
+fail. Every PR gets a review summary comment before the AI decision is enforced.
 
 The simplification pass is based on Ponytail's `ponytail-review` guidance from
 `https://github.com/DietrichGebert/ponytail`. It is advisory for merge decisions
 but still required to complete successfully. Its job is to identify meaningful
 places where a senior developer would delete code, reuse the standard library,
 prefer native platform behavior, avoid speculative abstractions, or shrink the
-diff without weakening safety.
+diff without weakening safety. If this advisory pass returns an empty or invalid
+response, the PR comment records a short unavailable note while the main
+correctness and security review remains authoritative.
 
 High-risk and critical changes are still labeled in the review comment, but they
 can merge automatically when the NVIDIA reviewer explicitly approves them. Pull
