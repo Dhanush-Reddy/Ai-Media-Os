@@ -88,16 +88,6 @@ class ManualImageProvider:
     model_version = "v1"
 
 
-class LocalImageProvider:
-    provider_name = "local_image"
-    model_name = "local-adapter-placeholder"
-    model_version = "v1"
-
-    def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
-        msg = "Local image generation adapter is not implemented in Milestone 6."
-        raise NotImplementedError(msg)
-
-
 def _solid_png(width: int, height: int, color: tuple[int, int, int]) -> bytes:
     signature = b"\x89PNG\r\n\x1a\n"
     raw = b"".join(b"\x00" + bytes(color) * width for _ in range(height))
