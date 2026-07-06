@@ -85,16 +85,6 @@ class ManualAudioProvider:
     model_version = "v1"
 
 
-class LocalTTSProvider:
-    provider_name = "local_tts"
-    model_name = "local-adapter-placeholder"
-    model_version = "v1"
-
-    def synthesize(self, request: VoiceGenerationRequest) -> VoiceGenerationResult:
-        msg = "Local TTS adapter is not implemented in Milestone 6."
-        raise NotImplementedError(msg)
-
-
 def _tone_wav(duration_seconds: float, frequency: int) -> bytes:
     sample_rate = 8000
     sample_count = int(sample_rate * duration_seconds)
