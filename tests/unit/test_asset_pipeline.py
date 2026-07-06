@@ -153,6 +153,20 @@ def test_fake_image_and_voice_providers_are_deterministic() -> None:
     )
 
 
+def test_removed_placeholder_provider_names_are_not_internal_contracts() -> None:
+    source_root = Path(__file__).resolve().parents[2] / "src" / "ai_media_os"
+    removed_names = {"LocalImageProvider", "LocalTTSProvider"}
+    matches: list[str] = []
+
+    for source_path in source_root.rglob("*.py"):
+        source_text = source_path.read_text(encoding="utf-8")
+        for removed_name in removed_names:
+            if removed_name in source_text:
+                matches.append(f"{source_path.relative_to(source_root)}:{removed_name}")
+
+    assert matches == []
+
+
 def test_asset_planning_is_idempotent_and_links_scene(
     session: Session,
     settings: AppSettings,
