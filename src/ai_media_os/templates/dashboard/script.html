@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Script · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Script</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Status</h2>
+      {% if script.script_status %}
+        <p><strong>Version:</strong> v{{ script.script_version_number }}</p>
+        <p><strong>Status:</strong> {{ script.script_status|replace("_", " ")|title }}</p>
+      {% else %}
+        <p class="empty">No script has been generated yet.</p>
+      {% endif %}
+      {% if script.older_script_versions %}
+        <p><strong>Older versions:</strong> {{ script.older_script_versions|join(", ") }}</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Fact Check</h2>
+      {% if script.latest_fact_check %}
+        <dl class="counts vertical">
+          <div>
+            <dt>Verified claims mentioned</dt>
+            <dd>{{ script.latest_fact_check.verified_claims_mentioned|length }}</dd>
+          </div>
+          <div>
+            <dt>Unverified claims mentioned</dt>
+            <dd>{{ script.latest_fact_check.unverified_claims_mentioned|length }}</dd>
+          </div>
+          <div>
+            <dt>Missing anchors</dt>
+            <dd>{{ script.latest_fact_check.missing_research_anchors|length }}</dd>
+          </div>
+        </dl>
+      {% else %}
+        <p class="empty">No fact-check report is available yet.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Preview</h2>
+    {% if script.latest_script_html %}
+      <div class="markdown">{{ script.latest_script_html|safe }}</div>
+    {% else %}
+      <p class="empty">Generate a script to preview it here.</p>
+    {% endif %}
+  </section>
+{% endblock %}

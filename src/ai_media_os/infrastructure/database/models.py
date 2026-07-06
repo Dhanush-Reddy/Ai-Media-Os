@@ -355,13 +355,19 @@ class Scene(Base):
         index=True,
     )
     scene_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_seconds: Mapped[float | None]
     narration: Mapped[str] = mapped_column(Text, nullable=False)
     duration_seconds: Mapped[float] = mapped_column(nullable=False)
     visual_type: Mapped[VisualType] = mapped_column(enum_column(VisualType), nullable=False)
+    visual_description: Mapped[str | None] = mapped_column(Text)
     image_prompt: Mapped[str | None] = mapped_column(Text)
+    negative_prompt: Mapped[str | None] = mapped_column(Text)
     camera_motion: Mapped[str | None] = mapped_column(String(100))
     transition: Mapped[str | None] = mapped_column(String(100))
     caption_style: Mapped[str | None] = mapped_column(String(100))
+    sound_effect: Mapped[str | None] = mapped_column(String(200))
+    source_claim_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    schema_version: Mapped[str] = mapped_column(String(20), nullable=False, default="1.0")
     status: Mapped[SceneStatus] = mapped_column(
         enum_column(SceneStatus),
         nullable=False,
@@ -375,6 +381,7 @@ class Scene(Base):
     __table_args__ = (
         UniqueConstraint("scene_plan_version_id", "scene_number"),
         CheckConstraint("scene_number > 0"),
+        CheckConstraint("start_seconds IS NULL OR start_seconds >= 0"),
         CheckConstraint("duration_seconds > 0"),
         CheckConstraint("length(trim(narration)) > 0"),
     )

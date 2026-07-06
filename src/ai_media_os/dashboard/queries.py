@@ -1,6 +1,7 @@
 """Read/query services for the local operations dashboard."""
 
 from collections import Counter
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,9 +29,13 @@ from ai_media_os.dashboard.view_models import (
     DashboardHome,
     JobGroups,
     JobItem,
+    JsonDict,
     MetricCard,
     ProjectListItem,
     ResearchView,
+    SceneItem,
+    ScenePlanView,
+    ScriptView,
     SourceSummary,
     StageStatus,
 )
@@ -51,6 +56,7 @@ from ai_media_os.infrastructure.database.models import (
     Claim,
     ContentVersion,
     Job,
+    Scene,
     Source,
     VideoProject,
     WorkflowInstance,
@@ -136,6 +142,7 @@ class DashboardQueries:
                 selectinload(VideoProject.approvals).selectinload(Approval.content_version),
                 selectinload(VideoProject.jobs),
                 selectinload(VideoProject.content_versions),
+                selectinload(VideoProject.scenes),
             )
         )
 
@@ -207,6 +214,80 @@ class DashboardQueries:
             latest_source_report=self.report_content(latest_report),
             older_brief_versions=brief_versions[1:],
             older_source_report_versions=report_versions[1:],
+        )
+
+    def script_view(self, project: VideoProject) -> ScriptView:
+        versions = list(project.content_versions)
+        latest_script = self.latest_version(versions, ContentType.SCRIPT)
+        latest_fact_check = self.latest_version(versions, ContentType.FACT_CHECK_REPORT)
+        quality_result: JsonDict | None = None
+        if latest_fact_check is not None:
+            fact_check = self.report_content(latest_fact_check)
+            latest_fact_check_data = fact_check if isinstance(fact_check, dict) else None
+        else:
+            latest_fact_check_data = None
+        if latest_fact_check_data is not None:
+            quality_result = {
+                "passed": latest_fact_check_data.get("passed"),
+                "unverified_claims": latest_fact_check_data.get("unverified_claims_mentioned", []),
+                "missing_anchors": latest_fact_check_data.get("missing_research_anchors", []),
+            }
+        return ScriptView(
+            latest_script_html=(
+                render_safe_markdown(latest_script.content) if latest_script is not None else None
+            ),
+            script_status=latest_script.status.value if latest_script is not None else None,
+            script_version_number=(
+                latest_script.version_number if latest_script is not None else None
+            ),
+            latest_fact_check=latest_fact_check_data,
+            quality_result=quality_result,
+            older_script_versions=self.version_labels(versions, ContentType.SCRIPT)[1:],
+        )
+
+    def scene_plan_view(self, project: VideoProject) -> ScenePlanView:
+        versions = list(project.content_versions)
+        latest_plan = self.latest_version(versions, ContentType.SCENE_PLAN)
+        scenes = sorted(
+            [
+                scene
+                for scene in project.scenes
+                if latest_plan is not None and scene.scene_plan_version_id == latest_plan.id
+            ],
+            key=lambda item: item.scene_number,
+        )
+        plan_data = self.report_content(latest_plan)
+        quality_notes: list[str] = []
+        total_duration_seconds: float | None = None
+        if isinstance(plan_data, dict):
+            raw_quality_notes = plan_data.get("quality_notes", [])
+            if isinstance(raw_quality_notes, Sequence) and not isinstance(raw_quality_notes, str):
+                quality_notes = [str(item) for item in raw_quality_notes if item is not None]
+            total_value = plan_data.get("total_duration_seconds")
+            if isinstance(total_value, int | float | str):
+                total_duration_seconds = float(total_value)
+        return ScenePlanView(
+            scene_plan_status=latest_plan.status.value if latest_plan is not None else None,
+            scene_plan_version_number=latest_plan.version_number
+            if latest_plan is not None
+            else None,
+            total_duration_seconds=total_duration_seconds,
+            scene_count=len(scenes),
+            quality_notes=quality_notes,
+            scenes=[self.scene_item(scene) for scene in scenes],
+            older_scene_plan_versions=self.version_labels(versions, ContentType.SCENE_PLAN)[1:],
+        )
+
+    def scene_item(self, scene: Scene) -> SceneItem:
+        return SceneItem(
+            scene_number=scene.scene_number,
+            start_seconds=scene.start_seconds,
+            duration_seconds=scene.duration_seconds,
+            visual_type=scene.visual_type.value.replace("_", " ").title(),
+            narration=scene.narration,
+            visual_description=scene.visual_description,
+            image_prompt=scene.image_prompt,
+            source_claim_ids=scene.source_claim_ids,
         )
 
     def source_summary(self, sources: list[Source]) -> SourceSummary:

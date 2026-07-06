@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Scenes · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Scenes</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/script">Script</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Scene Plan</h2>
+    {% if scene_plan.scene_plan_status %}
+      <p>
+        v{{ scene_plan.scene_plan_version_number }} ·
+        {{ scene_plan.scene_plan_status|replace("_", " ")|title }} ·
+        {{ scene_plan.scene_count }} scenes
+      </p>
+      {% if scene_plan.quality_notes %}
+        <ul class="compact-list">
+          {% for note in scene_plan.quality_notes %}
+            <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p class="empty">No scene plan has been generated yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Scene Breakdown</h2>
+    {% if scene_plan.scenes %}
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timing</th>
+            <th>Narration</th>
+            <th>Visual</th>
+            <th>Prompt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scene in scene_plan.scenes %}
+            <tr>
+              <td>{{ scene.scene_number }}</td>
+              <td>{{ "%.1f"|format(scene.start_seconds or 0) }}s / {{ "%.1f"|format(scene.duration_seconds) }}s</td>
+              <td>{{ scene.narration }}</td>
+              <td>
+                <strong>{{ scene.visual_type }}</strong>
+                {% if scene.visual_description %}
+                  <p>{{ scene.visual_description }}</p>
+                {% endif %}
+              </td>
+              <td>{{ scene.image_prompt or "" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No scenes are available yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

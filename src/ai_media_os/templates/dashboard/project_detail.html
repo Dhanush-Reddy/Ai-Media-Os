@@ -8,6 +8,8 @@
     </div>
     <div class="actions">
       <a class="button" href="/projects/{{ project.id }}/research">Research</a>
+      <a class="button" href="/projects/{{ project.id }}/script">Script</a>
+      <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
       <a class="button" href="/projects">All Projects</a>
     </div>
   </section>
@@ -41,6 +43,25 @@
         <p>Latest source report is available.</p>
       {% else %}
         <p class="empty">No source report has been generated yet.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Script</h2>
+      {% if script.latest_script_html %}
+        <p>Script v{{ script.script_version_number }} is {{ script.script_status|replace("_", " ") }}.</p>
+      {% else %}
+        <p class="empty">No script has been generated yet.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Scene Plan</h2>
+      {% if scene_plan.scene_count %}
+        <p>{{ scene_plan.scene_count }} scenes planned{% if scene_plan.total_duration_seconds %} across {{ "%.0f"|format(scene_plan.total_duration_seconds) }} seconds{% endif %}.</p>
+      {% else %}
+        <p class="empty">No scene plan has been generated yet.</p>
       {% endif %}
     </article>
   </section>

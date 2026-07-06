@@ -143,8 +143,11 @@ class VisualType(StringEnum):
     LICENSED_IMAGE = "licensed_image"
     SCREENSHOT = "screenshot"
     CHART = "chart"
+    DIAGRAM = "diagram"
     TEXT_GRAPHIC = "text_graphic"
     B_ROLL = "b_roll"
+    REUSABLE_ASSET = "reusable_asset"
+    PLACEHOLDER = "placeholder"
 
 
 class AssetType(StringEnum):
