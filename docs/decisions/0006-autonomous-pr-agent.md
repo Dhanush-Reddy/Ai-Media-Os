@@ -13,10 +13,10 @@ dependencies to the application or require paid services for local development.
 
 ## Decision
 
-Add GitHub Actions workflows that create pull requests from non-protected
-branches, run the project verification commands, request an NVIDIA NIM AI
-review, post a review summary comment, and enable squash auto-merge when the AI
-review returns an explicit approval.
+Add a GitHub Actions workflow that runs the project verification commands on
+manually opened pull requests, requests an NVIDIA NIM AI review, posts a review
+summary comment, and enables squash auto-merge when the AI review returns an
+explicit approval.
 
 The review policy is stored in `config/pr-review-rules.json`, and the review
 script is stored in `scripts/review_pull_request.py`. The project root
@@ -24,7 +24,8 @@ script is stored in `scripts/review_pull_request.py`. The project root
 
 ## Alternatives Considered
 
-- Manual-only pull requests: simpler, but less consistent and slower to review.
+- Automatic branch-to-PR creation: convenient, but rejected because some
+  repositories disallow GitHub Actions from creating pull requests.
 - Fully autonomous direct pushes to `main`: rejected because it bypasses branch
   protection and human control for risky changes.
 - Blocking high and critical PRs from auto-merge: safer, but rejected because
@@ -36,6 +37,7 @@ script is stored in `scripts/review_pull_request.py`. The project root
 
 - GitHub must be configured with `NVIDIA_API_KEY`, workflow write permissions,
   branch protection, and required checks before automation can operate.
+- Contributors must open pull requests manually from feature branches.
 - AI review failures fail closed and prevent autonomous merging.
 - The default NVIDIA endpoint is `https://integrate.api.nvidia.com/v1`, and the
   model is configurable through `NVIDIA_MODEL`.

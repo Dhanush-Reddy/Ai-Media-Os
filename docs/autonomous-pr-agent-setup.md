@@ -1,12 +1,11 @@
 # Autonomous PR Agent Setup
 
-This repository includes GitHub Actions automation for branch-to-PR creation,
-quality gates, AI pull-request review, and squash auto-merge when the AI review
-returns an explicit approval.
+This repository includes GitHub Actions automation for quality gates, AI
+pull-request review, and squash auto-merge when the AI review returns an
+explicit approval. Pull requests are opened manually from feature branches.
 
 ## Installed Files
 
-- `.github/workflows/auto-create-pr.yml`
 - `.github/workflows/autonomous-pr-agent.yml`
 - `config/pr-review-rules.json`
 - `scripts/review_pull_request.py`
@@ -29,8 +28,7 @@ Enable these repository settings:
 
 - Allow squash merging
 - Allow auto-merge
-- Allow GitHub Actions to create and approve pull requests
-- Read and write workflow permissions
+- Set workflow permissions to read and write
 
 Protect `main` with:
 
@@ -65,10 +63,10 @@ The reviewer fails closed when the API key is missing, the NVIDIA API is
 unavailable, the AI review blocks, or quality checks fail. Every PR gets a
 review summary comment before the AI decision is enforced.
 
-High-risk and critical changes are still labeled in the review comment, but
-they can merge automatically when the NVIDIA reviewer explicitly approves them.
-This makes the repository fully autonomous, so keep branch protection and
-required status checks enabled.
+High-risk and critical changes are still labeled in the review comment, but they
+can merge automatically when the NVIDIA reviewer explicitly approves them. Pull
+request creation remains manual, so contributors can open a PR without granting
+GitHub Actions permission to create or approve pull requests.
 
 The reviewer uses NVIDIA NIM's OpenAI-compatible chat completions endpoint:
 
