@@ -103,6 +103,19 @@ def test_validate_simplification_review_rejects_missing_required_fields() -> Non
         raise AssertionError("validate_simplification_review should fail closed")
 
 
+def test_validate_simplification_review_defaults_missing_line_count() -> None:
+    module = load_review_module()
+
+    review = module.validate_simplification_review(
+        {
+            "summary": "Lean already. Ship.",
+            "opportunities": [],
+        }
+    )
+
+    assert review["net_lines_possible"] == 0
+
+
 def test_render_markdown_includes_senior_simplification_review() -> None:
     module = load_review_module()
     review = {
@@ -122,6 +135,11 @@ def test_render_markdown_includes_senior_simplification_review() -> None:
                 "current": "manual path join",
                 "replacement": "pathlib.Path",
                 "why": "uses an installed stdlib abstraction with less code",
+                "suggested_change": {
+                    "language": "python",
+                    "description": "Use pathlib instead of manual string joining.",
+                    "code": "path = Path(base_dir) / filename",
+                },
             }
         ],
         "net_lines_possible": 8,
@@ -136,7 +154,46 @@ def test_render_markdown_includes_senior_simplification_review() -> None:
 
     assert "Senior simplification review" in markdown
     assert "Ponytail-style over-engineering pass" in markdown
+    assert "Suggested change:" in markdown
+    assert "```python" in markdown
+    assert "path = Path(base_dir) / filename" in markdown
     assert "Net: -8 lines possible." in markdown
+
+
+def test_render_markdown_includes_finding_code_suggestion() -> None:
+    module = load_review_module()
+    review = {
+        "decision": "block",
+        "risk": "high",
+        "summary": "Unsafe subprocess call.",
+        "findings": [
+            {
+                "severity": "high",
+                "file": "src/example.py",
+                "line": 20,
+                "title": "Unsafe shell command",
+                "explanation": "Shell interpolation can execute unintended input.",
+                "recommended_fix": "Pass arguments as a list.",
+                "suggested_change": {
+                    "language": "python",
+                    "description": "Use an argument array.",
+                    "code": 'subprocess.run(["git", "status"], check=True)',
+                },
+            }
+        ],
+        "tests_to_add": [],
+    }
+
+    markdown = module.render_markdown(
+        review,
+        ["src/example.py"],
+        None,
+        "https://github.com/DietrichGebert/ponytail",
+    )
+
+    assert "Unsafe shell command" in markdown
+    assert "Use an argument array." in markdown
+    assert 'subprocess.run(["git", "status"], check=True)' in markdown
 
 
 def test_nvidia_base_url_must_be_https() -> None:

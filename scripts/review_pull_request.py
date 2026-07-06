@@ -162,7 +162,7 @@ def validate_review(review: dict[str, Any]) -> dict[str, Any]:
 def validate_simplification_review(review: dict[str, Any]) -> dict[str, Any]:
     """Validate the Ponytail-derived simplification review schema."""
 
-    required_fields = {"summary", "opportunities", "net_lines_possible"}
+    required_fields = {"summary", "opportunities"}
     missing = required_fields - review.keys()
 
     if missing:
@@ -173,6 +173,7 @@ def validate_simplification_review(review: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("Simplification review summary must be a string.")
     if not isinstance(review["opportunities"], list):
         raise RuntimeError("Simplification review opportunities must be a list.")
+    review.setdefault("net_lines_possible", 0)
     if not isinstance(review["net_lines_possible"], int):
         raise RuntimeError("Simplification review net_lines_possible must be an integer.")
 
@@ -303,7 +304,12 @@ Use this structure:
       "line": null,
       "title": "finding title",
       "explanation": "why this matters",
-      "recommended_fix": "specific remediation"
+      "recommended_fix": "specific remediation",
+      "suggested_change": {
+        "language": "python",
+        "description": "short description of the concrete replacement",
+        "code": "copyable replacement code, or null when a safe exact suggestion is not possible"
+      }
     }
   ],
   "tests_to_add": [
@@ -348,6 +354,9 @@ Look for:
 
 Do not report correctness, security, or performance findings in this pass.
 Do not invent issues. Prefer no findings over vague findings.
+When a simpler replacement is concrete and safe, include copyable replacement
+code in suggested_change.code. Leave it null when exact replacement code would
+require more surrounding context.
 
 Return exactly one valid JSON object and no Markdown.
 
@@ -362,7 +371,12 @@ Use this structure:
       "line": null,
       "current": "what is too complex",
       "replacement": "what replaces it",
-      "why": "why this is meaningfully simpler"
+      "why": "why this is meaningfully simpler",
+      "suggested_change": {
+        "language": "python",
+        "description": "short description of the concrete replacement",
+        "code": "copyable replacement code, or null when a safe exact suggestion is not possible"
+      }
     }
   ],
   "net_lines_possible": 0
@@ -402,6 +416,33 @@ def combine_decisions(
     return ai_review
 
 
+def render_suggested_change(item: dict[str, Any]) -> list[str]:
+    suggested_change = item.get("suggested_change")
+    if not isinstance(suggested_change, dict):
+        return []
+
+    code = suggested_change.get("code")
+    if not isinstance(code, str) or not code.strip():
+        return []
+
+    language = suggested_change.get("language")
+    if not isinstance(language, str) or not language.strip():
+        language = "text"
+
+    description = suggested_change.get("description")
+    lines = ["  - Suggested change:"]
+    if isinstance(description, str) and description.strip():
+        lines.append(f"    {description.strip()}")
+    lines.extend(
+        [
+            f"    ```{language.strip()}",
+            code.rstrip(),
+            "    ```",
+        ]
+    )
+    return lines
+
+
 def render_simplification_markdown(review: dict[str, Any], source_url: str) -> list[str]:
     lines = [
         "",
@@ -427,6 +468,7 @@ def render_simplification_markdown(review: dict[str, Any], source_url: str) -> l
                     f"  - Why: {opportunity['why']}",
                 ]
             )
+            lines.extend(render_suggested_change(opportunity))
     else:
         lines.append("- No meaningful simplification opportunities found.")
 
@@ -471,6 +513,7 @@ def render_markdown(
                     f"  - Fix: {finding['recommended_fix']}",
                 ]
             )
+            lines.extend(render_suggested_change(finding))
     else:
         lines.append("- No blocking code findings.")
 
