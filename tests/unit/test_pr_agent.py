@@ -78,6 +78,53 @@ def test_validate_review_rejects_missing_required_fields() -> None:
         raise AssertionError("validate_review should fail closed on invalid schema")
 
 
+def test_validate_simplification_review_rejects_missing_required_fields() -> None:
+    module = load_review_module()
+
+    try:
+        module.validate_simplification_review({"summary": "Lean already. Ship."})
+    except RuntimeError as exc:
+        assert "missing required fields" in str(exc)
+    else:
+        raise AssertionError("validate_simplification_review should fail closed")
+
+
+def test_render_markdown_includes_senior_simplification_review() -> None:
+    module = load_review_module()
+    review = {
+        "decision": "approve",
+        "risk": "low",
+        "summary": "Looks safe.",
+        "findings": [],
+        "tests_to_add": [],
+    }
+    simplification_review = {
+        "summary": "One helper can be removed.",
+        "opportunities": [
+            {
+                "tag": "stdlib",
+                "file": "src/example.py",
+                "line": 12,
+                "current": "manual path join",
+                "replacement": "pathlib.Path",
+                "why": "uses an installed stdlib abstraction with less code",
+            }
+        ],
+        "net_lines_possible": 8,
+    }
+
+    markdown = module.render_markdown(
+        review,
+        ["src/example.py"],
+        simplification_review,
+        "https://github.com/DietrichGebert/ponytail",
+    )
+
+    assert "Senior simplification review" in markdown
+    assert "Ponytail-style over-engineering pass" in markdown
+    assert "Net: -8 lines possible." in markdown
+
+
 def test_nvidia_base_url_must_be_https() -> None:
     module = load_review_module()
 

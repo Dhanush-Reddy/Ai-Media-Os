@@ -133,6 +133,26 @@ def validate_review(review: dict[str, Any]) -> dict[str, Any]:
     return review
 
 
+def validate_simplification_review(review: dict[str, Any]) -> dict[str, Any]:
+    """Validate the Ponytail-derived simplification review schema."""
+
+    required_fields = {"summary", "opportunities", "net_lines_possible"}
+    missing = required_fields - review.keys()
+
+    if missing:
+        raise RuntimeError(
+            "Simplification review is missing required fields: " + ", ".join(sorted(missing))
+        )
+    if not isinstance(review["summary"], str):
+        raise RuntimeError("Simplification review summary must be a string.")
+    if not isinstance(review["opportunities"], list):
+        raise RuntimeError("Simplification review opportunities must be a list.")
+    if not isinstance(review["net_lines_possible"], int):
+        raise RuntimeError("Simplification review net_lines_possible must be an integer.")
+
+    return review
+
+
 def validate_nvidia_base_url(base_url: str) -> str:
     """Return a normalized NVIDIA base URL after scheme validation."""
 
@@ -141,6 +161,73 @@ def validate_nvidia_base_url(base_url: str) -> str:
     if parsed.scheme != "https" or not parsed.netloc:
         raise RuntimeError("NVIDIA_BASE_URL must be an absolute HTTPS URL.")
     return cleaned
+
+
+def call_nvidia_chat(
+    prompt: str,
+    api_key: str,
+    model: str,
+    base_url: str,
+    system_prompt: str,
+    max_tokens: int,
+    error_label: str,
+) -> dict[str, Any]:
+    """Send a chat completion request to NVIDIA NIM and return parsed JSON."""
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        "temperature": 0.1,
+        "top_p": 0.95,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+
+    endpoint = f"{validate_nvidia_base_url(base_url)}/chat/completions"
+
+    request = urllib.request.Request(  # noqa: S310
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:  # noqa: S310
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"NVIDIA {error_label} returned HTTP {error.code}: {detail}") from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"Unable to reach NVIDIA {error_label}: {error}") from error
+
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError(f"NVIDIA {error_label} did not contain any choices.")
+
+    choice = choices[0]
+    if not isinstance(choice, dict):
+        raise RuntimeError(f"NVIDIA {error_label} choice must be an object.")
+    message = choice.get("message", {})
+    if not isinstance(message, dict):
+        raise RuntimeError(f"NVIDIA {error_label} message must be an object.")
+    text = message.get("content")
+    if not isinstance(text, str) or not text.strip():
+        raise RuntimeError(f"NVIDIA {error_label} did not contain assistant content.")
+
+    return extract_json_object(text)
 
 
 def call_nvidia(
@@ -199,61 +286,74 @@ Use this structure:
 }
 """.strip()
 
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        "temperature": 0.1,
-        "top_p": 0.95,
-        "max_tokens": 4096,
-        "stream": False,
-    }
-
-    endpoint = f"{validate_nvidia_base_url(base_url)}/chat/completions"
-
-    request = urllib.request.Request(  # noqa: S310
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
+    return validate_review(
+        call_nvidia_chat(
+            prompt=prompt,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            system_prompt=system_prompt,
+            max_tokens=4096,
+            error_label="API",
+        )
     )
 
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:  # noqa: S310
-            body = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"NVIDIA API returned HTTP {error.code}: {detail}") from error
-    except urllib.error.URLError as error:
-        raise RuntimeError(f"Unable to reach NVIDIA API: {error}") from error
 
-    choices = body.get("choices")
-    if not isinstance(choices, list) or not choices:
-        raise RuntimeError("NVIDIA response did not contain any choices.")
+def call_nvidia_simplification_review(
+    prompt: str,
+    api_key: str,
+    model: str,
+    base_url: str,
+) -> dict[str, Any]:
+    """Send a Ponytail-derived over-engineering review request to NVIDIA NIM."""
 
-    choice = choices[0]
-    if not isinstance(choice, dict):
-        raise RuntimeError("NVIDIA response choice must be an object.")
-    message = choice.get("message", {})
-    if not isinstance(message, dict):
-        raise RuntimeError("NVIDIA response message must be an object.")
-    text = message.get("content")
-    if not isinstance(text, str) or not text.strip():
-        raise RuntimeError("NVIDIA response did not contain assistant content.")
+    system_prompt = """
+You are running the Ponytail-style senior simplification review pass.
 
-    return validate_review(extract_json_object(text))
+Review only the supplied pull-request diff for unnecessary complexity.
+
+Look for:
+- dead code or speculative features that can be deleted;
+- hand-rolled logic the Python standard library already covers;
+- code or dependencies doing what the native platform already does;
+- abstractions with one implementation, one caller, or no current need;
+- code that can be meaningfully shortened without losing validation, security,
+  data safety, accessibility, or required behavior.
+
+Do not report correctness, security, or performance findings in this pass.
+Do not invent issues. Prefer no findings over vague findings.
+
+Return exactly one valid JSON object and no Markdown.
+
+Use this structure:
+
+{
+  "summary": "Lean already. Ship. OR short summary of useful simplifications.",
+  "opportunities": [
+    {
+      "tag": "delete, stdlib, native, yagni, or shrink",
+      "file": "path/to/file.py",
+      "line": null,
+      "current": "what is too complex",
+      "replacement": "what replaces it",
+      "why": "why this is meaningfully simpler"
+    }
+  ],
+  "net_lines_possible": 0
+}
+""".strip()
+
+    return validate_simplification_review(
+        call_nvidia_chat(
+            prompt=prompt,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            system_prompt=system_prompt,
+            max_tokens=3072,
+            error_label="simplification review",
+        )
+    )
 
 
 def combine_decisions(
@@ -276,7 +376,44 @@ def combine_decisions(
     return ai_review
 
 
-def render_markdown(review: dict[str, Any], files: list[str]) -> str:
+def render_simplification_markdown(review: dict[str, Any], source_url: str) -> list[str]:
+    lines = [
+        "",
+        "### Senior simplification review",
+        "",
+        f"_Ponytail-style over-engineering pass: {source_url}_",
+        "",
+        review["summary"],
+        "",
+    ]
+
+    opportunities = review.get("opportunities", [])
+    if opportunities:
+        for opportunity in opportunities:
+            location = opportunity["file"]
+            if opportunity.get("line"):
+                location += f":{opportunity['line']}"
+            lines.extend(
+                [
+                    f"- **{opportunity['tag']}** (`{location}`)",
+                    f"  - Cut: {opportunity['current']}",
+                    f"  - Replace with: {opportunity['replacement']}",
+                    f"  - Why: {opportunity['why']}",
+                ]
+            )
+    else:
+        lines.append("- No meaningful simplification opportunities found.")
+
+    lines.extend(["", f"Net: -{review['net_lines_possible']} lines possible."])
+    return lines
+
+
+def render_markdown(
+    review: dict[str, Any],
+    files: list[str],
+    simplification_review: dict[str, Any] | None,
+    simplification_source_url: str,
+) -> str:
     marker = "[approve]" if review["decision"] == "approve" else "[block]"
     lines = [
         "<!-- autonomous-pr-agent-review -->",
@@ -317,6 +454,14 @@ def render_markdown(review: dict[str, Any], files: list[str]) -> str:
         lines.extend(f"- {test}" for test in tests)
     else:
         lines.append("- None.")
+
+    if simplification_review is not None:
+        lines.extend(
+            render_simplification_markdown(
+                simplification_review,
+                simplification_source_url,
+            )
+        )
 
     lines.extend(
         [
@@ -361,6 +506,26 @@ Diff:
 ```
 """
 
+    simplification_config = config.get("simplification_review", {})
+    simplification_prompt = f"""Pull request title:
+{title}
+
+Changed files:
+{json.dumps(files, indent=2)}
+
+Ponytail source:
+{simplification_config.get("source", "DietrichGebert/ponytail")}
+{simplification_config.get("source_url", "https://github.com/DietrichGebert/ponytail")}
+
+Simplification review rules:
+{json.dumps(simplification_config.get("rules", []), indent=2)}
+
+Diff:
+```diff
+{diff}
+```
+"""
+
     ai_review = call_nvidia(
         prompt=prompt,
         api_key=api_key,
@@ -369,11 +534,33 @@ Diff:
     )
     final_review = combine_decisions(ai_review, path_risk, path_notes, config)
 
+    simplification_review = None
+    if simplification_config.get("enabled", False):
+        simplification_review = call_nvidia_simplification_review(
+            prompt=simplification_prompt,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+        )
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUTPUT_DIR / "review.json").write_text(
         json.dumps(final_review, indent=2) + "\n", encoding="utf-8"
     )
-    (OUTPUT_DIR / "review.md").write_text(render_markdown(final_review, files), encoding="utf-8")
+    if simplification_review is not None:
+        (OUTPUT_DIR / "simplification-review.json").write_text(
+            json.dumps(simplification_review, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    (OUTPUT_DIR / "review.md").write_text(
+        render_markdown(
+            final_review,
+            files,
+            simplification_review,
+            simplification_config.get("source_url", "https://github.com/DietrichGebert/ponytail"),
+        ),
+        encoding="utf-8",
+    )
     print(json.dumps(final_review, indent=2))
     return 0
 

@@ -15,6 +15,20 @@
     "merge_method": "squash",
     "delete_branch": true
   },
+  "simplification_review": {
+    "enabled": true,
+    "source": "DietrichGebert/ponytail",
+    "source_url": "https://github.com/DietrichGebert/ponytail",
+    "skill": "ponytail-review",
+    "mode": "advisory_fail_closed",
+    "rules": [
+      "Review only unnecessary complexity and over-engineering.",
+      "Find code that can be deleted, replaced by the standard library, replaced by native platform features, or meaningfully shortened.",
+      "Do not report correctness, security, or performance findings in this pass; those belong to the normal AI review.",
+      "Prefer concrete file and line references with a specific simpler replacement.",
+      "If there is nothing useful to simplify, say the diff is already lean."
+    ]
+  },
   "path_risk_rules": [
     {
       "prefix": ".github/workflows/",
