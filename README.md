@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 7:
+The current implementation covers Milestones 1 through 8:
 
 - Python project configuration
 - Environment-based settings
@@ -18,8 +18,9 @@ The current implementation covers Milestones 1 through 7:
 - Local deterministic script generation, fact-check reports, strict scene-plan validation, scene storage, script/scene dashboard views, and queue-compatible handlers
 - Provider-neutral image and voice interfaces, deterministic fake image and voice providers, manual image/audio import, per-scene asset planning, cache reuse, asset review statuses, asset dashboard visibility, and asset workflow/CLI handlers
 - Provider-neutral video composition, local FFmpeg preview rendering when FFmpeg is installed, render planning and verification, render review statuses, render dashboard visibility, and render workflow/CLI handlers
+- Strict YouTube metadata documents, deterministic fake metadata generation, thumbnail concept documents, deterministic fake thumbnail PNG generation, manual metadata/thumbnail import, thumbnail verification/review, dashboard metadata/thumbnail pages, and packaging workflow/CLI handlers
 
-The next planned task is Milestone 8. Do not begin thumbnail generation, Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
+The next planned task is Milestone 8.5/9 scope confirmation. Do not begin Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
 
 ## Setup
 
@@ -130,6 +131,37 @@ The render output is written under `data/projects/{project_id}/renders/render_v0
 
 If FFmpeg is missing, `compose-video` fails with a clear message and stores the render error. Tests use a fake video composer, but production CLI composition does not silently create fake MP4 output.
 
+## Local Metadata And Thumbnail Demo
+
+After a project has an approved script, approved scene plan, and at least one rendered or approved render record, Milestone 8 can generate a reviewable YouTube metadata draft and a visible fake thumbnail PNG.
+
+```powershell
+$PROJECT_ID = "existing-project-id"
+$RENDER_ID = "rendered-render-id"
+
+python -m ai_media_os.cli generate-metadata --project-id $PROJECT_ID --render-id $RENDER_ID --keyword-hints "AI,Future"
+python -m ai_media_os.cli list-metadata --project-id $PROJECT_ID
+```
+
+Use the generated metadata version ID to create a thumbnail concept and fake PNG thumbnail:
+
+```powershell
+$METADATA_VERSION_ID = "metadata-content-version-id"
+
+python -m ai_media_os.cli generate-thumbnail-concept --project-id $PROJECT_ID --metadata-version-id $METADATA_VERSION_ID
+python -m ai_media_os.cli generate-thumbnail --project-id $PROJECT_ID --metadata-version-id $METADATA_VERSION_ID --width 1280 --height 720 --seed 42
+python -m ai_media_os.cli list-thumbnails --project-id $PROJECT_ID
+python -m ai_media_os.cli verify-thumbnail-file THUMBNAIL_ASSET_ID
+```
+
+The fake thumbnail provider writes a real PNG under `data/projects/{project_id}/thumbnails/thumbnail_v001.png`. Start the dashboard and open:
+
+```powershell
+python -m ai_media_os.web
+```
+
+Then visit `http://127.0.0.1:8000/projects/{project_id}/metadata` and `http://127.0.0.1:8000/projects/{project_id}/thumbnail`.
+
 ## Verification
 
 ```bash
@@ -142,6 +174,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, thumbnail generation, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
+This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
 
 The planned Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`; it is not implemented yet.

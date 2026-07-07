@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Thumbnail &middot; {{ project.working_title }} &middot; AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Thumbnail</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Status</h2>
+    <p><strong>Next action:</strong> {{ thumbnail.next_action }}</p>
+    <p>{{ thumbnail.approved_count }} approved &middot; {{ thumbnail.pending_review_count }} pending review</p>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Concept</h2>
+      {% if thumbnail.concept_version_id %}
+        <p><strong>{{ thumbnail.concept_title }}</strong></p>
+        <p>{{ thumbnail.visual_description }}</p>
+        <p><strong>Selected text:</strong> {{ thumbnail.selected_text }}</p>
+        {% if thumbnail.text_options %}
+          <ul class="compact-list">
+            {% for option in thumbnail.text_options %}
+              <li>{{ option }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <p class="empty">No thumbnail concept has been generated yet.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel">
+      <h2>Preview</h2>
+      {% if thumbnail.asset and thumbnail.asset.preview_url %}
+        <img class="thumbnail-preview" src="{{ thumbnail.asset.preview_url }}" alt="Thumbnail preview">
+        <p>{{ thumbnail.asset.review_status }} &middot; {{ thumbnail.asset.width }}x{{ thumbnail.asset.height }}</p>
+        <p><strong>Provider:</strong> {{ thumbnail.asset.provider }}</p>
+        <p><strong>Hash:</strong> <code>{{ thumbnail.asset.content_hash[:16] }}</code></p>
+      {% elif thumbnail.asset %}
+        <p class="empty">{{ thumbnail.asset.file_warning or "Thumbnail file is unavailable." }}</p>
+      {% else %}
+        <p class="empty">No thumbnail image has been generated yet.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Thumbnail History</h2>
+    {% if thumbnail.thumbnails %}
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Provider</th>
+            <th>Dimensions</th>
+            <th>Preview</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in thumbnail.thumbnails %}
+            <tr>
+              <td>{{ item.review_status }}</td>
+              <td>{{ item.provider or "Manual" }}</td>
+              <td>{% if item.width and item.height %}{{ item.width }}x{{ item.height }}{% else %}Unknown{% endif %}</td>
+              <td>{% if item.preview_url %}<a href="{{ item.preview_url }}">Open</a>{% else %}Missing{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No thumbnail files yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

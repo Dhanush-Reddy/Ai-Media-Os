@@ -195,6 +195,39 @@ class RenderView:
 
 
 @dataclass(frozen=True)
+class MetadataView:
+    latest_version_id: str | None
+    version_number: int | None
+    status: str | None
+    title: str | None
+    title_ideas: list[str]
+    description: str | None
+    tags: list[str]
+    hashtags: list[str]
+    chapters: list[JsonDict]
+    warnings: list[str]
+    source_script_version_id: str | None
+    source_render_id: str | None
+    older_versions: list[str]
+    next_action: str
+
+
+@dataclass(frozen=True)
+class ThumbnailView:
+    concept_version_id: str | None
+    concept_title: str | None
+    selected_text: str | None
+    text_options: list[str]
+    visual_description: str | None
+    warnings: list[str]
+    asset: AssetItem | None
+    thumbnails: list[AssetItem]
+    approved_count: int
+    pending_review_count: int
+    next_action: str
+
+
+@dataclass(frozen=True)
 class ApprovalItem:
     id: str
     approval_type: str

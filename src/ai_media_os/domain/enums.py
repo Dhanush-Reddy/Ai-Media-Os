@@ -28,6 +28,7 @@ class ContentType(StringEnum):
     FACT_CHECK_REPORT = "fact_check_report"
     SCENE_PLAN = "scene_plan"
     METADATA = "metadata"
+    THUMBNAIL_CONCEPT = "thumbnail_concept"
     SOURCE_REPORT = "source_report"
     COPYRIGHT_REPORT = "copyright_report"
 
@@ -53,6 +54,7 @@ class ApprovalType(StringEnum):
     RESEARCH = "research"
     SCRIPT = "script"
     SCENE_PLAN = "scene_plan"
+    METADATA = "metadata"
     THUMBNAIL = "thumbnail"
     FINAL_VIDEO = "final_video"
     PUBLISHING = "publishing"
@@ -168,6 +170,7 @@ class AssetRole(StringEnum):
     SCENE_NARRATION = "scene_narration"
     BACKGROUND_MUSIC = "background_music"
     SOUND_EFFECT = "sound_effect"
+    THUMBNAIL = "thumbnail"
     REFERENCE = "reference"
     PLACEHOLDER = "placeholder"
 

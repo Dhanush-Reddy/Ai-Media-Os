@@ -267,4 +267,6 @@ APPROVAL_CONTENT_TYPE_MAP = {
     ApprovalType.RESEARCH: ContentType.RESEARCH_BRIEF,
     ApprovalType.SCRIPT: ContentType.SCRIPT,
     ApprovalType.SCENE_PLAN: ContentType.SCENE_PLAN,
+    ApprovalType.METADATA: ContentType.METADATA,
+    ApprovalType.THUMBNAIL: ContentType.THUMBNAIL_CONCEPT,
 }

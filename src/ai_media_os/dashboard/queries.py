@@ -32,6 +32,7 @@ from ai_media_os.dashboard.view_models import (
     JobGroups,
     JobItem,
     JsonDict,
+    MetadataView,
     MetricCard,
     ProjectListItem,
     RenderItem,
@@ -42,6 +43,7 @@ from ai_media_os.dashboard.view_models import (
     ScriptView,
     SourceSummary,
     StageStatus,
+    ThumbnailView,
 )
 from ai_media_os.domain.enums import (
     ApprovalStatus,
@@ -333,7 +335,8 @@ class DashboardQueries:
         preview_url = (
             f"/assets/{asset.id}/preview"
             if has_file
-            and asset.asset_type in {AssetType.IMAGE, AssetType.CHART, AssetType.SCREENSHOT}
+            and asset.asset_type
+            in {AssetType.IMAGE, AssetType.CHART, AssetType.SCREENSHOT, AssetType.THUMBNAIL}
             else None
         )
         return AssetItem(
@@ -400,6 +403,80 @@ class DashboardQueries:
             preview_url=f"/renders/{render.id}/preview" if has_file else None,
             error_message=render.error_message,
             created_at=self.display_time(render.created_at),
+        )
+
+    def metadata_view(self, project: VideoProject) -> MetadataView:
+        versions = list(project.content_versions)
+        latest = self.latest_version(versions, ContentType.METADATA)
+        data = self.report_content(latest)
+        parsed = data if isinstance(data, dict) else {}
+        title_ideas = _string_list(parsed.get("title_ideas"))
+        tags = _string_list(parsed.get("tags"))
+        hashtags = _string_list(parsed.get("hashtags"))
+        warnings = _string_list(parsed.get("warnings"))
+        chapters = parsed.get("chapters", [])
+        chapter_items = list(chapters) if isinstance(chapters, list) else []
+        if latest is None:
+            next_action = "Generate metadata"
+        elif latest.status.value == "pending_approval":
+            next_action = "Review metadata"
+        elif latest.status.value == "approved":
+            next_action = "Generate thumbnail concept"
+        else:
+            next_action = "Revise metadata"
+        return MetadataView(
+            latest_version_id=latest.id if latest is not None else None,
+            version_number=latest.version_number if latest is not None else None,
+            status=latest.status.value.replace("_", " ").title() if latest is not None else None,
+            title=_optional_string(parsed.get("title")),
+            title_ideas=title_ideas,
+            description=_optional_string(parsed.get("description")),
+            tags=tags,
+            hashtags=hashtags,
+            chapters=[item for item in chapter_items if isinstance(item, dict)],
+            warnings=warnings,
+            source_script_version_id=_optional_string(parsed.get("source_script_version_id")),
+            source_render_id=_optional_string(parsed.get("source_render_id")),
+            older_versions=self.version_labels(versions, ContentType.METADATA)[1:],
+            next_action=next_action,
+        )
+
+    def thumbnail_view(self, project: VideoProject) -> ThumbnailView:
+        versions = list(project.content_versions)
+        concept = self.latest_version(versions, ContentType.THUMBNAIL_CONCEPT)
+        data = self.report_content(concept)
+        parsed = data if isinstance(data, dict) else {}
+        thumbnails = [
+            self.asset_item(asset)
+            for asset in sorted(
+                [asset for asset in project.assets if asset.asset_type == AssetType.THUMBNAIL],
+                key=_asset_sort_key,
+                reverse=True,
+            )
+        ]
+        latest_asset = thumbnails[0] if thumbnails else None
+        if concept is None:
+            next_action = "Generate thumbnail concept"
+        elif latest_asset is None:
+            next_action = "Generate thumbnail image"
+        elif latest_asset.review_status == "Pending Review":
+            next_action = "Review thumbnail"
+        elif latest_asset.review_status == "Approved":
+            next_action = "Ready for final video approval"
+        else:
+            next_action = "Revise thumbnail"
+        return ThumbnailView(
+            concept_version_id=concept.id if concept is not None else None,
+            concept_title=_optional_string(parsed.get("concept_title")),
+            selected_text=_optional_string(parsed.get("selected_text")),
+            text_options=_string_list(parsed.get("text_options")),
+            visual_description=_optional_string(parsed.get("visual_description")),
+            warnings=_string_list(parsed.get("warnings")),
+            asset=latest_asset,
+            thumbnails=thumbnails,
+            approved_count=sum(item.review_status == "Approved" for item in thumbnails),
+            pending_review_count=sum(item.review_status == "Pending Review" for item in thumbnails),
+            next_action=next_action,
         )
 
     def source_summary(self, sources: list[Source]) -> SourceSummary:
@@ -718,3 +795,13 @@ def _asset_sort_key(asset: Asset) -> tuple[int, str, datetime]:
 
 def _render_sort_key(render: Render) -> tuple[int, datetime]:
     return (-render.version_number, render.created_at)
+
+
+def _string_list(value: object) -> list[str]:
+    if isinstance(value, Sequence) and not isinstance(value, str):
+        return [str(item) for item in value if item is not None]
+    return []
+
+
+def _optional_string(value: object) -> str | None:
+    return str(value) if value is not None else None

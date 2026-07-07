@@ -141,6 +141,10 @@ button.danger {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .metric,
 .panel,
 .project-row {
@@ -211,6 +215,35 @@ button.danger {
 .badge.error {
   background: #fee2e2;
   color: var(--error);
+}
+
+.headline-preview {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.text-preview {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 1rem;
+  white-space: pre-wrap;
+}
+
+.thumbnail-preview,
+.thumbnail-strip {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.thumbnail-strip {
+  max-height: 9rem;
+  object-fit: contain;
 }
 
 .progress-block {
@@ -382,6 +415,7 @@ textarea {
 
 @media (max-width: 900px) {
   .grid.two,
+  .grid.three,
   .project-row {
     grid-template-columns: 1fr;
   }

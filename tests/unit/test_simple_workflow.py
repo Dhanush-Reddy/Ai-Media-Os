@@ -14,6 +14,10 @@ from ai_media_os.infrastructure.database.base import Base
 from ai_media_os.infrastructure.database.models import Approval, Channel, Job, VideoProject
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
+from ai_media_os.workers.packaging_handlers import (
+    JOB_GENERATE_THUMBNAIL_CONCEPT,
+    JOB_GENERATE_VIDEO_METADATA,
+)
 from ai_media_os.workflows.langgraph_orchestrator import LangGraphWorkflowOrchestrator
 from ai_media_os.workflows.models import (
     WorkflowEvent,
@@ -74,6 +78,7 @@ def make_event(
     content_version_id: str | None = None,
     approval_id: str | None = None,
     feedback: str | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> WorkflowEvent:
     return WorkflowEvent(
         event_id=event_id,
@@ -85,6 +90,7 @@ def make_event(
         content_version_id=content_version_id,
         approval_id=approval_id,
         feedback=feedback,
+        metadata=metadata or {},
     )
 
 
@@ -345,6 +351,66 @@ def test_rejection_cancellation_failures_and_invalid_events(
                 content_version_id=None,
             ),
         )
+
+
+def test_render_metadata_thumbnail_events_complete_milestone_8(
+    session: Session,
+    settings: AppSettings,
+    project_id: UUID,
+) -> None:
+    orchestrator = SimpleWorkflowOrchestrator(session, settings)
+    workflow_id = orchestrator.start(project_id)
+
+    metadata_generation = orchestrator.resume(
+        workflow_id,
+        make_event(
+            event_id="render-verified",
+            workflow_id=workflow_id,
+            project_id=project_id,
+            event_type=WorkflowEventType.RENDER_VERIFIED,
+            metadata={"render_id": "render-1"},
+        ),
+    )
+    metadata_job = session.get(Job, metadata_generation.metadata["metadata_job_id"])
+    assert metadata_generation.current_stage == WorkflowStage.METADATA_GENERATION
+    assert metadata_job is not None
+    assert metadata_job.job_type == JOB_GENERATE_VIDEO_METADATA
+
+    metadata_version_id = create_version(
+        session,
+        project_id,
+        ContentType.METADATA,
+        '{"title":"AI metadata"}',
+    )
+    thumbnail_concept = orchestrator.resume(
+        workflow_id,
+        make_event(
+            event_id="metadata-approved",
+            workflow_id=workflow_id,
+            project_id=project_id,
+            event_type=WorkflowEventType.METADATA_APPROVED,
+            content_version_id=metadata_version_id,
+        ),
+    )
+    concept_job = session.get(Job, thumbnail_concept.metadata["thumbnail_concept_job_id"])
+    assert thumbnail_concept.current_stage == WorkflowStage.THUMBNAIL_CONCEPT
+    assert concept_job is not None
+    assert concept_job.job_type == JOB_GENERATE_THUMBNAIL_CONCEPT
+
+    completed = orchestrator.resume(
+        workflow_id,
+        make_event(
+            event_id="thumbnail-approved",
+            workflow_id=workflow_id,
+            project_id=project_id,
+            event_type=WorkflowEventType.THUMBNAIL_APPROVED,
+            metadata={"thumbnail_asset_id": "asset-1"},
+        ),
+    )
+
+    assert completed.current_stage == WorkflowStage.MILESTONE_8_COMPLETE
+    assert completed.status == WorkflowStatus.COMPLETED
+    assert completed.metadata["thumbnail_asset_id"] == "asset-1"
 
 
 def test_simple_and_langgraph_adapters_produce_equivalent_outcomes(

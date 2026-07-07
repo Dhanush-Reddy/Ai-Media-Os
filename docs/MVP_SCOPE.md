@@ -299,6 +299,7 @@ Possible types:
 * script
 * scene_plan
 * metadata
+* thumbnail_concept
 * fact_check_report
 
 Fields:
@@ -924,14 +925,22 @@ Status: partially implemented as a local preview render foundation. Render plann
 
 Deliverables:
 
-* Thumbnail templates
-* AI visual integration
-* Programmatic typography
+* Strict YouTube metadata schema
+* Deterministic fake metadata provider
+* Thumbnail concept schema
+* Deterministic fake thumbnail PNG provider
+* Manual metadata import
+* Manual thumbnail import
+* Thumbnail file verification
+* Metadata and thumbnail dashboard views
+* Queue and CLI handlers
 * Title suggestions
 * Description
 * Chapters
 * Tags
-* Upload checklist
+* Local review checklist foundation
+
+Status: implemented as a local packaging foundation. Real thumbnail generation, real LLM metadata generation, upload checklists, YouTube publishing, Telegram approval, analytics, Shorts, and Content Safety implementation remain deferred.
 
 ---
 

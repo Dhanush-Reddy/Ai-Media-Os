@@ -12,6 +12,8 @@
       <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
       <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
       <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
+      <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
+      <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
       <a class="button" href="/projects">All Projects</a>
     </div>
   </section>
@@ -58,14 +60,34 @@
     {% endif %}
   </section>
 
-  <section class="panel">
-    <h2>Latest Render</h2>
-    {% if renders.latest %}
-      <p>Render v{{ renders.latest.version_number }} is {{ renders.latest.status }}.</p>
-      <p><a href="/projects/{{ project.id }}/renders/{{ renders.latest.id }}">Open render</a></p>
-    {% else %}
-      <p class="empty">No preview render has been planned yet.</p>
-    {% endif %}
+  <section class="grid three">
+    <article class="panel">
+      <h2>Latest Render</h2>
+      {% if renders.latest %}
+        <p>Render v{{ renders.latest.version_number }} is {{ renders.latest.status }}.</p>
+        <p><a href="/projects/{{ project.id }}/renders/{{ renders.latest.id }}">Open render</a></p>
+      {% else %}
+        <p class="empty">No preview render has been planned yet.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Metadata</h2>
+      {% if metadata.latest_version_id %}
+        <p>{{ metadata.title }}</p>
+        <p>{{ metadata.status }} · <a href="/projects/{{ project.id }}/metadata">Open metadata</a></p>
+      {% else %}
+        <p class="empty">No video metadata has been generated yet.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Thumbnail</h2>
+      {% if thumbnail.asset and thumbnail.asset.preview_url %}
+        <img class="thumbnail-strip" src="{{ thumbnail.asset.preview_url }}" alt="Thumbnail preview">
+        <p>{{ thumbnail.asset.review_status }} · <a href="/projects/{{ project.id }}/thumbnail">Open thumbnail</a></p>
+      {% else %}
+        <p class="empty">No thumbnail image has been generated yet.</p>
+      {% endif %}
+    </article>
   </section>
 
   <section class="grid two">
