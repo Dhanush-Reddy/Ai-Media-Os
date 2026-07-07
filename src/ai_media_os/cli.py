@@ -17,6 +17,7 @@ from ai_media_os.application.assets import (
 from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
+from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.application.prompt_templates import PromptTemplateService
 from ai_media_os.application.renders import (
     RenderPlanningService,
@@ -51,6 +52,7 @@ from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
+from ai_media_os.workers.packaging_handlers import packaging_job_handlers
 from ai_media_os.workers.render_handlers import render_job_handlers
 from ai_media_os.workers.research_handlers import research_job_handlers
 from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
@@ -308,6 +310,62 @@ def build_parser() -> argparse.ArgumentParser:
         ],
     )
 
+    generate_metadata = subcommands.add_parser("generate-metadata")
+    generate_metadata.add_argument("--project-id", required=True)
+    generate_metadata.add_argument("--render-id")
+    generate_metadata.add_argument("--keyword-hints")
+    generate_metadata.add_argument("--title-count", type=int)
+    generate_metadata.add_argument("--tag-count", type=int)
+
+    import_metadata = subcommands.add_parser("import-metadata")
+    import_metadata.add_argument("--project-id", required=True)
+    import_metadata.add_argument("--content")
+    import_metadata.add_argument("--file")
+    import_metadata.add_argument("--parent-version-id")
+
+    revise_metadata = subcommands.add_parser("revise-metadata")
+    revise_metadata.add_argument("--parent-version-id", required=True)
+    revise_metadata.add_argument("--content")
+    revise_metadata.add_argument("--file")
+
+    list_metadata = subcommands.add_parser("list-metadata")
+    list_metadata.add_argument("--project-id", required=True)
+
+    review_metadata = subcommands.add_parser("review-metadata")
+    review_metadata.add_argument("content_version_id")
+
+    generate_thumbnail_concept = subcommands.add_parser("generate-thumbnail-concept")
+    generate_thumbnail_concept.add_argument("--project-id", required=True)
+    generate_thumbnail_concept.add_argument("--metadata-version-id")
+
+    generate_thumbnail = subcommands.add_parser("generate-thumbnail")
+    generate_thumbnail.add_argument("--project-id", required=True)
+    generate_thumbnail.add_argument("--metadata-version-id")
+    generate_thumbnail.add_argument("--concept-version-id")
+    generate_thumbnail.add_argument("--width", type=int)
+    generate_thumbnail.add_argument("--height", type=int)
+    generate_thumbnail.add_argument("--seed", type=int, default=1)
+
+    import_thumbnail = subcommands.add_parser("import-thumbnail")
+    import_thumbnail.add_argument("--project-id", required=True)
+    import_thumbnail.add_argument("--file", required=True)
+    import_thumbnail.add_argument("--metadata-version-id")
+    import_thumbnail.add_argument("--concept-version-id")
+
+    list_thumbnails = subcommands.add_parser("list-thumbnails")
+    list_thumbnails.add_argument("--project-id", required=True)
+
+    review_thumbnail = subcommands.add_parser("review-thumbnail")
+    review_thumbnail.add_argument("asset_id")
+    review_thumbnail.add_argument(
+        "--status",
+        required=True,
+        choices=[item.value for item in AssetReviewStatus],
+    )
+
+    verify_thumbnail = subcommands.add_parser("verify-thumbnail-file")
+    verify_thumbnail.add_argument("asset_id")
+
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
     dashboard.add_argument("--port", type=int)
@@ -350,6 +408,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 | script_scene_job_handlers()
                 | asset_job_handlers()
                 | render_job_handlers()
+                | packaging_job_handlers()
             )
             worker = JobWorker(session, handlers=handlers, worker_id=args.worker_id)
             worker_result = worker.run_once()
@@ -676,7 +735,106 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print(render.status.value)
             return 0
+        if args.command == "generate-metadata":
+            version = MetadataService(session).generate_metadata(
+                args.project_id,
+                render_id=args.render_id,
+                keyword_hints=_csv_items(args.keyword_hints),
+                title_count=args.title_count,
+                tag_count=args.tag_count,
+            )
+            print(version.id)
+            return 0
+        if args.command == "import-metadata":
+            content = _content_arg(args.content, args.file)
+            version = MetadataService(session).import_metadata(
+                args.project_id,
+                content,
+                parent_version_id=args.parent_version_id,
+            )
+            print(version.id)
+            return 0
+        if args.command == "revise-metadata":
+            content = _content_arg(args.content, args.file)
+            version = MetadataService(session).revise_metadata(
+                args.parent_version_id,
+                content,
+            )
+            print(version.id)
+            return 0
+        if args.command == "list-metadata":
+            versions = MetadataService(session).list_metadata(args.project_id)
+            for version in versions:
+                print(
+                    f"{version.id}\tv{version.version_number}\t{version.status.value}\t"
+                    f"{version.content_hash}"
+                )
+            return 0
+        if args.command == "review-metadata":
+            MetadataService(session).request_metadata_approval(args.content_version_id)
+            print(args.content_version_id)
+            return 0
+        if args.command == "generate-thumbnail-concept":
+            version = ThumbnailService(session).generate_concept(
+                args.project_id,
+                metadata_version_id=args.metadata_version_id,
+            )
+            print(version.id)
+            return 0
+        if args.command == "generate-thumbnail":
+            asset = ThumbnailService(session).generate_thumbnail(
+                args.project_id,
+                metadata_version_id=args.metadata_version_id,
+                concept_version_id=args.concept_version_id,
+                width=args.width,
+                height=args.height,
+                seed=args.seed,
+            )
+            print(asset.id)
+            return 0
+        if args.command == "import-thumbnail":
+            asset = ThumbnailService(session).import_thumbnail(
+                args.project_id,
+                Path(args.file),
+                metadata_version_id=args.metadata_version_id,
+                concept_version_id=args.concept_version_id,
+            )
+            print(asset.id)
+            return 0
+        if args.command == "list-thumbnails":
+            thumbnails = ThumbnailService(session).list_thumbnails(args.project_id)
+            for asset in thumbnails:
+                print(
+                    f"{asset.id}\t{asset.generation_status.value}\t"
+                    f"{asset.review_status.value}\t{asset.content_hash or ''}"
+                )
+            return 0
+        if args.command == "review-thumbnail":
+            asset = ThumbnailService(session).review_thumbnail(
+                args.asset_id,
+                AssetReviewStatus(args.status),
+            )
+            print(asset.review_status.value)
+            return 0
+        if args.command == "verify-thumbnail-file":
+            verification = ThumbnailService(session).verify_thumbnail_file(args.asset_id)
+            print("OK" if verification.ok else f"FAIL:{verification.reason}")
+            return 0 if verification.ok else 1
     return 1
+
+
+def _content_arg(content: str | None, file_path: str | None) -> str:
+    if content is not None:
+        return content
+    if file_path is not None:
+        return Path(file_path).read_text(encoding="utf-8")
+    raise ValueError("Provide --content or --file.")
+
+
+def _csv_items(value: str | None) -> list[str] | None:
+    if value is None:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 if __name__ == "__main__":

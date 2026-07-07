@@ -17,6 +17,7 @@ from ai_media_os.application.assets import (
 )
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import FailureInfo, QueueService
+from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.application.renders import RenderPlanningService, VideoCompositionService
 from ai_media_os.application.research import ClaimService, SourceService
 from ai_media_os.application.scenes import ScenePlanService
@@ -161,9 +162,29 @@ def project_id(session: Session, settings: AppSettings) -> str:
         project.id,
         scene_plan_version_id=scene_plan.id,
     )
-    VideoCompositionService(session, settings, provider=FakeVideoComposer()).compose_video(
+    composition_service = VideoCompositionService(
+        session,
+        settings,
+        provider=FakeVideoComposer(),
+    )
+    composed = composition_service.compose_video(
         project.id,
         render_id=render.id,
+    )
+    metadata = MetadataService(session, settings).generate_metadata(
+        project.id,
+        render_id=composed.id,
+    )
+    concept = ThumbnailService(session, settings).generate_concept(
+        project.id,
+        metadata_version_id=metadata.id,
+    )
+    ThumbnailService(session, settings).generate_thumbnail(
+        project.id,
+        metadata_version_id=metadata.id,
+        concept_version_id=concept.id,
+        width=64,
+        height=36,
     )
     return project.id
 
@@ -225,6 +246,18 @@ def test_project_routes_and_research_rendering(
     render_preview = client.get(render_preview_match.group(1))
     assert render_preview.status_code == 200
     assert render_preview.headers["content-type"].startswith("video/mp4")
+    metadata = client.get(f"/projects/{project_id}/metadata")
+    assert metadata.status_code == 200
+    assert "Video Metadata" in metadata.text
+    assert "AI weekly" in metadata.text
+    thumbnail = client.get(f"/projects/{project_id}/thumbnail")
+    assert thumbnail.status_code == 200
+    assert "Thumbnail History" in thumbnail.text
+    thumbnail_match = re.search(r'class="thumbnail-preview" src="([^"]+)"', thumbnail.text)
+    assert thumbnail_match is not None
+    thumbnail_preview = client.get(thumbnail_match.group(1))
+    assert thumbnail_preview.status_code == 200
+    assert thumbnail_preview.headers["content-type"].startswith("image/png")
 
 
 def test_unknown_and_invalid_project_return_404(client: TestClient) -> None:

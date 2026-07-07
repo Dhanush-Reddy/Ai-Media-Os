@@ -74,6 +74,15 @@ class AppSettings(BaseSettings):
     render_max_seconds: int = 3600
     render_default_background_color: str = "black"
     render_allow_pending_assets: bool = True
+    metadata_title_count: int = 5
+    metadata_tag_count: int = 12
+    metadata_default_provider: str = "fake_metadata"
+    thumbnail_default_width: int = 1280
+    thumbnail_default_height: int = 720
+    thumbnail_default_provider: str = "fake_thumbnail"
+    thumbnail_allowed_extensions: set[str] = Field(
+        default_factory=lambda: {".png", ".jpg", ".jpeg", ".webp"}
+    )
 
     @field_validator("database_url")
     @classmethod
@@ -157,6 +166,15 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if not self.ffmpeg_path:
             msg = "FFmpeg path cannot be empty."
+            raise ValueError(msg)
+        if self.metadata_title_count <= 0 or self.metadata_tag_count <= 0:
+            msg = "Metadata title and tag counts must be positive."
+            raise ValueError(msg)
+        if self.thumbnail_default_width <= 0 or self.thumbnail_default_height <= 0:
+            msg = "Thumbnail dimensions must be positive."
+            raise ValueError(msg)
+        if not self.thumbnail_allowed_extensions:
+            msg = "At least one thumbnail extension must be allowed."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:

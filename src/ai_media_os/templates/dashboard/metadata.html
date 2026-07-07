@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Metadata &middot; {{ project.working_title }} &middot; AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Video Metadata</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Status</h2>
+    {% if metadata.latest_version_id %}
+      <p><strong>Version:</strong> v{{ metadata.version_number }} &middot; {{ metadata.status }}</p>
+      <p><strong>Next action:</strong> {{ metadata.next_action }}</p>
+    {% else %}
+      <p class="empty">No metadata has been generated yet.</p>
+    {% endif %}
+  </section>
+
+  {% if metadata.latest_version_id %}
+    <section class="panel">
+      <h2>Selected Title</h2>
+      <p class="headline-preview">{{ metadata.title }}</p>
+      {% if metadata.title_ideas %}
+        <h3>Title Ideas</h3>
+        <ul class="compact-list">
+          {% for idea in metadata.title_ideas %}
+            <li>{{ idea }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Description</h2>
+      <pre class="text-preview">{{ metadata.description }}</pre>
+    </section>
+
+    <section class="grid two">
+      <article class="panel">
+        <h2>Tags</h2>
+        <p>{{ metadata.tags|join(", ") }}</p>
+        <h2>Hashtags</h2>
+        <p>{{ metadata.hashtags|join(" ") }}</p>
+      </article>
+      <article class="panel">
+        <h2>Chapters</h2>
+        {% if metadata.chapters %}
+          <ul class="compact-list">
+            {% for chapter in metadata.chapters %}
+              <li>{{ chapter.start_seconds }}s &middot; {{ chapter.title }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty">No chapters listed.</p>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Warnings</h2>
+      {% if metadata.warnings %}
+        <ul class="compact-list">
+          {% for warning in metadata.warnings %}
+            <li>{{ warning }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No metadata warnings.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

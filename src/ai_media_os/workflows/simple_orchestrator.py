@@ -19,6 +19,10 @@ from ai_media_os.infrastructure.database.models import (
 )
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
 from ai_media_os.workers.asset_handlers import JOB_PLAN_SCENE_ASSETS
+from ai_media_os.workers.packaging_handlers import (
+    JOB_GENERATE_THUMBNAIL_CONCEPT,
+    JOB_GENERATE_VIDEO_METADATA,
+)
 from ai_media_os.workflows.models import (
     WorkflowEvent,
     WorkflowEventType,
@@ -106,6 +110,12 @@ class SimpleWorkflowOrchestrator:
                 self._handle_assets_generated(workflow, event)
             case WorkflowEventType.ASSETS_APPROVED:
                 self._handle_assets_approved(workflow, event)
+            case WorkflowEventType.RENDER_VERIFIED:
+                self._handle_render_verified(workflow, event)
+            case WorkflowEventType.METADATA_APPROVED:
+                self._handle_metadata_approved(workflow, event)
+            case WorkflowEventType.THUMBNAIL_APPROVED:
+                self._handle_thumbnail_approved(workflow, event)
             case WorkflowEventType.WORKFLOW_CANCELLED:
                 self._handle_cancelled(workflow, event)
 
@@ -247,6 +257,56 @@ class SimpleWorkflowOrchestrator:
         workflow.current_stage = WorkflowStage.MILESTONE_6_COMPLETE.value
         workflow.status = WorkflowStatus.COMPLETED.value
         workflow.metadata_json = {**dict(workflow.metadata_json), "assets_approved": True}
+
+    def _handle_render_verified(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        render_id = str(event.metadata.get("render_id") or "")
+        if not render_id:
+            raise WorkflowError("Render verification event is missing render_id metadata.")
+        metadata_job = self.queue.create_job(
+            video_project_id=workflow.video_project_id,
+            job_type=JOB_GENERATE_VIDEO_METADATA,
+            payload={"workflow_id": workflow.id, "render_id": render_id},
+            resource_class=ResourceClass.CPU_LIGHT,
+        )
+        workflow.current_stage = WorkflowStage.METADATA_GENERATION.value
+        workflow.status = WorkflowStatus.RUNNING.value
+        workflow.metadata_json = {
+            **dict(workflow.metadata_json),
+            "verified_render_id": render_id,
+            "metadata_job_id": metadata_job.id,
+        }
+
+    def _handle_metadata_approved(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        version = self._validate_content_version(
+            event.content_version_id,
+            workflow.video_project_id,
+            ContentType.METADATA,
+        )
+        concept_job = self.queue.create_job(
+            video_project_id=workflow.video_project_id,
+            job_type=JOB_GENERATE_THUMBNAIL_CONCEPT,
+            payload={"workflow_id": workflow.id, "metadata_version_id": version.id},
+            resource_class=ResourceClass.CPU_LIGHT,
+        )
+        workflow.current_stage = WorkflowStage.THUMBNAIL_CONCEPT.value
+        workflow.status = WorkflowStatus.RUNNING.value
+        workflow.metadata_json = {
+            **dict(workflow.metadata_json),
+            "metadata_content_version_id": version.id,
+            "thumbnail_concept_job_id": concept_job.id,
+        }
+
+    def _handle_thumbnail_approved(self, workflow: WorkflowInstance, event: WorkflowEvent) -> None:
+        asset_id = str(event.metadata.get("thumbnail_asset_id") or "")
+        if not asset_id:
+            raise WorkflowError("Thumbnail approval event is missing thumbnail_asset_id metadata.")
+        workflow.current_stage = WorkflowStage.MILESTONE_8_COMPLETE.value
+        workflow.status = WorkflowStatus.COMPLETED.value
+        workflow.metadata_json = {
+            **dict(workflow.metadata_json),
+            "thumbnail_asset_id": asset_id,
+            "thumbnail_approved": True,
+        }
 
     def _handle_failure(
         self, workflow: WorkflowInstance, event: WorkflowEvent, stage: WorkflowStage

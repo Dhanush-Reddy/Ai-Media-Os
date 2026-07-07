@@ -136,6 +136,8 @@ def project_detail(
     context["scene_plan"] = queries.scene_plan_view(project)
     context["assets"] = queries.asset_view(project)
     context["renders"] = queries.render_view(project)
+    context["metadata"] = queries.metadata_view(project)
+    context["thumbnail"] = queries.thumbnail_view(project)
     return templates.TemplateResponse(request, "dashboard/project_detail.html", context)
 
 
@@ -250,6 +252,42 @@ def render_detail(
     return templates.TemplateResponse(request, "dashboard/render_detail.html", context)
 
 
+@router.get("/projects/{project_id}/metadata", response_class=HTMLResponse)
+def project_metadata(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["metadata"] = queries.metadata_view(project)
+    return templates.TemplateResponse(request, "dashboard/metadata.html", context)
+
+
+@router.get("/projects/{project_id}/thumbnail", response_class=HTMLResponse)
+def project_thumbnail(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["thumbnail"] = queries.thumbnail_view(project)
+    return templates.TemplateResponse(request, "dashboard/thumbnail.html", context)
+
+
 @router.get("/assets/{asset_id}/preview")
 def asset_preview(
     request: Request,
@@ -261,6 +299,7 @@ def asset_preview(
         AssetType.IMAGE,
         AssetType.CHART,
         AssetType.SCREENSHOT,
+        AssetType.THUMBNAIL,
     }:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:

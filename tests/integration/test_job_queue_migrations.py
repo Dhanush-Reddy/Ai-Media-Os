@@ -35,7 +35,7 @@ def test_job_queue_migration_upgrade_downgrade_upgrade(
     config = Config("alembic.ini")
 
     command.upgrade(config, "head")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0007_image_voice_providers")
     command.upgrade(config, "head")
     command.check(config)
 
@@ -238,7 +238,7 @@ def test_render_metadata_downgrade_preserves_removed_column_data(
     _insert_scene_planning_row(engine)
     _insert_render_metadata_row(engine)
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0007_image_voice_providers")
 
     with engine.connect() as connection:
         render = (
@@ -282,7 +282,7 @@ def test_render_metadata_downgrade_reupgrade_and_check_are_safe(
     engine = sa.create_engine(f"sqlite:///{database_path}")
     _insert_scene_planning_row(engine)
     _insert_render_metadata_row(engine)
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0007_image_voice_providers")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
@@ -307,7 +307,7 @@ def test_render_metadata_downgrade_creates_empty_backup_table(
 
     command.upgrade(config, "head")
     engine = sa.create_engine(f"sqlite:///{database_path}")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0007_image_voice_providers")
 
     with engine.connect() as connection:
         inspector = inspect(connection)
