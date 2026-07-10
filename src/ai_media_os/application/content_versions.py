@@ -10,6 +10,8 @@ from ai_media_os.domain.enums import ContentFormat, ContentType, VersionStatus
 from ai_media_os.infrastructure.database.models import ContentVersion
 from ai_media_os.utils.hashing import hash_content_version
 
+WRITE_TRANSACTION_DEPTH_KEY = "ai_media_os_write_transaction_depth"
+
 
 class ContentVersionError(RuntimeError):
     """Raised when content-version rules are violated."""
@@ -190,7 +192,9 @@ class ContentVersionService:
         model: str | None,
         input_hashes: Sequence[str],
     ) -> ContentVersion:
-        self.session.execute(text("BEGIN IMMEDIATE"))
+        started = int(self.session.info.get(WRITE_TRANSACTION_DEPTH_KEY, 0)) == 0
+        if started:
+            self.session.execute(text("BEGIN IMMEDIATE"))
         try:
             next_number = (
                 self.session.scalar(
@@ -216,7 +220,9 @@ class ContentVersionService:
                 content_hash=hash_content_version(content, content_format.value, input_hashes),
             )
             self.session.add(version)
-            self.session.commit()
+            self.session.flush()
+            if started:
+                self.session.commit()
             self.session.refresh(version)
             return version
         except IntegrityError as exc:

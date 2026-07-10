@@ -192,108 +192,112 @@ def upgrade() -> None:
     )
 
 
+def _copy_backup_rows(connection: sa.Connection, backup_table: sa.Table, source_name: str) -> None:
+    columns = [column.name for column in backup_table.columns]
+    source = sa.table(source_name, *[sa.column(name) for name in columns])
+    connection.execute(
+        backup_table.insert().from_select(
+            columns,
+            sa.select(*(source.c[name] for name in columns)),
+        )
+    )
+
+
+def _replace_backup_table(connection: sa.Connection, name: str, *columns: sa.Column) -> sa.Table:
+    if sa.inspect(connection).has_table(name):
+        op.drop_table(name)
+    return op.create_table(name, *columns)
+
+
 def downgrade() -> None:
     connection = op.get_bind()
-    if connection.dialect.name == "sqlite":
-        connection.execute(sa.text("PRAGMA foreign_keys=OFF"))
 
-    connection.execute(
-        sa.text(
-            """
-            CREATE TABLE IF NOT EXISTS migration_backup_0010_rights_records (
-                id VARCHAR(36) PRIMARY KEY,
-                video_project_id VARCHAR(36) NOT NULL,
-                asset_id VARCHAR(36) NOT NULL,
-                source_type VARCHAR(80) NOT NULL,
-                source_url TEXT,
-                license_name VARCHAR(200),
-                license_url TEXT,
-                rights_status VARCHAR(50) NOT NULL,
-                attribution_text TEXT,
-                review_notes TEXT,
-                provider VARCHAR(100),
-                model VARCHAR(100),
-                content_hash VARCHAR(64),
-                assessment_fingerprint VARCHAR(64) NOT NULL,
-                rule_version VARCHAR(80) NOT NULL,
-                created_at DATETIME NOT NULL,
-                updated_at DATETIME NOT NULL
-            )
-            """
-        )
+    rights_backup = _replace_backup_table(
+        connection,
+        "migration_backup_0010_rights_records",
+        "migration_backup_0010_rights_records",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("video_project_id", sa.String(length=36), nullable=False),
+        sa.Column("asset_id", sa.String(length=36), nullable=False),
+        sa.Column("source_type", sa.String(length=80), nullable=False),
+        sa.Column("source_url", sa.Text()),
+        sa.Column("license_name", sa.String(length=200)),
+        sa.Column("license_url", sa.Text()),
+        sa.Column("rights_status", sa.String(length=50), nullable=False),
+        sa.Column("attribution_text", sa.Text()),
+        sa.Column("review_notes", sa.Text()),
+        sa.Column("provider", sa.String(length=100)),
+        sa.Column("model", sa.String(length=100)),
+        sa.Column("content_hash", sa.String(length=64)),
+        sa.Column("assessment_fingerprint", sa.String(length=64), nullable=False),
+        sa.Column(
+            "rule_version",
+            sa.String(length=80),
+            nullable=False,
+            server_default=sa.text("'safety-v1'"),
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    connection.execute(
-        sa.text(
-            """
-            INSERT OR REPLACE INTO migration_backup_0010_rights_records
-            SELECT * FROM rights_records
-            """
-        )
+    _copy_backup_rows(connection, rights_backup, "rights_records")
+
+    checks_backup = _replace_backup_table(
+        connection,
+        "migration_backup_0010_content_safety_checks",
+        "migration_backup_0010_content_safety_checks",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("video_project_id", sa.String(length=36), nullable=False),
+        sa.Column("target_type", sa.String(length=50), nullable=False),
+        sa.Column("target_id", sa.String(length=80), nullable=False),
+        sa.Column("check_type", sa.String(length=80), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("severity", sa.String(length=20), nullable=False),
+        sa.Column("message", sa.Text(), nullable=False),
+        sa.Column("evidence", sa.JSON(), nullable=False),
+        sa.Column("recommendation", sa.Text()),
+        sa.Column("assessment_fingerprint", sa.String(length=64), nullable=False),
+        sa.Column(
+            "rule_version",
+            sa.String(length=80),
+            nullable=False,
+            server_default=sa.text("'safety-v1'"),
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    connection.execute(
-        sa.text(
-            """
-            CREATE TABLE IF NOT EXISTS migration_backup_0010_content_safety_checks (
-                id VARCHAR(36) PRIMARY KEY,
-                video_project_id VARCHAR(36) NOT NULL,
-                target_type VARCHAR(50) NOT NULL,
-                target_id VARCHAR(80) NOT NULL,
-                check_type VARCHAR(80) NOT NULL,
-                status VARCHAR(20) NOT NULL,
-                severity VARCHAR(20) NOT NULL,
-                message TEXT NOT NULL,
-                evidence JSON NOT NULL,
-                recommendation TEXT,
-                assessment_fingerprint VARCHAR(64) NOT NULL,
-                rule_version VARCHAR(80) NOT NULL,
-                created_at DATETIME NOT NULL,
-                updated_at DATETIME NOT NULL
-            )
-            """
-        )
+    _copy_backup_rows(connection, checks_backup, "content_safety_checks")
+
+    gates_backup = _replace_backup_table(
+        connection,
+        "migration_backup_0010_publishing_gates",
+        "migration_backup_0010_publishing_gates",
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("video_project_id", sa.String(length=36), nullable=False),
+        sa.Column("render_id", sa.String(length=36)),
+        sa.Column("metadata_version_id", sa.String(length=36)),
+        sa.Column("thumbnail_asset_id", sa.String(length=36)),
+        sa.Column("status", sa.String(length=30), nullable=False),
+        sa.Column("summary", sa.Text(), nullable=False),
+        sa.Column("blocking_reasons", sa.JSON(), nullable=False),
+        sa.Column("warnings", sa.JSON(), nullable=False),
+        sa.Column(
+            "ai_disclosure_required", sa.Boolean(), nullable=False, server_default=sa.false()
+        ),
+        sa.Column("ai_disclosure_reasons", sa.JSON(), nullable=False),
+        sa.Column("ai_disclosure_text", sa.Text()),
+        sa.Column("human_review_required", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("report_content_version_id", sa.String(length=36)),
+        sa.Column("assessment_fingerprint", sa.String(length=64), nullable=False),
+        sa.Column(
+            "rule_version",
+            sa.String(length=80),
+            nullable=False,
+            server_default=sa.text("'safety-v1'"),
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    connection.execute(
-        sa.text(
-            """
-            INSERT OR REPLACE INTO migration_backup_0010_content_safety_checks
-            SELECT * FROM content_safety_checks
-            """
-        )
-    )
-    connection.execute(
-        sa.text(
-            """
-            CREATE TABLE IF NOT EXISTS migration_backup_0010_publishing_gates (
-                id VARCHAR(36) PRIMARY KEY,
-                video_project_id VARCHAR(36) NOT NULL,
-                render_id VARCHAR(36),
-                metadata_version_id VARCHAR(36),
-                thumbnail_asset_id VARCHAR(36),
-                status VARCHAR(30) NOT NULL,
-                summary TEXT NOT NULL,
-                blocking_reasons JSON NOT NULL,
-                warnings JSON NOT NULL,
-                ai_disclosure_required BOOLEAN NOT NULL,
-                ai_disclosure_reasons JSON NOT NULL,
-                ai_disclosure_text TEXT,
-                human_review_required BOOLEAN NOT NULL,
-                report_content_version_id VARCHAR(36),
-                assessment_fingerprint VARCHAR(64) NOT NULL,
-                rule_version VARCHAR(80) NOT NULL,
-                created_at DATETIME NOT NULL,
-                updated_at DATETIME NOT NULL
-            )
-            """
-        )
-    )
-    connection.execute(
-        sa.text(
-            """
-            INSERT OR REPLACE INTO migration_backup_0010_publishing_gates
-            SELECT * FROM publishing_gates
-            """
-        )
-    )
+    _copy_backup_rows(connection, gates_backup, "publishing_gates")
 
     op.drop_index("ix_publishing_gates_project_render", table_name="publishing_gates")
     op.drop_index("ix_publishing_gates_project_status", table_name="publishing_gates")
@@ -312,6 +316,3 @@ def downgrade() -> None:
     op.drop_index("ix_rights_records_asset_id", table_name="rights_records")
     op.drop_index("ix_rights_records_video_project_id", table_name="rights_records")
     op.drop_table("rights_records")
-
-    if connection.dialect.name == "sqlite":
-        connection.execute(sa.text("PRAGMA foreign_keys=ON"))

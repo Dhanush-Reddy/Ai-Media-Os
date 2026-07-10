@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any
@@ -55,6 +57,8 @@ from ai_media_os.utils.hashing import hash_file, hash_json
 
 JsonDict = dict[str, Any]
 
+WRITE_TRANSACTION_DEPTH_KEY = "ai_media_os_write_transaction_depth"
+
 
 class SafetyError(RuntimeError):
     """Raised when content-safety checks cannot be completed."""
@@ -84,11 +88,30 @@ class ContentSafetyService:
         self.content_versions = ContentVersionService(session)
         self.storage = FileStorage(self.settings)
 
-    def check_asset_rights(self, video_project_id: str) -> list[RightsRecord]:
-        project = self._project(video_project_id)
-        if not self.session.in_transaction():
+    @contextmanager
+    def _write_transaction(self) -> Generator[None, None, None]:
+        depth = int(self.session.info.get(WRITE_TRANSACTION_DEPTH_KEY, 0))
+        started = depth == 0
+        self.session.info[WRITE_TRANSACTION_DEPTH_KEY] = depth + 1
+        if started:
             self.session.execute(text("BEGIN IMMEDIATE"))
         try:
+            yield
+            if started:
+                self.session.commit()
+        except Exception:
+            if started:
+                self.session.rollback()
+            raise
+        finally:
+            if depth == 0:
+                self.session.info.pop(WRITE_TRANSACTION_DEPTH_KEY, None)
+            else:
+                self.session.info[WRITE_TRANSACTION_DEPTH_KEY] = depth
+
+    def check_asset_rights(self, video_project_id: str) -> list[RightsRecord]:
+        project = self._project(video_project_id)
+        with self._write_transaction():
             records: list[RightsRecord] = []
             for asset in sorted(project.assets, key=lambda item: (item.created_at, item.id)):
                 record = self._evaluate_asset_rights(asset)
@@ -100,17 +123,11 @@ class ContentSafetyService:
                 self.session.flush()
                 records.append(record)
                 self._ensure_check_for_rights(record)
-            self.session.commit()
             return records
-        except Exception:
-            self.session.rollback()
-            raise
 
     def check_claim_support(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             findings: list[ContentSafetyCheck] = []
             for claim in sorted(project.claims, key=lambda item: (item.created_at, item.id)):
                 finding = self._evaluate_claim_support(project, claim)
@@ -121,92 +138,60 @@ class ContentSafetyService:
                 self.session.add(finding)
                 self.session.flush()
                 findings.append(finding)
-            self.session.commit()
             return findings
-        except Exception:
-            self.session.rollback()
-            raise
 
     def check_script_safety(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
         script = self._latest_version(project.id, ContentType.SCRIPT)
         if script is None:
             raise SafetyError("Script version not found for project.")
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             finding = self._evaluate_script_safety(project, script)
             existing = self._check_by_fingerprint(finding.assessment_fingerprint)
             if existing is not None:
-                self.session.commit()
                 return [existing]
             self.session.add(finding)
             self.session.flush()
-            self.session.commit()
             return [finding]
-        except Exception:
-            self.session.rollback()
-            raise
 
     def check_metadata_safety(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
         metadata = self._latest_version(project.id, ContentType.METADATA)
         if metadata is None:
             raise SafetyError("Metadata version not found for project.")
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             finding = self._evaluate_metadata_safety(project, metadata)
             existing = self._check_by_fingerprint(finding.assessment_fingerprint)
             if existing is not None:
-                self.session.commit()
                 return [existing]
             self.session.add(finding)
             self.session.flush()
-            self.session.commit()
             return [finding]
-        except Exception:
-            self.session.rollback()
-            raise
 
     def check_thumbnail_safety(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
         thumbnail = self._latest_thumbnail(project.id)
         if thumbnail is None:
             raise SafetyError("Thumbnail asset not found for project.")
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             finding = self._evaluate_thumbnail_safety(project, thumbnail)
             existing = self._check_by_fingerprint(finding.assessment_fingerprint)
             if existing is not None:
-                self.session.commit()
                 return [existing]
             self.session.add(finding)
             self.session.flush()
-            self.session.commit()
             return [finding]
-        except Exception:
-            self.session.rollback()
-            raise
 
     def check_reused_content(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             finding = self._evaluate_reused_content(project)
             existing = self._check_by_fingerprint(finding.assessment_fingerprint)
             if existing is not None:
-                self.session.commit()
                 return [existing]
             self.session.add(finding)
             self.session.flush()
-            self.session.commit()
             return [finding]
-        except Exception:
-            self.session.rollback()
-            raise
 
     def decide_ai_disclosure(self, video_project_id: str) -> DisclosureDecision:
         project = self._project(video_project_id)
@@ -229,9 +214,7 @@ class ContentSafetyService:
                 else None
             ),
         )
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             fingerprint = self._disclosure_fingerprint(project.id, decision)
             existing = self._check_by_fingerprint(fingerprint)
             if existing is None:
@@ -254,11 +237,7 @@ class ContentSafetyService:
                 )
                 self.session.add(finding)
                 self.session.flush()
-            self.session.commit()
             return decision
-        except Exception:
-            self.session.rollback()
-            raise
 
     def run_publishing_gate(
         self,
@@ -268,9 +247,7 @@ class ContentSafetyService:
         metadata_version_id: str | None = None,
         thumbnail_asset_id: str | None = None,
     ) -> SafetyRunResult:
-        if not self.session.in_transaction():
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with self._write_transaction():
             project = self._project(video_project_id)
             render = self._render(project.id, render_id)
             metadata = self._metadata_version(project.id, metadata_version_id)
@@ -333,7 +310,6 @@ class ContentSafetyService:
                 report_version = self._report_by_hash(fingerprint)
                 if report_version is None:
                     raise SafetyError("Publishing gate report was not found after replay.")
-                self.session.commit()
                 return SafetyRunResult(
                     existing, report, report_version, findings, rights_records, disclosure
                 )
@@ -366,14 +342,11 @@ class ContentSafetyService:
                 rule_version=self.settings.safety_rule_version,
             )
             self.session.add(gate)
-            self.session.commit()
+            self.session.flush()
             self.session.refresh(gate)
             return SafetyRunResult(
                 gate, report, report_version, findings, rights_records, disclosure
             )
-        except Exception:
-            self.session.rollback()
-            raise
 
     def latest_report(self, video_project_id: str) -> ContentVersion | None:
         return self.content_versions.latest_version(video_project_id, ContentType.COPYRIGHT_REPORT)
