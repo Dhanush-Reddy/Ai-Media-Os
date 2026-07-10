@@ -20,9 +20,70 @@ CHECK_TYPE_VALUES = (
     "'thumbnail_safety', 'reused_content', 'ai_disclosure', 'publishing_gate'"
 )
 GATE_STATUS_VALUES = "'PASS', 'PASS_WITH_WARNINGS', 'NEEDS_REVIEW', 'BLOCKED'"
+RIGHTS_RECORD_COLUMNS = [
+    "id",
+    "video_project_id",
+    "asset_id",
+    "source_type",
+    "source_url",
+    "license_name",
+    "license_url",
+    "rights_status",
+    "attribution_text",
+    "review_notes",
+    "provider",
+    "model",
+    "content_hash",
+    "assessment_fingerprint",
+    "rule_version",
+    "created_at",
+    "updated_at",
+]
+SAFETY_CHECK_COLUMNS = [
+    "id",
+    "video_project_id",
+    "target_type",
+    "target_id",
+    "check_type",
+    "status",
+    "severity",
+    "message",
+    "evidence",
+    "recommendation",
+    "assessment_fingerprint",
+    "rule_version",
+    "created_at",
+    "updated_at",
+]
+PUBLISHING_GATE_COLUMNS = [
+    "id",
+    "video_project_id",
+    "render_id",
+    "metadata_version_id",
+    "thumbnail_asset_id",
+    "status",
+    "summary",
+    "blocking_reasons",
+    "warnings",
+    "ai_disclosure_required",
+    "ai_disclosure_reasons",
+    "ai_disclosure_text",
+    "human_review_required",
+    "report_content_version_id",
+    "assessment_fingerprint",
+    "rule_version",
+    "created_at",
+    "updated_at",
+]
+
+
+def _table_has_rows(connection: sa.Connection, name: str) -> bool:
+    return sa.inspect(connection).has_table(name)
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+
     op.create_table(
         "rights_records",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -191,12 +252,39 @@ def upgrade() -> None:
         ["video_project_id", "render_id"],
     )
 
+    if _table_has_rows(connection, "migration_backup_0010_rights_records"):
+        _copy_backup_rows(
+            connection,
+            "migration_backup_0010_rights_records",
+            "rights_records",
+            RIGHTS_RECORD_COLUMNS,
+        )
+    if _table_has_rows(connection, "migration_backup_0010_content_safety_checks"):
+        _copy_backup_rows(
+            connection,
+            "migration_backup_0010_content_safety_checks",
+            "content_safety_checks",
+            SAFETY_CHECK_COLUMNS,
+        )
+    if _table_has_rows(connection, "migration_backup_0010_publishing_gates"):
+        _copy_backup_rows(
+            connection,
+            "migration_backup_0010_publishing_gates",
+            "publishing_gates",
+            PUBLISHING_GATE_COLUMNS,
+        )
 
-def _copy_backup_rows(connection: sa.Connection, backup_table: sa.Table, source_name: str) -> None:
-    columns = [column.name for column in backup_table.columns]
+
+def _copy_backup_rows(
+    connection: sa.Connection,
+    source_name: str,
+    target_name: str,
+    columns: list[str],
+) -> None:
     source = sa.table(source_name, *[sa.column(name) for name in columns])
+    target = sa.table(target_name, *[sa.column(name) for name in columns])
     connection.execute(
-        backup_table.insert().from_select(
+        sa.insert(target).from_select(
             columns,
             sa.select(*(source.c[name] for name in columns)),
         )
@@ -212,9 +300,8 @@ def _replace_backup_table(connection: sa.Connection, name: str, *columns: sa.Col
 def downgrade() -> None:
     connection = op.get_bind()
 
-    rights_backup = _replace_backup_table(
+    _replace_backup_table(
         connection,
-        "migration_backup_0010_rights_records",
         "migration_backup_0010_rights_records",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("video_project_id", sa.String(length=36), nullable=False),
@@ -239,11 +326,15 @@ def downgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    _copy_backup_rows(connection, rights_backup, "rights_records")
-
-    checks_backup = _replace_backup_table(
+    _copy_backup_rows(
         connection,
-        "migration_backup_0010_content_safety_checks",
+        "rights_records",
+        "migration_backup_0010_rights_records",
+        RIGHTS_RECORD_COLUMNS,
+    )
+
+    _replace_backup_table(
+        connection,
         "migration_backup_0010_content_safety_checks",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("video_project_id", sa.String(length=36), nullable=False),
@@ -265,11 +356,15 @@ def downgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    _copy_backup_rows(connection, checks_backup, "content_safety_checks")
-
-    gates_backup = _replace_backup_table(
+    _copy_backup_rows(
         connection,
-        "migration_backup_0010_publishing_gates",
+        "content_safety_checks",
+        "migration_backup_0010_content_safety_checks",
+        SAFETY_CHECK_COLUMNS,
+    )
+
+    _replace_backup_table(
+        connection,
         "migration_backup_0010_publishing_gates",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("video_project_id", sa.String(length=36), nullable=False),
@@ -297,7 +392,12 @@ def downgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    _copy_backup_rows(connection, gates_backup, "publishing_gates")
+    _copy_backup_rows(
+        connection,
+        "publishing_gates",
+        "migration_backup_0010_publishing_gates",
+        PUBLISHING_GATE_COLUMNS,
+    )
 
     op.drop_index("ix_publishing_gates_project_render", table_name="publishing_gates")
     op.drop_index("ix_publishing_gates_project_status", table_name="publishing_gates")
