@@ -38,6 +38,9 @@ from ai_media_os.dashboard.view_models import (
     RenderItem,
     RenderView,
     ResearchView,
+    RightsRecordItem,
+    SafetyFindingItem,
+    SafetyView,
     SceneItem,
     ScenePlanView,
     ScriptView,
@@ -63,9 +66,12 @@ from ai_media_os.infrastructure.database.models import (
     Asset,
     Channel,
     Claim,
+    ContentSafetyCheck,
     ContentVersion,
     Job,
+    PublishingGate,
     Render,
+    RightsRecord,
     Scene,
     Source,
     VideoProject,
@@ -476,6 +482,102 @@ class DashboardQueries:
             thumbnails=thumbnails,
             approved_count=sum(item.review_status == "Approved" for item in thumbnails),
             pending_review_count=sum(item.review_status == "Pending Review" for item in thumbnails),
+            next_action=next_action,
+        )
+
+    def safety_view(self, project: VideoProject) -> SafetyView:
+        gate = self.session.scalar(
+            select(PublishingGate)
+            .where(PublishingGate.video_project_id == project.id)
+            .order_by(PublishingGate.created_at.desc(), PublishingGate.id.desc())
+            .limit(1)
+        )
+        report_version = self.latest_version(
+            list(project.content_versions), ContentType.COPYRIGHT_REPORT
+        )
+        findings = list(
+            self.session.scalars(
+                select(ContentSafetyCheck)
+                .where(ContentSafetyCheck.video_project_id == project.id)
+                .order_by(ContentSafetyCheck.created_at.desc(), ContentSafetyCheck.id.desc())
+            ).all()
+        )
+        rights_records = list(
+            self.session.scalars(
+                select(RightsRecord)
+                .where(RightsRecord.video_project_id == project.id)
+                .order_by(RightsRecord.created_at.desc(), RightsRecord.id.desc())
+            ).all()
+        )
+        rights_summary = Counter(record.rights_status.value for record in rights_records)
+        check_summary = Counter(finding.check_type.value for finding in findings)
+        reused_content_risk = next(
+            (
+                finding.message
+                for finding in findings
+                if finding.check_type.value == "reused_content"
+            ),
+            None,
+        )
+        if gate is None:
+            next_action = "Run the publishing gate"
+        elif gate.status.value == "PASS":
+            next_action = "Ready for publishing approval"
+        elif gate.status.value == "PASS_WITH_WARNINGS":
+            next_action = "Review warnings before publishing"
+        elif gate.status.value == "NEEDS_REVIEW":
+            next_action = "Review the safety findings"
+        else:
+            next_action = "Resolve blocking issues before publishing"
+        return SafetyView(
+            render_id=gate.render_id if gate is not None else None,
+            metadata_version_id=gate.metadata_version_id if gate is not None else None,
+            thumbnail_asset_id=gate.thumbnail_asset_id if gate is not None else None,
+            report_version_id=(
+                gate.report_content_version_id
+                if gate is not None
+                else report_version.id
+                if report_version is not None
+                else None
+            ),
+            gate_status=gate.status.value if gate is not None else None,
+            summary=gate.summary if gate is not None else None,
+            ai_disclosure_required=bool(gate.ai_disclosure_required) if gate is not None else False,
+            ai_disclosure_reasons=list(gate.ai_disclosure_reasons) if gate is not None else [],
+            ai_disclosure_text=gate.ai_disclosure_text if gate is not None else None,
+            blocking_reasons=list(gate.blocking_reasons) if gate is not None else [],
+            warnings=list(gate.warnings) if gate is not None else [],
+            rights_summary=dict(rights_summary),
+            check_summary=dict(check_summary),
+            reused_content_risk=reused_content_risk,
+            findings=[
+                SafetyFindingItem(
+                    check_type=finding.check_type.value,
+                    target_type=finding.target_type.value,
+                    target_id=finding.target_id,
+                    status=finding.status.value,
+                    severity=finding.severity.value,
+                    message=finding.message,
+                    evidence=list(finding.evidence),
+                    recommendation=finding.recommendation,
+                )
+                for finding in findings
+            ],
+            rights_records=[
+                RightsRecordItem(
+                    asset_id=record.asset_id,
+                    source_type=record.source_type,
+                    source_url=record.source_url,
+                    license_name=record.license_name,
+                    rights_status=record.rights_status.value,
+                    attribution_text=record.attribution_text,
+                    review_notes=record.review_notes,
+                    provider=record.provider,
+                    model=record.model,
+                    content_hash=record.content_hash,
+                )
+                for record in rights_records
+            ],
             next_action=next_action,
         )
 

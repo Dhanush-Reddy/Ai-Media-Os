@@ -30,6 +30,7 @@ from ai_media_os.application.research import (
     ResearchReportService,
     SourceService,
 )
+from ai_media_os.application.safety import ContentSafetyService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.domain.enums import (
@@ -362,6 +363,39 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         choices=[item.value for item in AssetReviewStatus],
     )
+
+    check_asset_rights = subcommands.add_parser("check-asset-rights")
+    check_asset_rights.add_argument("--project-id", required=True)
+
+    check_claim_support = subcommands.add_parser("check-claims")
+    check_claim_support.add_argument("--project-id", required=True)
+
+    check_script_safety = subcommands.add_parser("check-script-safety")
+    check_script_safety.add_argument("--project-id", required=True)
+
+    check_metadata_safety = subcommands.add_parser("check-metadata-safety")
+    check_metadata_safety.add_argument("--project-id", required=True)
+
+    check_thumbnail_safety = subcommands.add_parser("check-thumbnail-safety")
+    check_thumbnail_safety.add_argument("--project-id", required=True)
+
+    check_reused_content = subcommands.add_parser("check-reused-content")
+    check_reused_content.add_argument("--project-id", required=True)
+
+    decide_ai_disclosure = subcommands.add_parser("decide-ai-disclosure")
+    decide_ai_disclosure.add_argument("--project-id", required=True)
+
+    run_publishing_gate = subcommands.add_parser("run-publishing-gate")
+    run_publishing_gate.add_argument("--project-id", required=True)
+    run_publishing_gate.add_argument("--render-id")
+    run_publishing_gate.add_argument("--metadata-version-id")
+    run_publishing_gate.add_argument("--thumbnail-asset-id")
+
+    show_safety_report = subcommands.add_parser("show-safety-report")
+    show_safety_report.add_argument("--project-id", required=True)
+
+    list_safety_findings = subcommands.add_parser("list-safety-findings")
+    list_safety_findings.add_argument("--project-id", required=True)
 
     verify_thumbnail = subcommands.add_parser("verify-thumbnail-file")
     verify_thumbnail.add_argument("asset_id")
@@ -820,6 +854,61 @@ def main(argv: Sequence[str] | None = None) -> int:
             verification = ThumbnailService(session).verify_thumbnail_file(args.asset_id)
             print("OK" if verification.ok else f"FAIL:{verification.reason}")
             return 0 if verification.ok else 1
+        if args.command == "check-asset-rights":
+            records = ContentSafetyService(session).check_asset_rights(args.project_id)
+            print(len(records))
+            return 0
+        if args.command == "check-claims":
+            findings = ContentSafetyService(session).check_claim_support(args.project_id)
+            print(len(findings))
+            return 0
+        if args.command == "check-script-safety":
+            findings = ContentSafetyService(session).check_script_safety(args.project_id)
+            print(len(findings))
+            return 0
+        if args.command == "check-metadata-safety":
+            findings = ContentSafetyService(session).check_metadata_safety(args.project_id)
+            print(len(findings))
+            return 0
+        if args.command == "check-thumbnail-safety":
+            findings = ContentSafetyService(session).check_thumbnail_safety(args.project_id)
+            print(len(findings))
+            return 0
+        if args.command == "check-reused-content":
+            findings = ContentSafetyService(session).check_reused_content(args.project_id)
+            print(len(findings))
+            return 0
+        if args.command == "decide-ai-disclosure":
+            decision = ContentSafetyService(session).decide_ai_disclosure(args.project_id)
+            print(
+                {
+                    "required": decision.required,
+                    "reasons": decision.reasons,
+                    "suggested_text": decision.suggested_text,
+                }
+            )
+            return 0
+        if args.command == "run-publishing-gate":
+            gate_result = ContentSafetyService(session).run_publishing_gate(
+                args.project_id,
+                render_id=args.render_id,
+                metadata_version_id=args.metadata_version_id,
+                thumbnail_asset_id=args.thumbnail_asset_id,
+            )
+            print(gate_result.gate.status.value)
+            return 0
+        if args.command == "show-safety-report":
+            report = ContentSafetyService(session).latest_report(args.project_id)
+            print(report.content if report is not None else "NONE")
+            return 0
+        if args.command == "list-safety-findings":
+            findings = ContentSafetyService(session).list_findings(args.project_id)
+            for finding in findings:
+                print(
+                    f"{finding.check_type.value}\t{finding.status.value}\t"
+                    f"{finding.severity.value}\t{finding.message}"
+                )
+            return 0
     return 1
 
 

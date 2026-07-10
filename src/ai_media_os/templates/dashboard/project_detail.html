@@ -14,6 +14,7 @@
       <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
       <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
       <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
+      <a class="button" href="/projects/{{ project.id }}/safety">Safety</a>
       <a class="button" href="/projects">All Projects</a>
     </div>
   </section>
@@ -86,6 +87,16 @@
         <p>{{ thumbnail.asset.review_status }} · <a href="/projects/{{ project.id }}/thumbnail">Open thumbnail</a></p>
       {% else %}
         <p class="empty">No thumbnail image has been generated yet.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Safety</h2>
+      {% if safety.gate_status %}
+        <p><strong>Status:</strong> {{ safety.gate_status }}</p>
+        <p><strong>Next action:</strong> {{ safety.next_action }}</p>
+        <p><a href="/projects/{{ project.id }}/safety">Open safety review</a></p>
+      {% else %}
+        <p class="empty">No publishing gate has been run yet.</p>
       {% endif %}
     </article>
   </section>

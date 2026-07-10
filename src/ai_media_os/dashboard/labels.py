@@ -7,7 +7,11 @@ from ai_media_os.domain.enums import (
     ClaimImportance,
     ContentType,
     JobStatus,
+    PublishingGateStatus,
     ResourceClass,
+    RightsStatus,
+    SafetyCheckStatus,
+    SafetySeverity,
     SourceStatus,
     SourceType,
     VerificationStatus,
@@ -102,3 +106,19 @@ def resource_class_label(resource_class: ResourceClass) -> str:
 
 def job_type_label(job_type: str) -> str:
     return job_type.replace(".", " ").replace("_", " ").replace("-", " ").title()
+
+
+def rights_status_label(status: RightsStatus) -> str:
+    return status.value.replace("_", " ").title()
+
+
+def safety_check_status_label(status: SafetyCheckStatus) -> str:
+    return status.value.replace("_", " ").title()
+
+
+def safety_severity_label(severity: SafetySeverity) -> str:
+    return severity.value.title()
+
+
+def publishing_gate_status_label(status: PublishingGateStatus) -> str:
+    return status.value.replace("_", " ").title()

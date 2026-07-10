@@ -138,6 +138,7 @@ def project_detail(
     context["renders"] = queries.render_view(project)
     context["metadata"] = queries.metadata_view(project)
     context["thumbnail"] = queries.thumbnail_view(project)
+    context["safety"] = queries.safety_view(project)
     return templates.TemplateResponse(request, "dashboard/project_detail.html", context)
 
 
@@ -250,6 +251,24 @@ def render_detail(
     context["project"] = project
     context["render"] = queries.render_item(render)
     return templates.TemplateResponse(request, "dashboard/render_detail.html", context)
+
+
+@router.get("/projects/{project_id}/safety", response_class=HTMLResponse)
+def project_safety(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["safety"] = queries.safety_view(project)
+    return templates.TemplateResponse(request, "dashboard/safety.html", context)
 
 
 @router.get("/projects/{project_id}/metadata", response_class=HTMLResponse)

@@ -200,6 +200,54 @@ class LicenseStatus(StringEnum):
     BLOCKED = "BLOCKED"
 
 
+class RightsStatus(StringEnum):
+    SAFE = "SAFE"
+    ATTRIBUTION_REQUIRED = "ATTRIBUTION_REQUIRED"
+    EDITORIAL_REVIEW = "EDITORIAL_REVIEW"
+    UNKNOWN = "UNKNOWN"
+    BLOCKED = "BLOCKED"
+
+
+class SafetySeverity(StringEnum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class SafetyCheckStatus(StringEnum):
+    PASSED = "PASSED"
+    WARNING = "WARNING"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
+class PublishingGateStatus(StringEnum):
+    PASS = "PASS"  # noqa: S105
+    PASS_WITH_WARNINGS = "PASS_WITH_WARNINGS"  # noqa: S105
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    BLOCKED = "BLOCKED"
+
+
+class SafetyTargetType(StringEnum):
+    PROJECT = "project"
+    CONTENT_VERSION = "content_version"
+    ASSET = "asset"
+    RENDER = "render"
+
+
+class SafetyCheckType(StringEnum):
+    ASSET_RIGHTS = "asset_rights"
+    CLAIM_SUPPORT = "claim_support"
+    SCRIPT_SAFETY = "script_safety"
+    METADATA_SAFETY = "metadata_safety"
+    THUMBNAIL_SAFETY = "thumbnail_safety"
+    REUSED_CONTENT = "reused_content"
+    AI_DISCLOSURE = "ai_disclosure"
+    PUBLISHING_GATE = "publishing_gate"
+
+
 class JobStatus(StringEnum):
     PENDING = "PENDING"
     READY = "READY"
