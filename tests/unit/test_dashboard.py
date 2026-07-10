@@ -20,6 +20,7 @@ from ai_media_os.application.job_queue import FailureInfo, QueueService
 from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.application.renders import RenderPlanningService, VideoCompositionService
 from ai_media_os.application.research import ClaimService, SourceService
+from ai_media_os.application.safety import ContentSafetyService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.dashboard.markdown import render_safe_markdown
@@ -195,6 +196,21 @@ def test_dashboard_routes_empty_state(client: TestClient) -> None:
     assert client.get("/approvals").status_code == 200
     assert client.get("/jobs").status_code == 200
     assert "No projects match this filter" in client.get("/projects").text
+
+
+def test_project_safety_page_and_summary(
+    client: TestClient,
+    session: Session,
+    project_id: str,
+) -> None:
+    ContentSafetyService(session).run_publishing_gate(project_id)
+    detail = client.get(f"/projects/{project_id}")
+    assert detail.status_code == 200
+    assert "Safety" in detail.text
+    safety = client.get(f"/projects/{project_id}/safety")
+    assert safety.status_code == 200
+    assert "Content Safety" in safety.text
+    assert "Publishing Gate" in safety.text
 
 
 def test_project_routes_and_research_rendering(

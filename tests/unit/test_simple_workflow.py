@@ -397,7 +397,7 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
     assert concept_job is not None
     assert concept_job.job_type == JOB_GENERATE_THUMBNAIL_CONCEPT
 
-    completed = orchestrator.resume(
+    safety_review = orchestrator.resume(
         workflow_id,
         make_event(
             event_id="thumbnail-approved",
@@ -405,6 +405,22 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
             project_id=project_id,
             event_type=WorkflowEventType.THUMBNAIL_APPROVED,
             metadata={"thumbnail_asset_id": "asset-1"},
+        ),
+    )
+
+    assert safety_review.current_stage == WorkflowStage.SAFETY_REVIEW
+    assert safety_review.status == WorkflowStatus.RUNNING
+    assert safety_review.metadata["thumbnail_asset_id"] == "asset-1"
+    assert safety_review.metadata["safety_gate_job_id"]
+
+    completed = orchestrator.resume(
+        workflow_id,
+        make_event(
+            event_id="safety-review-completed",
+            workflow_id=workflow_id,
+            project_id=project_id,
+            event_type=WorkflowEventType.SAFETY_REVIEW_COMPLETED,
+            metadata={"gate_status": "PASS"},
         ),
     )
 

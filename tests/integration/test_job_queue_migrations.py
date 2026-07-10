@@ -23,6 +23,9 @@ RENDER_BACKUP_SELECT = text(
     "SELECT * FROM migration_backup_0008_render_metadata WHERE render_id = 'render-1'"
 )
 RENDER_BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0008_render_metadata")
+SAFETY_BACKUP_RIGHTS_TABLE = "migration_backup_0010_rights_records"
+SAFETY_BACKUP_CHECKS_TABLE = "migration_backup_0010_content_safety_checks"
+SAFETY_BACKUP_GATES_TABLE = "migration_backup_0010_publishing_gates"
 
 
 def test_job_queue_migration_upgrade_downgrade_upgrade(
@@ -39,6 +42,30 @@ def test_job_queue_migration_upgrade_downgrade_upgrade(
     command.upgrade(config, "head")
     command.check(config)
 
+    get_settings.cache_clear()
+
+
+def test_safety_migration_upgrade_downgrade_upgrade(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "safety-migration.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    command.downgrade(config, "0009_thumbnail_metadata")
+    command.upgrade(config, "head")
+    command.check(config)
+
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert SAFETY_BACKUP_RIGHTS_TABLE in inspector.get_table_names()
+        assert SAFETY_BACKUP_CHECKS_TABLE in inspector.get_table_names()
+        assert SAFETY_BACKUP_GATES_TABLE in inspector.get_table_names()
+    engine.dispose()
     get_settings.cache_clear()
 
 

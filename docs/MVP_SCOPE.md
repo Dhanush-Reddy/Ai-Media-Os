@@ -27,6 +27,7 @@ The package should include:
 The MVP does not need to be fully autonomous.
 
 Human review is expected.
+Content safety and rights checks should run before publishing approval.
 
 ---
 

@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 8:
+The current implementation covers Milestones 1 through 8.5:
 
 - Python project configuration
 - Environment-based settings
@@ -161,6 +161,27 @@ python -m ai_media_os.web
 ```
 
 Then visit `http://127.0.0.1:8000/projects/{project_id}/metadata` and `http://127.0.0.1:8000/projects/{project_id}/thumbnail`.
+
+## Local Safety And Publishing Gate Demo
+
+After metadata and thumbnail are approved, Milestone 8.5 can run the local safety and rights checks and create a publishing-gate report.
+
+```powershell
+$PROJECT_ID = "existing-project-id"
+
+python -m ai_media_os.cli check-asset-rights --project-id $PROJECT_ID
+python -m ai_media_os.cli check-claims --project-id $PROJECT_ID
+python -m ai_media_os.cli check-script-safety --project-id $PROJECT_ID
+python -m ai_media_os.cli check-metadata-safety --project-id $PROJECT_ID
+python -m ai_media_os.cli check-thumbnail-safety --project-id $PROJECT_ID
+python -m ai_media_os.cli check-reused-content --project-id $PROJECT_ID
+python -m ai_media_os.cli decide-ai-disclosure --project-id $PROJECT_ID
+python -m ai_media_os.cli run-publishing-gate --project-id $PROJECT_ID
+python -m ai_media_os.cli show-safety-report --project-id $PROJECT_ID
+python -m ai_media_os.cli list-safety-findings --project-id $PROJECT_ID
+```
+
+Open `http://127.0.0.1:8000/projects/{project_id}/safety` to review the gate decision, findings, and rights records.
 
 ## Verification
 

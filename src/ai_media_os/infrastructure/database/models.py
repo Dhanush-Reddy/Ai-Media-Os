@@ -31,10 +31,16 @@ from ai_media_os.domain.enums import (
     JobStatus,
     LicenseStatus,
     PromptTemplateStatus,
+    PublishingGateStatus,
     RenderStatus,
     RenderType,
     ResearchNoteType,
     ResourceClass,
+    RightsStatus,
+    SafetyCheckStatus,
+    SafetyCheckType,
+    SafetySeverity,
+    SafetyTargetType,
     SceneStatus,
     SourceStatus,
     SourceType,
@@ -752,4 +758,114 @@ class WorkflowEventRecord(Base):
     __table_args__ = (
         UniqueConstraint("workflow_id", "event_id"),
         Index("ix_workflow_event_records_workflow_created", "workflow_id", "created_at"),
+    )
+
+
+class RightsRecord(TimestampMixin, Base):
+    __tablename__ = "rights_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    video_project_id: Mapped[str] = mapped_column(
+        ForeignKey("video_projects.id"),
+        nullable=False,
+        index=True,
+    )
+    asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id"), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text)
+    license_name: Mapped[str | None] = mapped_column(String(200))
+    license_url: Mapped[str | None] = mapped_column(Text)
+    rights_status: Mapped[RightsStatus] = mapped_column(
+        enum_column(RightsStatus),
+        nullable=False,
+        default=RightsStatus.UNKNOWN,
+    )
+    attribution_text: Mapped[str | None] = mapped_column(Text)
+    review_notes: Mapped[str | None] = mapped_column(Text)
+    provider: Mapped[str | None] = mapped_column(String(100))
+    model: Mapped[str | None] = mapped_column(String(100))
+    content_hash: Mapped[str | None] = mapped_column(String(64))
+    assessment_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    rule_version: Mapped[str] = mapped_column(String(80), nullable=False, default="safety-v1")
+
+    __table_args__ = (
+        Index("ix_rights_records_project_asset", "video_project_id", "asset_id"),
+        Index("ix_rights_records_project_status", "video_project_id", "rights_status"),
+    )
+
+
+class ContentSafetyCheck(TimestampMixin, Base):
+    __tablename__ = "content_safety_checks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    video_project_id: Mapped[str] = mapped_column(
+        ForeignKey("video_projects.id"),
+        nullable=False,
+        index=True,
+    )
+    target_type: Mapped[SafetyTargetType] = mapped_column(
+        enum_column(SafetyTargetType),
+        nullable=False,
+    )
+    target_id: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    check_type: Mapped[SafetyCheckType] = mapped_column(
+        enum_column(SafetyCheckType),
+        nullable=False,
+    )
+    status: Mapped[SafetyCheckStatus] = mapped_column(
+        enum_column(SafetyCheckStatus),
+        nullable=False,
+        default=SafetyCheckStatus.PASSED,
+    )
+    severity: Mapped[SafetySeverity] = mapped_column(
+        enum_column(SafetySeverity),
+        nullable=False,
+        default=SafetySeverity.INFO,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    assessment_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    rule_version: Mapped[str] = mapped_column(String(80), nullable=False, default="safety-v1")
+
+    __table_args__ = (
+        Index("ix_content_safety_checks_project_target", "video_project_id", "target_type"),
+        Index("ix_content_safety_checks_project_type", "video_project_id", "check_type"),
+    )
+
+
+class PublishingGate(TimestampMixin, Base):
+    __tablename__ = "publishing_gates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    video_project_id: Mapped[str] = mapped_column(
+        ForeignKey("video_projects.id"),
+        nullable=False,
+        index=True,
+    )
+    render_id: Mapped[str | None] = mapped_column(ForeignKey("renders.id"), index=True)
+    metadata_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("content_versions.id"),
+        index=True,
+    )
+    thumbnail_asset_id: Mapped[str | None] = mapped_column(ForeignKey("assets.id"), index=True)
+    status: Mapped[PublishingGateStatus] = mapped_column(
+        enum_column(PublishingGateStatus),
+        nullable=False,
+        default=PublishingGateStatus.NEEDS_REVIEW,
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    blocking_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    warnings: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    ai_disclosure_required: Mapped[bool] = mapped_column(nullable=False, default=False)
+    ai_disclosure_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    ai_disclosure_text: Mapped[str | None] = mapped_column(Text)
+    human_review_required: Mapped[bool] = mapped_column(nullable=False, default=False)
+    report_content_version_id: Mapped[str | None] = mapped_column(ForeignKey("content_versions.id"))
+    assessment_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    rule_version: Mapped[str] = mapped_column(String(80), nullable=False, default="safety-v1")
+
+    __table_args__ = (
+        Index("ix_publishing_gates_project_status", "video_project_id", "status"),
+        Index("ix_publishing_gates_project_render", "video_project_id", "render_id"),
     )

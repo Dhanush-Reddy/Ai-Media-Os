@@ -271,3 +271,50 @@ class JobGroups:
     completed: list[JobItem]
     paused: list[JobItem]
     cancelled: list[JobItem]
+
+
+@dataclass(frozen=True)
+class SafetyFindingItem:
+    check_type: str
+    target_type: str
+    target_id: str
+    status: str
+    severity: str
+    message: str
+    evidence: list[str]
+    recommendation: str | None
+
+
+@dataclass(frozen=True)
+class RightsRecordItem:
+    asset_id: str
+    source_type: str
+    source_url: str | None
+    license_name: str | None
+    rights_status: str
+    attribution_text: str | None
+    review_notes: str | None
+    provider: str | None
+    model: str | None
+    content_hash: str | None
+
+
+@dataclass(frozen=True)
+class SafetyView:
+    render_id: str | None
+    metadata_version_id: str | None
+    thumbnail_asset_id: str | None
+    report_version_id: str | None
+    gate_status: str | None
+    summary: str | None
+    ai_disclosure_required: bool
+    ai_disclosure_reasons: list[str]
+    ai_disclosure_text: str | None
+    blocking_reasons: list[str]
+    warnings: list[str]
+    rights_summary: JsonDict
+    check_summary: JsonDict
+    reused_content_risk: str | None
+    findings: list[SafetyFindingItem]
+    rights_records: list[RightsRecordItem]
+    next_action: str

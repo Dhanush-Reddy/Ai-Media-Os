@@ -83,6 +83,8 @@ class AppSettings(BaseSettings):
     thumbnail_allowed_extensions: set[str] = Field(
         default_factory=lambda: {".png", ".jpg", ".jpeg", ".webp"}
     )
+    safety_rule_version: str = "safety-v1"
+    safety_similarity_threshold: float = 0.88
 
     @field_validator("database_url")
     @classmethod
@@ -175,6 +177,12 @@ class AppSettings(BaseSettings):
             raise ValueError(msg)
         if not self.thumbnail_allowed_extensions:
             msg = "At least one thumbnail extension must be allowed."
+            raise ValueError(msg)
+        if not self.safety_rule_version:
+            msg = "Safety rule version cannot be empty."
+            raise ValueError(msg)
+        if not 0 <= self.safety_similarity_threshold <= 1:
+            msg = "Safety similarity threshold must be between 0 and 1."
             raise ValueError(msg)
         for resource_class, limit in self.queue_resource_limits.items():
             if limit < 0:

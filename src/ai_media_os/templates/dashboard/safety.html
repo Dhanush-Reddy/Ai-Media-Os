@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Safety &middot; {{ project.working_title }} &middot; AI Media OS{% endblock %}
+{% block content %}
+  <section class="section-head">
+    <div>
+      <h1>Content Safety</h1>
+      <p>{{ project.working_title }}</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/projects/{{ project.id }}">Project</a>
+      <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
+      <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Publishing Gate</h2>
+      {% if safety.gate_status %}
+        <p><strong>Status:</strong> {{ safety.gate_status }}</p>
+        <p><strong>Summary:</strong> {{ safety.summary }}</p>
+        <p><strong>Next action:</strong> {{ safety.next_action }}</p>
+        <p><strong>AI disclosure required:</strong> {{ "Yes" if safety.ai_disclosure_required else "No" }}</p>
+        {% if safety.ai_disclosure_text %}
+          <p><strong>Suggested disclosure:</strong> {{ safety.ai_disclosure_text }}</p>
+        {% endif %}
+      {% else %}
+        <p class="empty">No publishing gate has been run yet.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Risk Summary</h2>
+      <p><strong>Rights records:</strong> {{ safety.rights_records|length }}</p>
+      <p><strong>Findings:</strong> {{ safety.findings|length }}</p>
+      <p><strong>Reused-content risk:</strong> {{ safety.reused_content_risk or "None" }}</p>
+      <p><strong>Report version:</strong> {{ safety.report_version_id or "Unavailable" }}</p>
+    </article>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>Blocking Reasons</h2>
+      {% if safety.blocking_reasons %}
+        <ul class="compact-list">
+          {% for reason in safety.blocking_reasons %}
+            <li>{{ reason }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No blocking reasons recorded.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h2>Warnings</h2>
+      {% if safety.warnings %}
+        <ul class="compact-list">
+          {% for warning in safety.warnings %}
+            <li>{{ warning }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No warnings recorded.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Rights Summary</h2>
+    {% if safety.rights_summary %}
+      <ul class="compact-list">
+        {% for key, value in safety.rights_summary.items() %}
+          <li>{{ key }}: {{ value }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">No rights records have been reviewed.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Individual Findings</h2>
+    {% if safety.findings %}
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Status</th>
+            <th>Severity</th>
+            <th>Target</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for finding in safety.findings %}
+            <tr>
+              <td>{{ finding.check_type }}</td>
+              <td>{{ finding.status }}</td>
+              <td>{{ finding.severity }}</td>
+              <td>{{ finding.target_type }} ? {{ finding.target_id }}</td>
+              <td>{{ finding.message }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No safety findings have been recorded.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Rights Records</h2>
+    {% if safety.rights_records %}
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Status</th>
+            <th>Source</th>
+            <th>License</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in safety.rights_records %}
+            <tr>
+              <td>{{ record.asset_id }}</td>
+              <td>{{ record.rights_status }}</td>
+              <td>{{ record.source_type }}</td>
+              <td>{{ record.license_name or "Unknown" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No rights records have been stored yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -2,58 +2,28 @@
 
 ## Status
 
-Planned. Do not implement before the active milestone explicitly calls for it.
+Implemented as a local rules-based risk-reduction layer.
+
+## Disclaimer
+
+This system provides local risk-reduction checks and workflow gates. It does not provide legal advice or guarantee that content is copyright-safe or platform-compliant.
 
 ## Purpose
 
-The Content Safety and Rights Engine is a future subsystem for reducing the risk of copyright claims, strikes, reused-content monetization rejection, unlicensed asset usage, plagiarism, misleading AI-generated content, defamation, trademark confusion, missing attribution, and unsafe automatic publishing.
+The engine evaluates rendered-video packages before publishing approval. It focuses on rights provenance, claim support, script and metadata risk, thumbnail risk, reused-content risk, AI disclosure, and final publishing-gate decisions.
 
-The engine cannot guarantee that a video will never receive a claim, strike, complaint, or monetization rejection. Its role is to reduce risk, preserve evidence, block unsafe assets, and require human review where needed.
+## What It Checks
 
-## Core Principle
+* Asset rights records for imported and generated assets
+* Claim support against stored research sources
+* Script safety for unapproved text, local file paths, unsupported claims, and repeated text
+* Metadata safety for unsupported claims, risky marketing wording, and local file paths
+* Thumbnail safety for missing files, rejected assets, unsupported thumbnail text, and disclosure risk
+* Reused-content risk by comparing script, metadata, render, and thumbnail text across project versions
+* AI disclosure requirements for synthetic scripts, metadata, thumbnails, images, audio, or provider metadata
+* Publishing gate outcomes using `PASS`, `PASS_WITH_WARNINGS`, `NEEDS_REVIEW`, or `BLOCKED`
 
-Copyright safety and monetization eligibility are separate concerns.
-
-The system must check both:
-
-1. Rights and licensing safety
-2. Originality and viewer-value risk
-
-## Pipeline Position
-
-The engine should run before final publishing approval:
-
-```text
-Research
-    ->
-Script
-    ->
-Fact Check
-    ->
-Scene Plan
-    ->
-Asset Generation and Collection
-    ->
-Voice and Video Composition
-    ->
-Content Safety and Rights Engine
-    ->
-Human Review
-    ->
-Publishing Approval
-    ->
-Manual or Assisted Upload
-```
-
-No video should be automatically published during early phases.
-
-## Rights Registry
-
-Every external asset should have a stored rights record for images, video clips, music, sound effects, fonts, icons, screenshots, charts, logos, voice samples, templates, stock media, and generated media.
-
-Each asset rights record should include source URL, creator, publisher, asset type, license type, commercial-use permission, modification permission, attribution requirement, attribution text, retrieval date, license verification date, license proof path, original file path, file hash, notes, and review status.
-
-Recommended rights statuses:
+## Rights Statuses
 
 ```text
 SAFE
@@ -63,147 +33,85 @@ UNKNOWN
 BLOCKED
 ```
 
-Rules:
-
-* `SAFE` assets may enter final renders.
-* `ATTRIBUTION_REQUIRED` assets may enter only when attribution is included.
-* `EDITORIAL_REVIEW` assets require manual review.
-* `UNKNOWN` assets must not enter final renders automatically.
-* `BLOCKED` assets must never enter final renders.
-
-The system should preserve a local snapshot or proof of the license where practical.
-
-## Originality and Similarity
-
-The engine should estimate whether a video adds meaningful original value using script similarity to sources and previous videos, scene reuse, asset reuse, visual uniqueness, commentary depth, analysis depth, story structure, template repetition, hook/title/thumbnail/voice-over similarity, generated-or-original visual ratio, externally sourced visual ratio, unique claim count, and original explanation count.
-
-Risk indicators include copied article structure, long near-verbatim passages, generic AI narration, repeated visual templates, repeated scene sequences, minimal analysis, minimal transformation, heavy stock-asset use, heavy reuse of previous videos, compilation-style editing, and low educational or entertainment value.
-
-The exact thresholds should be configurable and reviewed after real channel data becomes available.
-
-The script should synthesize information from multiple sources rather than follow one article line by line. Checks should include exact sentence matching, near-duplicate sentence matching, paragraph similarity, structural similarity, sequence similarity, excessive quoting, source concentration, and repeated phrases from previous scripts.
-
-Preferred source-concentration policy:
-
-* Largest single-source contribution under 40%.
-* At least one primary source for important product or company claims.
-* At least two reliable sources for disputed or high-risk claims.
-* Discovery sources cannot be the only evidence for high-risk claims.
-
-These percentages are risk heuristics, not legal guarantees.
-
-## Audio, Voice, and Disclosure
-
-Use only music and audio with clear commercial-use permission. Do not trust labels such as "No Copyright Music", "Copyright Free", or "Free to Use" without verifying the actual license.
-
-The voice pipeline should prefer original or licensed synthetic voices and avoid cloning or impersonating real people without permission. Store provider, model, voice profile, license, commercial-use permission, consent record when applicable, generation date, and audio hash.
-
-The engine should recommend or require AI-content disclosure for photorealistic synthetic people, synthetic public figures, realistic fake events, altered real-world footage, synthetic voice imitating a real person, fake interviews, fake product demonstrations, synthetic news footage, artificial locations presented as real, manipulated evidence, and deepfake-like content.
-
-Disclosure recommendations, reasons, confidence, reviewer decisions, and upload disclosure values should be stored.
-
-## Claim, Trademark, Thumbnail, Clip, and Generated-Image Safety
-
-The engine should identify high-risk claims, including criminal allegations, fraud allegations, misconduct accusations, safety claims, medical claims, financial claims, investment predictions, layoffs, bankruptcy, data breaches, product defects, legal disputes, leaks, rumors, private personal information, quotes attributed to real people, claims about public companies, and claims that could damage reputation.
-
-The system should never invent legal certainty. It should recommend careful wording such as "reportedly", "according to the company", "according to the filing", "the publication reported", "the claim has not been independently confirmed", and "early reports suggest" when appropriate.
-
-The engine should flag fake endorsements, misleading sponsorship, false official branding, deceptive logo usage, counterfeit-looking product imagery, fake company announcements, official-looking thumbnails without disclosure, channel names that imply ownership by another company, unauthorized merchandise branding, and manipulated logos used to mislead.
-
-Thumbnails should receive separate review because they create high reputational and policy risk.
-
-Screenshots and clips should record source URL, source title, publisher, timestamp or page location, purpose of use, duration, cropping or transformation, commentary present, license or legal basis, and manual-review status.
-
-Generated images should be checked for copyrighted characters, famous fictional characters, brand confusion, real-person impersonation, celebrity likeness, watermarks, accidental text, fake logos, unsafe imagery, misleading product depictions, and model license restrictions.
-
-Avoid prompts that copy a living artist, copyrighted character, movie poster, or other protected expression. Prefer descriptive visual attributes.
-
-## Content Safety Report
-
-Every final video should receive a generated report saved as:
+## Safety Severities
 
 ```text
-data/projects/{project_id}/reports/content_safety_report_v001.json
-data/projects/{project_id}/reports/content_safety_report_v001.md
-```
-
-The report should include copyright risk, reused-content risk, AI disclosure, music license verification, voice license verification, image license counts, unknown assets, blocked assets, attribution requirements, high-risk claims, script-to-source similarity, previous-video similarity, unique visual ratio, trademark risk, defamation risk, thumbnail risk, manual-review requirement, and publishing status.
-
-## Risk Levels and Publishing Gate
-
-Use:
-
-```text
+INFO
 LOW
 MEDIUM
 HIGH
 CRITICAL
 ```
 
-Suggested behavior:
+## Gate Statuses
 
 ```text
-LOW -> may continue
-MEDIUM -> human review required
-HIGH -> block final approval until resolved
-CRITICAL -> block rendering or publishing
+PASS
+PASS_WITH_WARNINGS
+NEEDS_REVIEW
+BLOCKED
 ```
 
-The final publishing gate should require acceptable rights status for all assets, included attribution where required, no blocked assets, no unresolved high-risk claims, no critical plagiarism findings, a recorded AI-disclosure decision, approved thumbnail, approved final video, and explicit publishing approval.
-
-No timeout should automatically approve publishing.
-
-## Human Review
-
-The engine is a decision-support and blocking system, not a replacement for human judgment.
-
-Human approval should remain required for final video, thumbnail, publishing, medium or higher copyright risk, editorial-review assets, fair-use-like situations, real-person synthetic content, high-risk allegations, trademark ambiguity, AI disclosure decisions, unverified leaks, and sensitive current events.
-
-All human decisions should record reviewer, decision, timestamp, reason, related report version, and related content version.
-
-## Preliminary Entities
-
-Possible entities:
-
-* `RightsRecord`
-* `ContentSafetyCheck`
-* `SimilarityFinding`
-* `DisclosureDecision`
-* `PublishingGate`
-
-These are preliminary design ideas and must be refined before implementation.
-
-## Suggested Jobs
-
-Possible jobs:
+## Check Statuses
 
 ```text
-VERIFY_ASSET_RIGHTS
-CHECK_SCRIPT_SIMILARITY
-CHECK_PREVIOUS_VIDEO_SIMILARITY
-CHECK_AUDIO_RIGHTS
-CHECK_GENERATED_IMAGE_SAFETY
-CHECK_THUMBNAIL_SAFETY
-CHECK_HIGH_RISK_CLAIMS
-EVALUATE_AI_DISCLOSURE
-GENERATE_CONTENT_SAFETY_REPORT
-EVALUATE_PUBLISHING_GATE
+PASSED
+WARNING
+FAILED
+SKIPPED
 ```
 
-Most metadata checks should be `CPU_LIGHT`, similarity analysis should be `CPU_HEAVY`, image safety may be `GPU_LIGHT` or `CPU_HEAVY`, and manual rights decisions should be `MANUAL`.
+## Pipeline Position
 
-## Development Sequence
+```text
+Research
+  ->
+Script
+  ->
+Scene Plan
+  ->
+Image and Audio Assets
+  ->
+Render
+  ->
+Metadata
+  ->
+Thumbnail
+  ->
+Content Safety and Rights Engine
+  ->
+Publishing Gate
+  ->
+Manual Publishing
+```
 
-Do not implement the full system all at once.
+The engine runs locally and does not upload to YouTube.
 
-1. Rights metadata
-2. Script similarity
-3. Publishing gate
-4. AI disclosure
-5. Advanced checks
+## Data Stored
 
-## Limitations
+The implementation stores:
 
-The system cannot truthfully guarantee no copyright claim, no copyright strike, no Content ID match, no trademark complaint, no privacy complaint, no defamation complaint, guaranteed monetization approval, guaranteed fair-use protection, or guaranteed policy compliance forever.
+* Rights records per asset
+* Safety findings per check type and target
+* Publishing gate reports as content versions
+* AI disclosure decisions and suggested disclosure text
+* Blocking reasons, warnings, and rule version metadata
 
-The system should provide evidence, traceability, conservative blocking, human review, source records, license records, similarity findings, disclosure recommendations, and auditable publishing decisions.
+## Known Limitations
+
+* The engine is deterministic and rules-based.
+* It does not perform real plagiarism lookup.
+* It does not query external copyright databases.
+* It does not claim legal safety or platform compliance.
+* It does not automate publishing.
+* It does not perform OCR on thumbnails.
+
+## Future Extensions
+
+Future work may add:
+
+* Local LLM-assisted claim review
+* Real platform-specific publishing checks
+* External plagiarism or copyright APIs if explicitly approved
+* Stronger similarity analysis for reused-content risk
+

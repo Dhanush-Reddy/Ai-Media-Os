@@ -23,6 +23,7 @@ from ai_media_os.workers.packaging_handlers import (
     JOB_GENERATE_THUMBNAIL_CONCEPT,
     JOB_GENERATE_VIDEO_METADATA,
 )
+from ai_media_os.workers.safety_handlers import JOB_RUN_PUBLISHING_GATE
 from ai_media_os.workflows.models import (
     WorkflowEvent,
     WorkflowEventType,
@@ -116,6 +117,8 @@ class SimpleWorkflowOrchestrator:
                 self._handle_metadata_approved(workflow, event)
             case WorkflowEventType.THUMBNAIL_APPROVED:
                 self._handle_thumbnail_approved(workflow, event)
+            case WorkflowEventType.SAFETY_REVIEW_COMPLETED:
+                self._handle_safety_review_completed(workflow, event)
             case WorkflowEventType.WORKFLOW_CANCELLED:
                 self._handle_cancelled(workflow, event)
 
@@ -300,13 +303,51 @@ class SimpleWorkflowOrchestrator:
         asset_id = str(event.metadata.get("thumbnail_asset_id") or "")
         if not asset_id:
             raise WorkflowError("Thumbnail approval event is missing thumbnail_asset_id metadata.")
-        workflow.current_stage = WorkflowStage.MILESTONE_8_COMPLETE.value
-        workflow.status = WorkflowStatus.COMPLETED.value
+        safety_gate_job = self.queue.create_job(
+            video_project_id=workflow.video_project_id,
+            job_type=JOB_RUN_PUBLISHING_GATE,
+            payload={
+                "workflow_id": workflow.id,
+                "render_id": dict(workflow.metadata_json).get("verified_render_id"),
+                "metadata_version_id": dict(workflow.metadata_json).get(
+                    "metadata_content_version_id"
+                ),
+                "thumbnail_asset_id": asset_id,
+            },
+            resource_class=ResourceClass.CPU_LIGHT,
+        )
+        workflow.current_stage = WorkflowStage.SAFETY_REVIEW.value
+        workflow.status = WorkflowStatus.RUNNING.value
         workflow.metadata_json = {
             **dict(workflow.metadata_json),
             "thumbnail_asset_id": asset_id,
             "thumbnail_approved": True,
+            "safety_gate_job_id": safety_gate_job.id,
         }
+
+    def _handle_safety_review_completed(
+        self, workflow: WorkflowInstance, event: WorkflowEvent
+    ) -> None:
+        gate_status = str(event.metadata.get("gate_status") or "")
+        if not gate_status:
+            raise WorkflowError("Safety review event is missing gate_status metadata.")
+        workflow.metadata_json = {
+            **dict(workflow.metadata_json),
+            "safety_gate_status": gate_status,
+            "safety_gate_report_id": event.metadata.get("report_version_id"),
+        }
+        if gate_status in {"PASS", "PASS_WITH_WARNINGS"}:
+            workflow.current_stage = WorkflowStage.MILESTONE_8_5_COMPLETE.value
+            workflow.status = WorkflowStatus.COMPLETED.value
+        elif gate_status == "NEEDS_REVIEW":
+            workflow.current_stage = WorkflowStage.SAFETY_REVIEW.value
+            workflow.status = WorkflowStatus.WAITING_FOR_APPROVAL.value
+        else:
+            workflow.current_stage = WorkflowStage.FAILED.value
+            workflow.status = WorkflowStatus.FAILED.value
+            workflow.error_message = str(
+                event.metadata.get("summary") or event.feedback or "Safety gate blocked."
+            )
 
     def _handle_failure(
         self, workflow: WorkflowInstance, event: WorkflowEvent, stage: WorkflowStage
