@@ -294,8 +294,8 @@ def _copy_backup_rows(
 def _prepare_backup_table(connection: sa.Connection, name: str, *columns: sa.Column) -> None:
     if _table_exists(connection, name):
         connection.execute(sa.delete(sa.table(name)))
-        return
-    op.create_table(name, *columns)
+    else:
+        op.create_table(name, *columns)
 
 
 def _row_count(connection: sa.Connection, table_name: str) -> int:
