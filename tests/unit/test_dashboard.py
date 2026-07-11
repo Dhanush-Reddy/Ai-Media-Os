@@ -433,6 +433,22 @@ def test_jobs_filters_actions_and_fragments(
     assert running.cancel_requested_at is not None or running.status == JobStatus.CANCELLED
 
 
+def test_app_factory_uses_injected_database_settings(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    channel = Channel(name="Injected", slug="injected-settings", niche="AI")
+    project = VideoProject(channel=channel, working_title="Injected DB", topic="settings")
+    session.add(project)
+    session.commit()
+
+    with TestClient(create_app(settings)) as injected_client:
+        response = injected_client.get("/projects")
+
+    assert response.status_code == 200
+    assert "Injected DB" in response.text
+
+
 def test_state_changing_routes_reject_get(client: TestClient, project_id: str) -> None:
     assert client.get("/jobs/not-a-job/cancel").status_code == 405
     assert client.get("/approvals/not-an-approval/approve").status_code == 405

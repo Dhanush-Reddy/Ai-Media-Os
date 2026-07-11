@@ -17,6 +17,8 @@ from ai_media_os.application.assets import (
 )
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.domain.enums import (
+    ApprovalStatus,
+    ApprovalType,
     AssetGenerationStatus,
     AssetReviewStatus,
     AssetRole,
@@ -28,6 +30,7 @@ from ai_media_os.domain.enums import (
 )
 from ai_media_os.infrastructure.database.base import Base
 from ai_media_os.infrastructure.database.models import (
+    Approval,
     Asset,
     Channel,
     ContentVersion,
@@ -119,7 +122,13 @@ def create_project_with_scene(session: Session) -> tuple[str, str, str]:
         image_prompt="Original AI workflow visual",
         negative_prompt="logos, watermark",
     )
-    session.add(scene)
+    approval = Approval(
+        video_project=project,
+        content_version=scene_plan,
+        approval_type=ApprovalType.SCENE_PLAN,
+        status=ApprovalStatus.APPROVED,
+    )
+    session.add_all([scene, approval])
     session.commit()
     return project.id, scene.id, scene_plan.id
 
@@ -357,6 +366,10 @@ def test_manual_imports_and_validation(
     assert audio.duration_seconds is not None
     with pytest.raises(AssetError):
         ImageAssetService(session, settings).import_manual(scene_id, tmp_path / "bad.gif")
+    mismatched_image = tmp_path / "mismatched.png"
+    mismatched_image.write_bytes(b"not a png")
+    with pytest.raises(AssetError, match="does not match extension"):
+        ImageAssetService(session, settings).import_manual(scene_id, mismatched_image)
     with pytest.raises(AssetError):
         ImageAssetService(session, settings).import_manual(scene_id, Path("..") / "bad.png")
     with pytest.raises(AssetError):
@@ -376,6 +389,9 @@ def test_asset_review_status_changes(
 
     assert reviewed.review_status == AssetReviewStatus.APPROVED
     assert reviewed.generation_status == AssetGenerationStatus.APPROVED
+
+    with pytest.raises(AssetError, match="Approved assets must not be overwritten"):
+        ImageAssetService(session, settings).generate_for_scene(scene_id, seed=2)
 
 
 def test_asset_queue_handlers_execute(

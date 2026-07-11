@@ -42,11 +42,11 @@ Known limitations:
 
 - No real ComfyUI integration.
 - No real Kokoro, Piper, Coqui, or other TTS integration.
-- No FFmpeg composition, thumbnails, publishing, analytics, Shorts, Telegram, or Content Safety implementation.
-- Rights metadata remains basic license status metadata; full rights checks are deferred.
+- This provider milestone does not itself compose video or generate thumbnails; later milestones consume its assets for those stages.
+- Publishing, analytics, Shorts, and Telegram remain deferred. Milestone 8.5 now evaluates the stored rights metadata through local risk checks.
 
 Future integration points:
 
 - Add a ComfyUI adapter behind `ImageGenerationProvider`.
 - Add a local TTS adapter behind `VoiceGenerationProvider`.
-- Feed approved assets into Milestone 7 timeline and video composition.
+- Add richer provider provenance while retaining the current rights-check interface.

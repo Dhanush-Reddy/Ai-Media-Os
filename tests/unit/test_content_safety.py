@@ -30,6 +30,7 @@ from ai_media_os.infrastructure.database.models import (
     Asset,
     Channel,
     Claim,
+    ContentVersion,
     Render,
     VideoProject,
 )
@@ -167,6 +168,58 @@ def test_fake_thumbnail_requires_disclosure_and_gate(
     result = service.run_publishing_gate(project_id)
     assert result.gate.status == PublishingGateStatus.NEEDS_REVIEW
     assert result.report_version.content_type == ContentType.COPYRIGHT_REPORT
+
+
+def test_gate_persists_blocked_report_when_required_inputs_are_missing(
+    session: Session, settings: AppSettings
+) -> None:
+    channel = Channel(name="Missing Inputs", slug="missing-inputs", niche="AI")
+    project = VideoProject(channel=channel, working_title="Incomplete", topic="AI")
+    session.add(project)
+    session.commit()
+
+    result = ContentSafetyService(session, settings).run_publishing_gate(project.id)
+
+    assert result.gate.status == PublishingGateStatus.BLOCKED
+    assert {"Missing render.", "Missing metadata.", "Missing thumbnail."}.issubset(
+        set(result.gate.blocking_reasons)
+    )
+    assert result.report_version.content_type == ContentType.COPYRIGHT_REPORT
+
+    explicit_missing = ContentSafetyService(session, settings).run_publishing_gate(
+        project.id,
+        render_id="missing-render",
+        metadata_version_id="missing-metadata",
+        thumbnail_asset_id="missing-thumbnail",
+    )
+    assert explicit_missing.gate.status == PublishingGateStatus.BLOCKED
+
+
+def test_gate_checks_explicit_selected_metadata(session: Session, settings: AppSettings) -> None:
+    project_id, _script_id, _scene_plan_id, metadata_id, thumbnail_id = build_project(
+        session, settings
+    )
+    selected = session.get(ContentVersion, metadata_id)
+    assert selected is not None
+    revised_document = VideoMetadataDocument.model_validate_json(selected.content).model_copy(
+        update={"title": "A Different AI Future Update"}
+    )
+    latest = MetadataService(session, settings).revise_metadata(
+        metadata_id, revised_document.model_dump_json()
+    )
+    assert latest.id != metadata_id
+
+    result = ContentSafetyService(session, settings).run_publishing_gate(
+        project_id,
+        metadata_version_id=metadata_id,
+        thumbnail_asset_id=thumbnail_id,
+    )
+
+    assert result.gate.metadata_version_id == metadata_id
+    metadata_findings = [
+        finding for finding in result.findings if finding.check_type.value == "metadata_safety"
+    ]
+    assert metadata_findings[0].target_id == metadata_id
 
 
 def test_manual_thumbnail_import_unknown_rights_and_missing_file(

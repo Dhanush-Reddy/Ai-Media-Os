@@ -1,6 +1,5 @@
 """Asset planning, generation, import, review, and verification services."""
 
-import shutil
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import (
     AssetGenerationStatus,
     AssetReviewStatus,
@@ -35,6 +35,7 @@ from ai_media_os.providers.voice_generation import (
     VoiceGenerationRequest,
 )
 from ai_media_os.storage.filesystem import FileStorage, StorageError
+from ai_media_os.storage.media_files import MediaFileError, validate_media_signature
 from ai_media_os.utils.hashing import hash_file, hash_text
 
 
@@ -70,39 +71,40 @@ class AssetPlanningService:
         target_visual_style: str = "AI & Future editorial documentary",
         voice_profile: str | None = None,
     ) -> list[Asset]:
-        scene_plan = self._scene_plan(video_project_id, scene_plan_version_id)
-        scenes = self._scenes(scene_plan.id)
-        planned: list[Asset] = []
-        for scene in scenes:
-            planned.append(
-                self._planned_asset(
-                    scene,
-                    AssetRole.SCENE_VISUAL,
-                    AssetType.IMAGE,
-                    self._image_relative_path(video_project_id, scene.scene_number),
-                    prompt=scene.image_prompt or scene.visual_description or scene.narration,
-                    negative_prompt=scene.negative_prompt,
-                    metadata={
-                        "target_visual_style": target_visual_style,
-                        "scene_plan_version_id": scene_plan.id,
-                    },
+        with write_transaction(self.session):
+            scene_plan = self._scene_plan(video_project_id, scene_plan_version_id)
+            scenes = self._scenes(scene_plan.id)
+            planned: list[Asset] = []
+            for scene in scenes:
+                planned.append(
+                    self._planned_asset(
+                        scene,
+                        AssetRole.SCENE_VISUAL,
+                        AssetType.IMAGE,
+                        self._image_relative_path(video_project_id, scene.scene_number),
+                        prompt=scene.image_prompt or scene.visual_description or scene.narration,
+                        negative_prompt=scene.negative_prompt,
+                        metadata={
+                            "target_visual_style": target_visual_style,
+                            "scene_plan_version_id": scene_plan.id,
+                        },
+                    )
                 )
-            )
-            planned.append(
-                self._planned_asset(
-                    scene,
-                    AssetRole.SCENE_NARRATION,
-                    AssetType.AUDIO,
-                    self._audio_relative_path(video_project_id, scene.scene_number),
-                    prompt=scene.narration,
-                    metadata={
-                        "voice_profile": voice_profile or self.settings.voice_default_name,
-                        "scene_plan_version_id": scene_plan.id,
-                    },
+                planned.append(
+                    self._planned_asset(
+                        scene,
+                        AssetRole.SCENE_NARRATION,
+                        AssetType.AUDIO,
+                        self._audio_relative_path(video_project_id, scene.scene_number),
+                        prompt=scene.narration,
+                        metadata={
+                            "voice_profile": voice_profile or self.settings.voice_default_name,
+                            "scene_plan_version_id": scene_plan.id,
+                        },
+                    )
                 )
-            )
-        self.session.commit()
-        return planned
+            self.session.flush()
+            return planned
 
     def _planned_asset(
         self,
@@ -219,6 +221,7 @@ class ImageAssetService:
     ) -> Asset:
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
+        self._ensure_mutable(asset)
         prompt = asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
         negative_prompt = asset.negative_prompt or scene.negative_prompt
         resolved_width = width or self.settings.image_default_width
@@ -284,13 +287,18 @@ class ImageAssetService:
         self._validate_source_path(source_path, self.settings.image_allowed_extensions)
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
-        destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_path, destination)
-        output_hash = hash_file(destination)
+        self._ensure_mutable(asset)
+        try:
+            mime_type = validate_media_signature(source_path)
+        except MediaFileError as exc:
+            raise AssetError(str(exc)) from exc
+        destination = self.storage.resolve_inside(
+            self.storage.data_root, asset.file_path
+        ).with_suffix(source_path.suffix.lower())
+        output_hash = self.storage.atomic_write(destination, source_path.read_bytes())
         provider = ManualImageProvider()
         asset.file_path = self.storage.relative_to_data_root(destination)
-        asset.mime_type = _mime_for(source_path.suffix)
+        asset.mime_type = mime_type
         asset.provider = provider.provider_name
         asset.model = provider.model_name
         asset.model_version = provider.model_version
@@ -365,8 +373,14 @@ class ImageAssetService:
             raise AssetError("Asset source file exceeds configured size limit.")
 
     def _copy_cached(self, source: Path, destination: Path) -> None:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
+        self.storage.atomic_write(destination, source.read_bytes())
+
+    def _ensure_mutable(self, asset: Asset) -> None:
+        if (
+            asset.review_status == AssetReviewStatus.APPROVED
+            or asset.generation_status == AssetGenerationStatus.APPROVED
+        ):
+            raise AssetError("Approved assets must not be overwritten.")
 
 
 class VoiceAssetService:
@@ -396,6 +410,7 @@ class VoiceAssetService:
     ) -> Asset:
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
+        ImageAssetService(self.session, self.settings, self.storage)._ensure_mutable(asset)
         resolved_voice = voice_name or self.settings.voice_default_name
         resolved_language = language or self.settings.voice_default_language
         request = self._cache_request(
@@ -410,8 +425,7 @@ class VoiceAssetService:
         cached = self.cache.lookup(cache_key)
         duration = None
         if cached.hit and cached.path is not None:
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(cached.path, destination)
+            self.storage.atomic_write(destination, cached.path.read_bytes())
             output_hash = hash_file(destination)
             metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
             duration = _duration_from_metadata(metadata)
@@ -461,16 +475,22 @@ class VoiceAssetService:
         )
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
-        destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_path, destination)
+        ImageAssetService(self.session, self.settings, self.storage)._ensure_mutable(asset)
+        try:
+            mime_type = validate_media_signature(source_path)
+        except MediaFileError as exc:
+            raise AssetError(str(exc)) from exc
+        destination = self.storage.resolve_inside(
+            self.storage.data_root, asset.file_path
+        ).with_suffix(source_path.suffix.lower())
+        output_hash = self.storage.atomic_write(destination, source_path.read_bytes())
         provider = ManualAudioProvider()
         asset.file_path = self.storage.relative_to_data_root(destination)
-        asset.mime_type = _mime_for(source_path.suffix)
+        asset.mime_type = mime_type
         asset.provider = provider.provider_name
         asset.model = provider.model_name
         asset.model_version = provider.model_version
-        asset.content_hash = hash_file(destination)
+        asset.content_hash = output_hash
         asset.duration_seconds = estimate_wav_duration(destination)
         asset.generation_status = AssetGenerationStatus.IMPORTED
         asset.review_status = AssetReviewStatus.PENDING_REVIEW

@@ -22,6 +22,8 @@ The engine evaluates rendered-video packages before publishing approval. It focu
 * Reused-content risk by comparing script, metadata, render, and thumbnail text across project versions
 * AI disclosure requirements for synthetic scripts, metadata, thumbnails, images, audio, or provider metadata
 * Publishing gate outcomes using `PASS`, `PASS_WITH_WARNINGS`, `NEEDS_REVIEW`, or `BLOCKED`
+* Explicit render, metadata-version, and thumbnail-asset selections supplied to the gate
+* Persisted blocked reports when a required package input is missing
 
 ## Rights Statuses
 
@@ -105,6 +107,8 @@ The implementation stores:
 * It does not claim legal safety or platform compliance.
 * It does not automate publishing.
 * It does not perform OCR on thumbnails.
+* It does not prove legal rights or platform-policy compliance.
+* Similarity checks are project-local and advisory.
 
 ## Future Extensions
 

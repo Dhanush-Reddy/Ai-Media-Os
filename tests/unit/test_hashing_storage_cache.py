@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -96,6 +97,29 @@ def test_storage_rejects_unsafe_paths_and_atomic_failure(settings: AppSettings) 
     with pytest.raises(StorageError):
         storage.atomic_write(destination, b"data", fail_before_move=True)
     assert not destination.exists()
+
+
+def test_atomic_write_retries_transient_windows_file_lock(
+    settings: AppSettings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = FileStorage(settings)
+    destination = storage.data_root / "retry.bin"
+    real_replace = os.replace
+    attempts = 0
+
+    def transient_replace(source: Path, target: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("transient lock")
+        real_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", transient_replace)
+    storage.atomic_write(destination, b"retry-safe")
+
+    assert attempts == 3
+    assert destination.read_bytes() == b"retry-safe"
 
 
 def test_storage_rejects_symlink_escape_when_supported(settings: AppSettings) -> None:

@@ -2,15 +2,14 @@
 
 from collections.abc import Sequence
 
-from sqlalchemy import func, inspect, select, text
+from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import ContentFormat, ContentType, VersionStatus
 from ai_media_os.infrastructure.database.models import ContentVersion
 from ai_media_os.utils.hashing import hash_content_version
-
-WRITE_TRANSACTION_DEPTH_KEY = "ai_media_os_write_transaction_depth"
 
 
 class ContentVersionError(RuntimeError):
@@ -92,16 +91,12 @@ class ContentVersionService:
         )
 
     def approve_version(self, content_version_id: str) -> ContentVersion:
-        self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with write_transaction(self.session):
             version = self._get_version(content_version_id)
             self.apply_approval_without_commit(version)
-            self.session.commit()
+            self.session.flush()
             self.session.refresh(version)
             return version
-        except Exception:
-            self.session.rollback()
-            raise
 
     def reject_version(self, content_version_id: str) -> ContentVersion:
         version = self._get_version(content_version_id)
@@ -192,41 +187,36 @@ class ContentVersionService:
         model: str | None,
         input_hashes: Sequence[str],
     ) -> ContentVersion:
-        started = int(self.session.info.get(WRITE_TRANSACTION_DEPTH_KEY, 0)) == 0
-        if started:
-            self.session.execute(text("BEGIN IMMEDIATE"))
         try:
-            next_number = (
-                self.session.scalar(
-                    select(func.max(ContentVersion.version_number)).where(
-                        ContentVersion.video_project_id == video_project_id,
-                        ContentVersion.content_type == content_type,
+            with write_transaction(self.session):
+                next_number = (
+                    self.session.scalar(
+                        select(func.max(ContentVersion.version_number)).where(
+                            ContentVersion.video_project_id == video_project_id,
+                            ContentVersion.content_type == content_type,
+                        )
                     )
+                    or 0
+                ) + 1
+                version = ContentVersion(
+                    video_project_id=video_project_id,
+                    content_type=content_type,
+                    version_number=next_number,
+                    parent_version_id=parent_version_id,
+                    content=content,
+                    content_format=content_format,
+                    prompt_version=prompt_version,
+                    provider=provider,
+                    model=model,
+                    input_hashes=list(input_hashes),
+                    status=VersionStatus.DRAFT,
+                    content_hash=hash_content_version(content, content_format.value, input_hashes),
                 )
-                or 0
-            ) + 1
-            version = ContentVersion(
-                video_project_id=video_project_id,
-                content_type=content_type,
-                version_number=next_number,
-                parent_version_id=parent_version_id,
-                content=content,
-                content_format=content_format,
-                prompt_version=prompt_version,
-                provider=provider,
-                model=model,
-                input_hashes=list(input_hashes),
-                status=VersionStatus.DRAFT,
-                content_hash=hash_content_version(content, content_format.value, input_hashes),
-            )
-            self.session.add(version)
-            self.session.flush()
-            if started:
-                self.session.commit()
-            self.session.refresh(version)
-            return version
+                self.session.add(version)
+                self.session.flush()
+                self.session.refresh(version)
+                return version
         except IntegrityError as exc:
-            self.session.rollback()
             raise ContentVersionError("Could not create a unique content version.") from exc
 
     def _validate_parent(

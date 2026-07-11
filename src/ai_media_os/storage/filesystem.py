@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PureWindowsPath
@@ -86,8 +87,20 @@ class FileStorage:
                 os.fsync(file.fileno())
             if fail_before_move:
                 raise StorageError("Simulated atomic-write failure before move.")
-            os.replace(temp_path, destination)
+            self._replace_with_retry(temp_path, destination)
         return hash_file(destination)
+
+    def _replace_with_retry(self, source: Path, destination: Path) -> None:
+        for attempt in range(5):
+            try:
+                os.replace(source, destination)
+                return
+            except PermissionError as exc:
+                if attempt == 4:
+                    raise StorageError(
+                        f"Atomic replacement remained locked: {destination}"
+                    ) from exc
+                time.sleep(0.05 * (attempt + 1))
 
     def verify_file_hash(self, path: Path, expected_hash: str) -> bool:
         return path.exists() and hash_file(path) == expected_hash

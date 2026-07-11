@@ -1,6 +1,5 @@
 """Metadata and thumbnail packaging services for Milestone 8."""
 
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +40,7 @@ from ai_media_os.providers.thumbnail_generation import (
 from ai_media_os.schemas.thumbnail import ThumbnailConceptDocument
 from ai_media_os.schemas.video_metadata import VideoMetadataDocument
 from ai_media_os.storage.filesystem import FileStorage, StorageError
+from ai_media_os.storage.media_files import MediaFileError, validate_media_signature
 from ai_media_os.utils.hashing import hash_file, hash_json
 
 
@@ -404,18 +404,21 @@ class ThumbnailService:
         asset = self._new_thumbnail_asset(video_project_id)
         destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         destination = destination.with_suffix(source_path.suffix.lower())
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_path, destination)
+        try:
+            mime_type = validate_media_signature(source_path)
+        except MediaFileError as exc:
+            raise PackagingError(str(exc)) from exc
+        output_hash = self.storage.atomic_write(destination, source_path.read_bytes())
         width, height = _image_dimensions(destination)
         provider = ManualThumbnailProvider()
         asset.file_path = self.storage.relative_to_data_root(destination)
-        asset.mime_type = _mime_for_thumbnail(source_path.suffix)
+        asset.mime_type = mime_type
         asset.provider = provider.provider_name
         asset.model = provider.model_name
         asset.model_version = provider.model_version
         asset.width = width
         asset.height = height
-        asset.content_hash = hash_file(destination)
+        asset.content_hash = output_hash
         asset.generation_status = AssetGenerationStatus.IMPORTED
         asset.review_status = AssetReviewStatus.PENDING_REVIEW
         asset.license_status = LicenseStatus.UNKNOWN

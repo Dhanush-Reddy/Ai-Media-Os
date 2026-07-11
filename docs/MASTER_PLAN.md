@@ -963,7 +963,7 @@ Every final video should provide original value through:
 
 ### Content Safety and Rights Engine
 
-A dedicated Content Safety and Rights Engine is planned to reduce risks around copyright claims, reused-content monetization rejection, unlicensed assets, plagiarism, misleading AI-generated content, defamation, trademark confusion, missing attribution, and unsafe publishing.
+A local rules-based Content Safety and Rights Engine is implemented to reduce risks around copyright claims, reused-content monetization rejection, unlicensed assets, misleading metadata, missing attribution, and unsafe publishing. It creates findings and publishing-gate reports without making legal or platform-compliance guarantees.
 
 The engine must treat rights safety and originality risk as separate checks. It should preserve evidence, block unsafe assets, produce a content safety report, and require human review where risk cannot be resolved automatically.
 

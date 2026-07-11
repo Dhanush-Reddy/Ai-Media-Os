@@ -19,8 +19,10 @@ The current implementation covers Milestones 1 through 8.5:
 - Provider-neutral image and voice interfaces, deterministic fake image and voice providers, manual image/audio import, per-scene asset planning, cache reuse, asset review statuses, asset dashboard visibility, and asset workflow/CLI handlers
 - Provider-neutral video composition, local FFmpeg preview rendering when FFmpeg is installed, render planning and verification, render review statuses, render dashboard visibility, and render workflow/CLI handlers
 - Strict YouTube metadata documents, deterministic fake metadata generation, thumbnail concept documents, deterministic fake thumbnail PNG generation, manual metadata/thumbnail import, thumbnail verification/review, dashboard metadata/thumbnail pages, and packaging workflow/CLI handlers
+- Local rights records, deterministic claim/script/metadata/thumbnail checks, reused-content risk checks, AI disclosure decisions, persisted publishing-gate reports, and a dashboard safety view
+- Atomic workflow transitions with persisted-evidence validation, approved-asset immutability, signature-checked atomic imports, approved asset planning defaults, and provider-complete script fingerprints
 
-The next planned task is Milestone 8.5/9 scope confirmation. Do not begin Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or Content Safety implementation until explicitly scoped.
+Milestone 9 has not started. Do not begin Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or a real LLM provider until explicitly scoped.
 
 ## Setup
 
@@ -47,6 +49,22 @@ alembic upgrade head
 ```
 
 The default database path is `data/database/ai_media_os.db`.
+
+## Start A Local Project
+
+Create the channel and first video project without editing SQLite directly:
+
+```powershell
+$CHANNEL_ID = python -m ai_media_os.cli create-channel --name "AI & Future" --slug "ai-future" --niche "AI" --language en
+$PROJECT_ID = python -m ai_media_os.cli create-project --channel-id $CHANNEL_ID --working-title "AI Reliability" --topic "Reliable local AI media workflows" --target-duration-seconds 420
+python -m ai_media_os.cli list-channels
+python -m ai_media_os.cli list-projects --channel-id $CHANNEL_ID
+```
+
+Continue the same project through the documented local stages below: import and approve research,
+generate and approve a script and scene plan, plan/generate/review assets, compose and approve a
+render, generate and approve metadata and a thumbnail, then run the publishing gate. Every stage
+uses the same `$PROJECT_ID`; publishing remains manual.
 
 ## Dashboard
 
@@ -195,6 +213,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not yet include Telegram, real ComfyUI integration, real local TTS integration, local language models, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
+This repository intentionally does not include Telegram, real ComfyUI integration, real local TTS integration, local language models, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
 
-The planned Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`; it is not implemented yet.
+The implemented local Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`. It provides risk-reduction checks, not legal advice or a platform-compliance guarantee.

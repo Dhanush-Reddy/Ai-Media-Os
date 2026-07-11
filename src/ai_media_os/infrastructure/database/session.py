@@ -34,6 +34,17 @@ def create_db_engine(settings: AppSettings | None = None) -> Engine:
     return engine
 
 
+def create_session_factory(settings: AppSettings | None = None) -> sessionmaker[Session]:
+    """Create a session factory bound to the supplied application settings."""
+
+    return sessionmaker(
+        bind=create_db_engine(settings),
+        autoflush=False,
+        autocommit=False,
+        expire_on_commit=False,
+    )
+
+
 engine = create_db_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 

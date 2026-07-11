@@ -73,7 +73,7 @@ class AppSettings(BaseSettings):
     render_default_provider: str = "local_ffmpeg"
     render_max_seconds: int = 3600
     render_default_background_color: str = "black"
-    render_allow_pending_assets: bool = True
+    render_allow_pending_assets: bool = False
     metadata_title_count: int = 5
     metadata_tag_count: int = 12
     metadata_default_provider: str = "fake_metadata"

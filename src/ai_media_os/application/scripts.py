@@ -3,6 +3,7 @@
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -23,6 +24,7 @@ from ai_media_os.domain.enums import (
 from ai_media_os.infrastructure.database.models import Approval, Claim, ContentVersion, VideoProject
 from ai_media_os.providers.text_generation import (
     LocalRuleBasedTextProvider,
+    TextGenerationError,
     TextGenerationProvider,
     TextGenerationRequest,
 )
@@ -56,9 +58,14 @@ class ScriptGenerationService:
         self,
         session: Session,
         provider: TextGenerationProvider | None = None,
+        *,
+        provider_settings: dict[str, Any] | None = None,
+        timeout_seconds: float = 120.0,
     ) -> None:
         self.session = session
         self.provider = provider or LocalRuleBasedTextProvider()
+        self.provider_settings = provider_settings or {}
+        self.timeout_seconds = timeout_seconds
         self.versions = ContentVersionService(session)
         self.approvals = ApprovalService(session)
 
@@ -82,19 +89,44 @@ class ScriptGenerationService:
                 video_project_id
             )
         claims = self._claims(video_project_id)
+        prompt = self._build_script(project, research_brief, claims, revision_feedback)
+        request = TextGenerationRequest(
+            prompt=prompt,
+            provider_settings=self.provider_settings,
+            timeout_seconds=self.timeout_seconds,
+        )
         input_hashes = [
             research_brief.content_hash,
             hash_json([self._claim_payload(claim) for claim in claims]),
             hash_json({"revision_feedback": revision_feedback or ""}),
             hash_json({"target_duration_seconds": project.target_duration_seconds}),
+            hash_json(
+                {
+                    "provider": self.provider.provider_name,
+                    "model": self.provider.model_name,
+                    "model_version": self.provider.model_version,
+                    "prompt_version": self.provider.prompt_version,
+                    "provider_settings": {
+                        **self.provider.provider_settings,
+                        **self.provider_settings,
+                    },
+                    "request": request.fingerprint_payload(),
+                }
+            ),
         ]
         existing = self._matching_version(video_project_id, ContentType.SCRIPT, input_hashes)
         if existing is not None:
             self._ensure_pending_approval(existing, ApprovalType.SCRIPT, job_id)
             return existing
 
-        prompt = self._build_script(project, research_brief, claims, revision_feedback)
-        result = self.provider.generate(TextGenerationRequest(prompt=prompt))
+        try:
+            result = self.provider.generate(request)
+        except TextGenerationError:
+            raise
+        except Exception as exc:
+            raise TextGenerationError(
+                f"Text provider {self.provider.provider_name} failed."
+            ) from exc
         version = self.versions.create_initial_version(
             video_project_id=video_project_id,
             content_type=ContentType.SCRIPT,
