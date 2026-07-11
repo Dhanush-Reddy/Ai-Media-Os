@@ -65,4 +65,4 @@ The existing database-backed queue still owns claiming, retries, leases, depende
 
 ## Limitations
 
-This milestone does not download pages, scrape websites, parse PDFs, call search APIs, use AI summarization, generate scripts, implement Content Safety and Rights Engine behavior, or publish content. Future milestones may add search and extraction providers behind provider interfaces.
+Milestone 4 does not download pages, scrape websites, parse PDFs, call search APIs, or use AI summarization. Later milestones consume its stored claims and sources for scripts and local Content Safety checks. Publishing remains manual, and future search or extraction capabilities must remain behind provider interfaces.

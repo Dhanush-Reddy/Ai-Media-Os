@@ -40,7 +40,7 @@ If FFmpeg is missing, the service fails clearly and records the render error ins
 ## Known limitations
 
 - No subtitles or caption burn-in yet.
-- No thumbnail generation.
-- No publishing, analytics, Shorts, Telegram, real ComfyUI, real TTS, or Content Safety implementation.
+- Thumbnail packaging and Content Safety are implemented by later stages, not by the composition service.
+- No publishing, analytics, Shorts, Telegram, real ComfyUI, or real TTS.
 - Basic scene composition only: image plus narration per scene, concat into one MP4.
 - Basic motion and transition hooks are deferred until FFmpeg is available for visual validation.

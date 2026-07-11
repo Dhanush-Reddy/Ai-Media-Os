@@ -18,6 +18,7 @@ from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.packaging import MetadataService, ThumbnailService
+from ai_media_os.application.projects import ProjectCatalogService
 from ai_media_os.application.prompt_templates import PromptTemplateService
 from ai_media_os.application.renders import (
     RenderPlanningService,
@@ -62,6 +63,24 @@ from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ai-media-os")
     subcommands = parser.add_subparsers(dest="command", required=True)
+
+    create_channel = subcommands.add_parser("create-channel")
+    create_channel.add_argument("--name", required=True)
+    create_channel.add_argument("--slug", required=True)
+    create_channel.add_argument("--niche", required=True)
+    create_channel.add_argument("--language", default="en")
+
+    subcommands.add_parser("list-channels")
+
+    create_project = subcommands.add_parser("create-project")
+    create_project.add_argument("--channel-id", required=True)
+    create_project.add_argument("--working-title", required=True)
+    create_project.add_argument("--topic", required=True)
+    create_project.add_argument("--description")
+    create_project.add_argument("--target-duration-seconds", type=int)
+
+    list_projects = subcommands.add_parser("list-projects")
+    list_projects.add_argument("--channel-id")
 
     create_job = subcommands.add_parser("create-job")
     create_job.add_argument("--project-id", required=True)
@@ -423,6 +442,36 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     with SessionLocal() as session:
         queue = QueueService(session)
+        if args.command == "create-channel":
+            channel = ProjectCatalogService(session).create_channel(
+                name=args.name,
+                slug=args.slug,
+                niche=args.niche,
+                language=args.language,
+            )
+            print(channel.id)
+            return 0
+        if args.command == "list-channels":
+            for channel in ProjectCatalogService(session).list_channels():
+                print(f"{channel.id}\t{channel.slug}\t{channel.name}\t{channel.status.value}")
+            return 0
+        if args.command == "create-project":
+            project = ProjectCatalogService(session).create_project(
+                channel_id=args.channel_id,
+                working_title=args.working_title,
+                topic=args.topic,
+                description=args.description,
+                target_duration_seconds=args.target_duration_seconds,
+            )
+            print(project.id)
+            return 0
+        if args.command == "list-projects":
+            for project in ProjectCatalogService(session).list_projects(args.channel_id):
+                print(
+                    f"{project.id}\t{project.channel_id}\t{project.status.value}\t"
+                    f"{project.working_title}"
+                )
+            return 0
         if args.command == "create-job":
             job = queue.create_job(
                 video_project_id=args.project_id,

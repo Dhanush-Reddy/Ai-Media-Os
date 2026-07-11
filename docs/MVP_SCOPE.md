@@ -820,7 +820,7 @@ Deliverables:
 
 ### Milestone 3 Review - Audit Content Versioning and Cache
 
-Status: planned as the next task before Milestone 4.
+Status: completed before Milestone 4. The checklist is retained as historical documentation.
 
 Deliverables:
 
@@ -869,7 +869,7 @@ Deliverables:
 * Small HTMX-style polling fragments
 * CSRF-protected local form actions
 
-Status: implemented as a minimal local operations dashboard. Authentication, WebSockets, React, script generation, media generation, publishing, analytics and Content Safety implementation remain deferred.
+Status: implemented as a minimal local operations dashboard. Later milestones added script, media, packaging, and Content Safety views. Authentication, WebSockets, React, publishing, and analytics remain deferred.
 
 ---
 
@@ -900,7 +900,7 @@ Deliverables:
 * Asset metadata
 * Cache integration
 
-Status: implemented as a local provider foundation. Real ComfyUI, real TTS, thumbnails, publishing, analytics, Shorts, Telegram, and Content Safety implementation remain deferred.
+Status: implemented as a local provider foundation. Later milestones added local fake thumbnails and Content Safety checks. Real ComfyUI, real TTS, publishing, analytics, Shorts, and Telegram remain deferred.
 
 ---
 
@@ -941,7 +941,7 @@ Deliverables:
 * Tags
 * Local review checklist foundation
 
-Status: implemented as a local packaging foundation. Real thumbnail generation, real LLM metadata generation, upload checklists, YouTube publishing, Telegram approval, analytics, Shorts, and Content Safety implementation remain deferred.
+Status: implemented as a local packaging foundation. Milestone 8.5 added local Content Safety checks. Real thumbnail-model generation, real LLM metadata generation, YouTube publishing, Telegram approval, analytics, and Shorts remain deferred.
 
 ---
 

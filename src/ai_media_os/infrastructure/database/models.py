@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -467,7 +468,13 @@ class Asset(Base):
         CheckConstraint("height IS NULL OR height > 0"),
         CheckConstraint("duration_seconds IS NULL OR duration_seconds > 0"),
         Index("ix_assets_project_type_license", "video_project_id", "asset_type", "license_status"),
-        Index("ix_assets_scene_role", "scene_id", "asset_role"),
+        Index(
+            "uq_assets_scene_role",
+            "scene_id",
+            "asset_role",
+            unique=True,
+            sqlite_where=text("scene_id IS NOT NULL"),
+        ),
     )
 
 

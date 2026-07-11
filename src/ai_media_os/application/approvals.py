@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_media_os.application.content_versions import ContentVersionService
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
@@ -49,8 +50,7 @@ class ApprovalService:
         feedback: str | None = None,
         expires_at: datetime | None = None,
     ) -> Approval:
-        self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with write_transaction(self.session):
             content_version = self._validate_related_content_version(
                 video_project_id=video_project_id,
                 approval_type=approval_type,
@@ -80,18 +80,14 @@ class ApprovalService:
                 job.status = JobStatus.WAITING_FOR_APPROVAL
                 job.blocked_reason = f"Waiting for {approval_type.value} approval."
             self.session.add(approval)
-            self.session.commit()
+            self.session.flush()
             self.session.refresh(approval)
             return approval
-        except Exception:
-            self.session.rollback()
-            raise
 
     def approve(
         self, approval_id: str, reviewer: str | None = None, feedback: str | None = None
     ) -> Approval:
-        self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with write_transaction(self.session):
             approval = self._decide_without_commit(
                 approval_id,
                 ApprovalStatus.APPROVED,
@@ -106,12 +102,9 @@ class ApprovalService:
                 validate_job_transition(job.status, JobStatus.READY)
                 job.status = JobStatus.READY
                 job.blocked_reason = None
-            self.session.commit()
+            self.session.flush()
             self.session.refresh(approval)
             return approval
-        except Exception:
-            self.session.rollback()
-            raise
 
     def reject(
         self, approval_id: str, reviewer: str | None = None, feedback: str | None = None
@@ -191,8 +184,7 @@ class ApprovalService:
         feedback: str | None = None,
         reject_content: bool = False,
     ) -> Approval:
-        self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
+        with write_transaction(self.session):
             approval = self._decide_without_commit(
                 approval_id,
                 status,
@@ -205,12 +197,9 @@ class ApprovalService:
             if approval.job_id is not None:
                 job = self._get_job(approval.job_id)
                 job.blocked_reason = blocked_reason
-            self.session.commit()
+            self.session.flush()
             self.session.refresh(approval)
             return approval
-        except Exception:
-            self.session.rollback()
-            raise
 
     def _validate_related_content_version(
         self,

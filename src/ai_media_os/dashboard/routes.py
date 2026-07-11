@@ -45,8 +45,9 @@ templates.env.filters["verification_label"] = verification_label
 router = APIRouter()
 
 
-def get_dashboard_session() -> Iterator[Session]:
-    session = SessionLocal()
+def get_dashboard_session(request: Request) -> Iterator[Session]:
+    session_factory = getattr(request.app.state, "session_factory", SessionLocal)
+    session = session_factory()
     try:
         yield session
     finally:

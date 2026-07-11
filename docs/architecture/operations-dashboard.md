@@ -18,7 +18,7 @@ React, Next.js, Vue, Svelte, Tailwind build tooling, WebSockets, and frontend st
 
 Routes validate input, call application or dashboard query services, build view models, and render templates. Approval routes use `ApprovalService`; job routes use `QueueService`. Routes do not mutate approval or job records directly through SQLAlchemy.
 
-The dashboard does not implement script generation, media generation, publishing, analytics, authentication, Telegram, automated search, AI generation, or Content Safety behavior.
+Milestone 4.5 itself did not implement script generation, media generation, AI generation, or Content Safety behavior. Later milestones added read/review pages for scripts, scenes, assets, renders, metadata, thumbnails, and safety reports. Publishing, analytics, authentication, Telegram, and automated search remain outside the dashboard.
 
 ## Pages
 

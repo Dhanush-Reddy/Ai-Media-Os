@@ -645,6 +645,16 @@ class ResearchReportService:
         claims = self._claims(video_project_id)
         readiness = self.evaluate_readiness(video_project_id)
         content = self._brief_markdown(video_project_id, sources, notes, claims, readiness)
+        input_hashes = self._input_hashes(sources, notes, claims, readiness.as_dict())
+        existing = self._matching_report(
+            video_project_id,
+            ContentType.RESEARCH_BRIEF,
+            ContentFormat.MARKDOWN,
+            "research-brief-v1",
+            input_hashes,
+        )
+        if existing is not None:
+            return existing
         return self.content_versions.create_initial_version(
             video_project_id=video_project_id,
             content_type=ContentType.RESEARCH_BRIEF,
@@ -652,7 +662,7 @@ class ResearchReportService:
             content_format=ContentFormat.MARKDOWN,
             provider="local_rules",
             model="research-brief-v1",
-            input_hashes=self._input_hashes(sources, notes, claims, readiness.as_dict()),
+            input_hashes=input_hashes,
         )
 
     def generate_source_report(
@@ -668,6 +678,16 @@ class ResearchReportService:
             content = json.dumps(report, sort_keys=True, indent=2)
         else:
             content = self._source_report_markdown(report)
+        input_hashes = self._input_hashes(sources, [], claims, report)
+        existing = self._matching_report(
+            video_project_id,
+            ContentType.SOURCE_REPORT,
+            content_format,
+            "source-report-v1",
+            input_hashes,
+        )
+        if existing is not None:
+            return existing
         return self.content_versions.create_initial_version(
             video_project_id=video_project_id,
             content_type=ContentType.SOURCE_REPORT,
@@ -675,7 +695,29 @@ class ResearchReportService:
             content_format=content_format,
             provider="local_rules",
             model="source-report-v1",
-            input_hashes=self._input_hashes(sources, [], claims, report),
+            input_hashes=input_hashes,
+        )
+
+    def _matching_report(
+        self,
+        video_project_id: str,
+        content_type: ContentType,
+        content_format: ContentFormat,
+        model: str,
+        input_hashes: list[str],
+    ) -> ContentVersion | None:
+        return self.session.scalar(
+            select(ContentVersion)
+            .where(
+                ContentVersion.video_project_id == video_project_id,
+                ContentVersion.content_type == content_type,
+                ContentVersion.content_format == content_format,
+                ContentVersion.provider == "local_rules",
+                ContentVersion.model == model,
+                ContentVersion.input_hashes == input_hashes,
+            )
+            .order_by(ContentVersion.version_number.desc())
+            .limit(1)
         )
 
     def evaluate_readiness(self, video_project_id: str) -> ReadinessResult:

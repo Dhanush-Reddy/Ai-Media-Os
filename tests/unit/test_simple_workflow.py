@@ -9,9 +9,33 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ai_media_os.application.content_versions import ContentVersionService
-from ai_media_os.domain.enums import ContentFormat, ContentType
+from ai_media_os.domain.enums import (
+    ApprovalStatus,
+    ApprovalType,
+    AssetGenerationStatus,
+    AssetReviewStatus,
+    AssetRole,
+    AssetType,
+    ContentFormat,
+    ContentType,
+    JobStatus,
+    PublishingGateStatus,
+    RenderStatus,
+    RenderType,
+    VersionStatus,
+)
 from ai_media_os.infrastructure.database.base import Base
-from ai_media_os.infrastructure.database.models import Approval, Channel, Job, VideoProject
+from ai_media_os.infrastructure.database.models import (
+    Approval,
+    Asset,
+    Channel,
+    ContentVersion,
+    Job,
+    PublishingGate,
+    Render,
+    VideoProject,
+    WorkflowEventRecord,
+)
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
 from ai_media_os.workers.packaging_handlers import (
@@ -112,6 +136,14 @@ def create_version(
     )
 
 
+def set_job_status(session: Session, job_id: str | None, status: JobStatus) -> None:
+    assert job_id is not None
+    job = session.get(Job, job_id)
+    assert job is not None
+    job.status = status
+    session.commit()
+
+
 def advance_to_approval(
     orchestrator: SimpleWorkflowOrchestrator,
     session: Session,
@@ -122,6 +154,7 @@ def advance_to_approval(
     research_version_id = create_version(
         session, project_id, ContentType.RESEARCH_BRIEF, "fake research"
     )
+    set_job_status(session, state.research_job_id, JobStatus.COMPLETED)
     state = orchestrator.resume(
         workflow_id,
         make_event(
@@ -134,6 +167,7 @@ def advance_to_approval(
         ),
     )
     script_version_id = create_version(session, project_id, ContentType.SCRIPT, "fake script")
+    set_job_status(session, state.script_job_id, JobStatus.COMPLETED)
     state = orchestrator.resume(
         workflow_id,
         make_event(
@@ -190,6 +224,7 @@ def test_duplicate_event_replay_does_not_create_duplicate_jobs_or_approvals(
         job_id=state.research_job_id,
         content_version_id=research_version_id,
     )
+    set_job_status(session, state.research_job_id, JobStatus.COMPLETED)
     first = orchestrator.resume(workflow_id, event)
     second = orchestrator.resume(workflow_id, event)
 
@@ -205,6 +240,7 @@ def test_duplicate_event_replay_does_not_create_duplicate_jobs_or_approvals(
         job_id=first.script_job_id,
         content_version_id=script_version_id,
     )
+    set_job_status(session, first.script_job_id, JobStatus.COMPLETED)
     orchestrator.resume(workflow_id, script_event)
     orchestrator.resume(workflow_id, script_event)
 
@@ -235,6 +271,7 @@ def test_changes_requested_revision_and_revision_limit(
     assert revision.script_job_id is not None
 
     revised_script_id = create_version(session, project_id, ContentType.SCRIPT, "revised script")
+    set_job_status(session, revision.script_job_id, JobStatus.COMPLETED)
     waiting_again = orchestrator.resume(
         workflow_id,
         make_event(
@@ -325,6 +362,7 @@ def test_rejection_cancellation_failures_and_invalid_events(
 
     failed_id = orchestrator.start(project_id)
     failed_state = orchestrator.get_state(failed_id)
+    set_job_status(session, failed_state.research_job_id, JobStatus.FAILED)
     failed = orchestrator.resume(
         failed_id,
         make_event(
@@ -361,6 +399,17 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
     orchestrator = SimpleWorkflowOrchestrator(session, settings)
     workflow_id = orchestrator.start(project_id)
 
+    render = Render(
+        video_project_id=str(project_id),
+        render_type=RenderType.FINAL,
+        version_number=1,
+        status=RenderStatus.APPROVED,
+        output_path=f"projects/{project_id}/renders/render_v001.mp4",
+        content_hash="r" * 64,
+    )
+    session.add(render)
+    session.commit()
+
     metadata_generation = orchestrator.resume(
         workflow_id,
         make_event(
@@ -368,7 +417,7 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
             workflow_id=workflow_id,
             project_id=project_id,
             event_type=WorkflowEventType.RENDER_VERIFIED,
-            metadata={"render_id": "render-1"},
+            metadata={"render_id": render.id},
         ),
     )
     metadata_job = session.get(Job, metadata_generation.metadata["metadata_job_id"])
@@ -382,6 +431,17 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
         ContentType.METADATA,
         '{"title":"AI metadata"}',
     )
+    metadata_version = session.get(ContentVersion, metadata_version_id)
+    assert metadata_version is not None
+    metadata_version.status = VersionStatus.APPROVED
+    metadata_approval = Approval(
+        video_project_id=str(project_id),
+        content_version_id=metadata_version_id,
+        approval_type=ApprovalType.METADATA,
+        status=ApprovalStatus.APPROVED,
+    )
+    session.add(metadata_approval)
+    session.commit()
     thumbnail_concept = orchestrator.resume(
         workflow_id,
         make_event(
@@ -397,6 +457,18 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
     assert concept_job is not None
     assert concept_job.job_type == JOB_GENERATE_THUMBNAIL_CONCEPT
 
+    thumbnail = Asset(
+        video_project_id=str(project_id),
+        asset_type=AssetType.THUMBNAIL,
+        asset_role=AssetRole.THUMBNAIL,
+        file_path=f"projects/{project_id}/thumbnails/thumbnail_v001.png",
+        content_hash="t" * 64,
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+    )
+    session.add(thumbnail)
+    session.commit()
+
     safety_review = orchestrator.resume(
         workflow_id,
         make_event(
@@ -404,14 +476,38 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
             workflow_id=workflow_id,
             project_id=project_id,
             event_type=WorkflowEventType.THUMBNAIL_APPROVED,
-            metadata={"thumbnail_asset_id": "asset-1"},
+            metadata={"thumbnail_asset_id": thumbnail.id},
         ),
     )
 
     assert safety_review.current_stage == WorkflowStage.SAFETY_REVIEW
     assert safety_review.status == WorkflowStatus.RUNNING
-    assert safety_review.metadata["thumbnail_asset_id"] == "asset-1"
+    assert safety_review.metadata["thumbnail_asset_id"] == thumbnail.id
     assert safety_review.metadata["safety_gate_job_id"]
+
+    report_id = create_version(session, project_id, ContentType.COPYRIGHT_REPORT, "{}")
+    gate = PublishingGate(
+        video_project_id=str(project_id),
+        render_id=render.id,
+        metadata_version_id=metadata_version_id,
+        thumbnail_asset_id=thumbnail.id,
+        status=PublishingGateStatus.PASS,
+        summary="Publishing gate passed.",
+        report_content_version_id=report_id,
+        assessment_fingerprint="g" * 64,
+    )
+    session.add(gate)
+    session.commit()
+    safety_job_id = str(safety_review.metadata["safety_gate_job_id"])
+    safety_job = session.get(Job, safety_job_id)
+    assert safety_job is not None
+    safety_job.status = JobStatus.COMPLETED
+    safety_job.result = {
+        "gate_id": gate.id,
+        "status": gate.status.value,
+        "report_version_id": report_id,
+    }
+    session.commit()
 
     completed = orchestrator.resume(
         workflow_id,
@@ -420,13 +516,56 @@ def test_render_metadata_thumbnail_events_complete_milestone_8(
             workflow_id=workflow_id,
             project_id=project_id,
             event_type=WorkflowEventType.SAFETY_REVIEW_COMPLETED,
-            metadata={"gate_status": "PASS"},
+            job_id=safety_job_id,
+            metadata={
+                "gate_id": gate.id,
+                "gate_status": "PASS",
+                "report_version_id": report_id,
+            },
         ),
     )
 
-    assert completed.current_stage == WorkflowStage.MILESTONE_8_COMPLETE
+    assert completed.current_stage == WorkflowStage.MILESTONE_8_5_COMPLETE
     assert completed.status == WorkflowStatus.COMPLETED
-    assert completed.metadata["thumbnail_asset_id"] == "asset-1"
+    assert completed.metadata["thumbnail_asset_id"] == thumbnail.id
+
+
+def test_event_side_effects_roll_back_when_event_recording_fails(
+    session: Session,
+    settings: AppSettings,
+    project_id: UUID,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    orchestrator = SimpleWorkflowOrchestrator(session, settings)
+    workflow_id = orchestrator.start(project_id)
+    state = orchestrator.get_state(workflow_id)
+    research_version_id = create_version(session, project_id, ContentType.RESEARCH_BRIEF, "brief")
+    set_job_status(session, state.research_job_id, JobStatus.COMPLETED)
+    initial_job_count = session.scalar(select(func.count()).select_from(Job))
+
+    def fail_recording(*_args: object) -> None:
+        raise RuntimeError("simulated crash")
+
+    monkeypatch.setattr(orchestrator, "_record_event", fail_recording)
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        orchestrator.resume(
+            workflow_id,
+            make_event(
+                event_id="crash-after-handler",
+                workflow_id=workflow_id,
+                project_id=project_id,
+                event_type=WorkflowEventType.RESEARCH_COMPLETED,
+                job_id=state.research_job_id,
+                content_version_id=research_version_id,
+            ),
+        )
+
+    session.expire_all()
+    restored = orchestrator.get_state(workflow_id)
+    assert restored.current_stage == WorkflowStage.RESEARCH
+    assert restored.script_job_id is None
+    assert session.scalar(select(func.count()).select_from(Job)) == initial_job_count
+    assert session.scalar(select(func.count()).select_from(WorkflowEventRecord)) == 0
 
 
 def test_simple_and_langgraph_adapters_produce_equivalent_outcomes(

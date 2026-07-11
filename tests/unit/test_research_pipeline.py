@@ -375,7 +375,8 @@ def test_reports_versions_and_readiness(
     source_report = reports.generate_source_report(project_id, content_format=ContentFormat.JSON)
     assert source_report.content_type == ContentType.SOURCE_REPORT
     second_brief = reports.generate_research_brief(project_id)
-    assert second_brief.version_number == brief.version_number + 1
+    assert second_brief.id == brief.id
+    assert second_brief.version_number == brief.version_number
 
 
 def test_readiness_blockers(

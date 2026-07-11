@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned as the next task before Milestone 4.
+Completed before Milestone 4. Retained as a historical audit checklist.
 
 ## Scope
 

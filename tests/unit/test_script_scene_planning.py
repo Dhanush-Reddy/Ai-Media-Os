@@ -31,6 +31,11 @@ from ai_media_os.infrastructure.database.models import (
 )
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
+from ai_media_os.providers.text_generation import (
+    LocalRuleBasedTextProvider,
+    TextGenerationCancelledError,
+    TextGenerationRequest,
+)
 from ai_media_os.schemas.scene_plan import ScenePlanDocument
 from ai_media_os.storage.filesystem import FileStorage
 from ai_media_os.workers.job_worker import JobWorker
@@ -121,6 +126,30 @@ def test_script_generation_requests_approval_and_is_idempotent(
     approval = session.query(Approval).filter_by(content_version_id=first.id).one()
     assert approval.approval_type == ApprovalType.SCRIPT
     assert approval.status == ApprovalStatus.PENDING
+
+
+def test_script_fingerprint_includes_provider_settings(
+    session: Session,
+    project_id: str,
+) -> None:
+    first = ScriptGenerationService(
+        session, provider_settings={"profile": "concise"}
+    ).generate_script(project_id)
+    second = ScriptGenerationService(
+        session, provider_settings={"profile": "documentary"}
+    ).generate_script(project_id)
+
+    assert second.id != first.id
+
+
+def test_text_provider_has_typed_cancellation_failure() -> None:
+    class Cancelled:
+        is_cancelled = True
+
+    with pytest.raises(TextGenerationCancelledError):
+        LocalRuleBasedTextProvider().generate(
+            TextGenerationRequest(prompt="test", cancellation_token=Cancelled())
+        )
 
 
 def test_script_generation_requires_research_readiness(session: Session) -> None:

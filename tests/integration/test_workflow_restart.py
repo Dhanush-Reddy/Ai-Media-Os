@@ -6,9 +6,9 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ai_media_os.application.content_versions import ContentVersionService
-from ai_media_os.domain.enums import ContentFormat, ContentType
+from ai_media_os.domain.enums import ContentFormat, ContentType, JobStatus
 from ai_media_os.infrastructure.database.base import Base
-from ai_media_os.infrastructure.database.models import Channel, VideoProject
+from ai_media_os.infrastructure.database.models import Channel, Job, VideoProject
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
 from ai_media_os.workflows.models import WorkflowEvent, WorkflowEventType, WorkflowStatus
@@ -81,6 +81,10 @@ def test_workflow_pauses_and_resumes_after_orchestrator_reconstruction(tmp_path:
             workflow_id = orchestrator.start(project_id)
             state = orchestrator.get_state(workflow_id)
             research_id = create_version(session, project_id, ContentType.RESEARCH_BRIEF, "brief")
+            research_job = session.get(Job, state.research_job_id)
+            assert research_job is not None
+            research_job.status = JobStatus.COMPLETED
+            session.commit()
             state = orchestrator.resume(
                 workflow_id,
                 event(
@@ -93,6 +97,10 @@ def test_workflow_pauses_and_resumes_after_orchestrator_reconstruction(tmp_path:
                 ),
             )
             script_id = create_version(session, project_id, ContentType.SCRIPT, "script")
+            script_job = session.get(Job, state.script_job_id)
+            assert script_job is not None
+            script_job.status = JobStatus.COMPLETED
+            session.commit()
             waiting = orchestrator.resume(
                 workflow_id,
                 event(

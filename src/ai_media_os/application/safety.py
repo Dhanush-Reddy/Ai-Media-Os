@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Generator
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ai_media_os.application.content_versions import ContentVersionService
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import (
     AssetGenerationStatus,
     AssetReviewStatus,
@@ -57,8 +56,6 @@ from ai_media_os.utils.hashing import hash_file, hash_json
 
 JsonDict = dict[str, Any]
 
-WRITE_TRANSACTION_DEPTH_KEY = "ai_media_os_write_transaction_depth"
-
 
 class SafetyError(RuntimeError):
     """Raised when content-safety checks cannot be completed."""
@@ -88,30 +85,9 @@ class ContentSafetyService:
         self.content_versions = ContentVersionService(session)
         self.storage = FileStorage(self.settings)
 
-    @contextmanager
-    def _write_transaction(self) -> Generator[None, None, None]:
-        depth = int(self.session.info.get(WRITE_TRANSACTION_DEPTH_KEY, 0))
-        started = depth == 0
-        self.session.info[WRITE_TRANSACTION_DEPTH_KEY] = depth + 1
-        if started:
-            self.session.execute(text("BEGIN IMMEDIATE"))
-        try:
-            yield
-            if started:
-                self.session.commit()
-        except Exception:
-            if started:
-                self.session.rollback()
-            raise
-        finally:
-            if depth == 0:
-                self.session.info.pop(WRITE_TRANSACTION_DEPTH_KEY, None)
-            else:
-                self.session.info[WRITE_TRANSACTION_DEPTH_KEY] = depth
-
     def check_asset_rights(self, video_project_id: str) -> list[RightsRecord]:
         project = self._project(video_project_id)
-        with self._write_transaction():
+        with write_transaction(self.session):
             records: list[RightsRecord] = []
             for asset in sorted(project.assets, key=lambda item: (item.created_at, item.id)):
                 record = self._evaluate_asset_rights(asset)
@@ -127,7 +103,7 @@ class ContentSafetyService:
 
     def check_claim_support(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
-        with self._write_transaction():
+        with write_transaction(self.session):
             findings: list[ContentSafetyCheck] = []
             for claim in sorted(project.claims, key=lambda item: (item.created_at, item.id)):
                 finding = self._evaluate_claim_support(project, claim)
@@ -145,53 +121,29 @@ class ContentSafetyService:
         script = self._latest_version(project.id, ContentType.SCRIPT)
         if script is None:
             raise SafetyError("Script version not found for project.")
-        with self._write_transaction():
-            finding = self._evaluate_script_safety(project, script)
-            existing = self._check_by_fingerprint(finding.assessment_fingerprint)
-            if existing is not None:
-                return [existing]
-            self.session.add(finding)
-            self.session.flush()
-            return [finding]
+        with write_transaction(self.session):
+            return [self._persist_check(self._evaluate_script_safety(project, script))]
 
     def check_metadata_safety(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
         metadata = self._latest_version(project.id, ContentType.METADATA)
         if metadata is None:
             raise SafetyError("Metadata version not found for project.")
-        with self._write_transaction():
-            finding = self._evaluate_metadata_safety(project, metadata)
-            existing = self._check_by_fingerprint(finding.assessment_fingerprint)
-            if existing is not None:
-                return [existing]
-            self.session.add(finding)
-            self.session.flush()
-            return [finding]
+        with write_transaction(self.session):
+            return [self._persist_check(self._evaluate_metadata_safety(project, metadata))]
 
     def check_thumbnail_safety(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
         thumbnail = self._latest_thumbnail(project.id)
         if thumbnail is None:
             raise SafetyError("Thumbnail asset not found for project.")
-        with self._write_transaction():
-            finding = self._evaluate_thumbnail_safety(project, thumbnail)
-            existing = self._check_by_fingerprint(finding.assessment_fingerprint)
-            if existing is not None:
-                return [existing]
-            self.session.add(finding)
-            self.session.flush()
-            return [finding]
+        with write_transaction(self.session):
+            return [self._persist_check(self._evaluate_thumbnail_safety(project, thumbnail))]
 
     def check_reused_content(self, video_project_id: str) -> list[ContentSafetyCheck]:
         project = self._project(video_project_id)
-        with self._write_transaction():
-            finding = self._evaluate_reused_content(project)
-            existing = self._check_by_fingerprint(finding.assessment_fingerprint)
-            if existing is not None:
-                return [existing]
-            self.session.add(finding)
-            self.session.flush()
-            return [finding]
+        with write_transaction(self.session):
+            return [self._persist_check(self._evaluate_reused_content(project))]
 
     def decide_ai_disclosure(self, video_project_id: str) -> DisclosureDecision:
         project = self._project(video_project_id)
@@ -214,7 +166,7 @@ class ContentSafetyService:
                 else None
             ),
         )
-        with self._write_transaction():
+        with write_transaction(self.session):
             fingerprint = self._disclosure_fingerprint(project.id, decision)
             existing = self._check_by_fingerprint(fingerprint)
             if existing is None:
@@ -247,19 +199,46 @@ class ContentSafetyService:
         metadata_version_id: str | None = None,
         thumbnail_asset_id: str | None = None,
     ) -> SafetyRunResult:
-        with self._write_transaction():
+        with write_transaction(self.session):
             project = self._project(video_project_id)
             render = self._render(project.id, render_id)
             metadata = self._metadata_version(project.id, metadata_version_id)
             thumbnail = self._thumbnail_asset(project.id, thumbnail_asset_id)
+            script = self._latest_version(project.id, ContentType.SCRIPT)
             rights_records = self.check_asset_rights(project.id)
-            findings = [
-                *self.check_claim_support(project.id),
-                *self.check_script_safety(project.id),
-                *self.check_metadata_safety(project.id),
-                *self.check_thumbnail_safety(project.id),
-                *self.check_reused_content(project.id),
-            ]
+            findings = [*self.check_claim_support(project.id)]
+            findings.append(
+                self._persist_check(
+                    self._evaluate_script_safety(project, script)
+                    if script is not None
+                    else self._missing_input_check(project.id, "script")
+                )
+            )
+            findings.append(
+                self._persist_check(
+                    self._evaluate_metadata_safety(project, metadata)
+                    if metadata is not None
+                    else self._missing_input_check(project.id, "metadata")
+                )
+            )
+            findings.append(
+                self._persist_check(
+                    self._evaluate_thumbnail_safety(project, thumbnail)
+                    if thumbnail is not None
+                    else self._missing_input_check(project.id, "thumbnail")
+                )
+            )
+            findings.append(
+                self._persist_check(
+                    self._evaluate_reused_content(
+                        project,
+                        script=script,
+                        metadata=metadata,
+                        render=render,
+                        thumbnail=thumbnail,
+                    )
+                )
+            )
             disclosure = self.decide_ai_disclosure(project.id)
             if disclosure.required:
                 findings.append(self._disclosure_check(project.id, disclosure))
@@ -289,6 +268,8 @@ class ContentSafetyService:
                 blocking_reasons.append("Missing thumbnail.")
             elif thumbnail.review_status != AssetReviewStatus.APPROVED:
                 warnings.append("Thumbnail is not approved yet.")
+            blocking_reasons = list(dict.fromkeys(blocking_reasons))
+            warnings = list(dict.fromkeys(warnings))
             status = self._gate_status(blocking_reasons, warnings, rights_records, disclosure)
             report = self._build_report(
                 project=project,
@@ -685,10 +666,18 @@ class ContentSafetyService:
             fingerprint,
         )
 
-    def _evaluate_reused_content(self, project: VideoProject) -> ContentSafetyCheck:
+    def _evaluate_reused_content(
+        self,
+        project: VideoProject,
+        *,
+        script: ContentVersion | None = None,
+        metadata: ContentVersion | None = None,
+        render: Render | None = None,
+        thumbnail: Asset | None = None,
+    ) -> ContentSafetyCheck:
         evidence: list[str] = []
         issues: list[str] = []
-        latest_script = self._latest_version(project.id, ContentType.SCRIPT)
+        latest_script = script or self._latest_version(project.id, ContentType.SCRIPT)
         if latest_script is not None:
             for previous in self._versions(project.id, ContentType.SCRIPT):
                 if previous.id == latest_script.id:
@@ -700,7 +689,7 @@ class ContentSafetyService:
                     issues.append(f"Script similarity with version {previous.version_number}.")
                     evidence.append(f"script:{previous.id}")
                     break
-        latest_metadata = self._latest_version(project.id, ContentType.METADATA)
+        latest_metadata = metadata or self._latest_version(project.id, ContentType.METADATA)
         if latest_metadata is not None:
             current = VideoMetadataDocument.model_validate_json(latest_metadata.content)
             for previous in self._versions(project.id, ContentType.METADATA):
@@ -716,7 +705,7 @@ class ContentSafetyService:
                     issues.append(f"Metadata similarity with version {previous.version_number}.")
                     evidence.append(f"metadata:{previous.id}")
                     break
-        latest_render = self._latest_render(project.id)
+        latest_render = render or self._latest_render(project.id)
         if latest_render is not None:
             for previous_render in self._renders(project.id):
                 if previous_render.id == latest_render.id:
@@ -727,7 +716,7 @@ class ContentSafetyService:
                     issues.append("Render fingerprint matches a previous render.")
                     evidence.append(f"render:{previous_render.id}")
                     break
-        thumbnail = self._latest_thumbnail(project.id)
+        thumbnail = thumbnail or self._latest_thumbnail(project.id)
         if thumbnail is not None:
             concept = self._thumbnail_concept(thumbnail)
             if concept is not None and latest_metadata is not None:
@@ -753,7 +742,20 @@ class ContentSafetyService:
             project.id,
             SafetyCheckType.REUSED_CONTENT,
             project.id,
-            project.updated_at.isoformat(),
+            hash_json(
+                {
+                    "script": [latest_script.id, latest_script.content_hash]
+                    if latest_script
+                    else None,
+                    "metadata": [latest_metadata.id, latest_metadata.content_hash]
+                    if latest_metadata
+                    else None,
+                    "render": [latest_render.id, latest_render.content_hash]
+                    if latest_render
+                    else None,
+                    "thumbnail": [thumbnail.id, thumbnail.content_hash] if thumbnail else None,
+                }
+            ),
             evidence,
             "reused-content-v1",
         )
@@ -847,6 +849,41 @@ class ContentSafetyService:
             recommendation=recommendation,
             assessment_fingerprint=fingerprint,
             rule_version=self.settings.safety_rule_version,
+        )
+
+    def _persist_check(self, finding: ContentSafetyCheck) -> ContentSafetyCheck:
+        existing = self._check_by_fingerprint(finding.assessment_fingerprint)
+        if existing is not None:
+            return existing
+        self.session.add(finding)
+        self.session.flush()
+        return finding
+
+    def _missing_input_check(self, project_id: str, input_name: str) -> ContentSafetyCheck:
+        check_type = {
+            "script": SafetyCheckType.SCRIPT_SAFETY,
+            "metadata": SafetyCheckType.METADATA_SAFETY,
+            "thumbnail": SafetyCheckType.THUMBNAIL_SAFETY,
+        }[input_name]
+        fingerprint = self._check_fingerprint(
+            project_id,
+            check_type,
+            project_id,
+            "missing",
+            [f"missing:{input_name}"],
+            self.settings.safety_rule_version,
+        )
+        return self._new_check(
+            project_id,
+            SafetyTargetType.PROJECT,
+            project_id,
+            check_type,
+            SafetyCheckStatus.FAILED,
+            SafetySeverity.CRITICAL,
+            f"Missing {input_name}.",
+            [f"missing:{input_name}"],
+            f"Create and select an approved {input_name} before publishing.",
+            fingerprint,
         )
 
     def _rights_document(self, record: RightsRecord) -> RightsRecordDocument:
@@ -1047,7 +1084,7 @@ class ContentSafetyService:
         if render_id is not None:
             render = self.session.get(Render, render_id)
             if render is None or render.video_project_id != project_id:
-                raise SafetyError(f"Render not found for project: {render_id}")
+                return None
             return render
         return self._latest_render(project_id)
 
@@ -1072,9 +1109,9 @@ class ContentSafetyService:
         if version_id is not None:
             version = self.session.get(ContentVersion, version_id)
             if version is None or version.video_project_id != project_id:
-                raise SafetyError(f"Metadata version not found for project: {version_id}")
+                return None
             if version.content_type != ContentType.METADATA:
-                raise SafetyError("Content version is not metadata.")
+                return None
             return version
         return self._latest_version(project_id, ContentType.METADATA)
 
@@ -1082,9 +1119,9 @@ class ContentSafetyService:
         if asset_id is not None:
             asset = self.session.get(Asset, asset_id)
             if asset is None or asset.video_project_id != project_id:
-                raise SafetyError(f"Thumbnail asset not found for project: {asset_id}")
+                return None
             if asset.asset_type != AssetType.THUMBNAIL:
-                raise SafetyError("Asset is not a thumbnail.")
+                return None
             return asset
         return self._latest_thumbnail(project_id)
 

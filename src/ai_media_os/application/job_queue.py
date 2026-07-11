@@ -10,6 +10,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import JobStatus, ResourceClass
 from ai_media_os.domain.job_queue import (
     TERMINAL_JOB_STATUSES,
@@ -54,34 +55,35 @@ class QueueService:
         dependency_job_ids: Iterable[str] = (),
         setup_required: bool = False,
     ) -> Job:
-        now = utc_now()
-        dependencies = list(dict.fromkeys(dependency_job_ids))
-        status = JobStatus.PENDING if setup_required else JobStatus.READY
-        job = Job(
-            video_project_id=video_project_id,
-            job_type=job_type,
-            status=status,
-            priority=priority,
-            payload=payload or {},
-            attempts=0,
-            max_attempts=max_attempts,
-            dependency_count=len(dependencies),
-            resource_class=resource_class,
-            scheduled_at=available_at,
-            available_at=available_at or now,
-        )
-        self.session.add(job)
-        self.session.flush()
+        with write_transaction(self.session):
+            now = utc_now()
+            dependencies = list(dict.fromkeys(dependency_job_ids))
+            status = JobStatus.PENDING if setup_required else JobStatus.READY
+            job = Job(
+                video_project_id=video_project_id,
+                job_type=job_type,
+                status=status,
+                priority=priority,
+                payload=payload or {},
+                attempts=0,
+                max_attempts=max_attempts,
+                dependency_count=len(dependencies),
+                resource_class=resource_class,
+                scheduled_at=available_at,
+                available_at=available_at or now,
+            )
+            self.session.add(job)
+            self.session.flush()
 
-        if dependencies:
-            blocked_reason = self._create_dependency_links(job, dependencies)
-            validate_job_transition(job.status, JobStatus.WAITING_FOR_DEPENDENCY)
-            job.status = JobStatus.WAITING_FOR_DEPENDENCY
-            job.blocked_reason = blocked_reason
+            if dependencies:
+                blocked_reason = self._create_dependency_links(job, dependencies)
+                validate_job_transition(job.status, JobStatus.WAITING_FOR_DEPENDENCY)
+                job.status = JobStatus.WAITING_FOR_DEPENDENCY
+                job.blocked_reason = blocked_reason
 
-        self.session.commit()
-        self.session.refresh(job)
-        return job
+            self.session.flush()
+            self.session.refresh(job)
+            return job
 
     def add_dependency(self, job_id: str, depends_on_job_id: str) -> JobDependency:
         job = self._get_job(job_id)

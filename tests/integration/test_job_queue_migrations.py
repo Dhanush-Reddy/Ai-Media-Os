@@ -40,6 +40,33 @@ def test_job_queue_migration_upgrade_downgrade_upgrade(
     database_path = tmp_path / "migration.db"
     monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
     get_settings.cache_clear()
+
+
+def test_reliability_migration_enforces_unique_scene_asset_roles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "reliability-migration.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    with engine.connect() as connection:
+        indexes = {index["name"]: index for index in inspect(connection).get_indexes("assets")}
+        assert indexes["uq_assets_scene_role"]["unique"] == 1
+
+    command.downgrade(config, "0010_content_safety_rights_engine")
+    with engine.connect() as connection:
+        indexes = {index["name"]: index for index in inspect(connection).get_indexes("assets")}
+        assert "uq_assets_scene_role" not in indexes
+        assert indexes["ix_assets_scene_role"]["unique"] == 0
+
+    command.upgrade(config, "head")
+    command.check(config)
+    engine.dispose()
+    get_settings.cache_clear()
     config = Config("alembic.ini")
 
     command.upgrade(config, "head")
