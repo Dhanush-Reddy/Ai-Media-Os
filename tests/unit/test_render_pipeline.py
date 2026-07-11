@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ai_media_os.application.assets import (
     AssetPlanningService,
+    AssetReviewService,
     ImageAssetService,
     VoiceAssetService,
 )
@@ -19,6 +20,7 @@ from ai_media_os.application.renders import (
     VideoCompositionService,
 )
 from ai_media_os.domain.enums import (
+    AssetReviewStatus,
     AssetRole,
     ContentFormat,
     ContentType,
@@ -65,6 +67,7 @@ def settings(tmp_path: Path) -> AppSettings:
         render_default_height=18,
         render_default_fps=12,
         asset_max_file_bytes=100_000,
+        render_allow_pending_assets=False,
     )
 
 
@@ -120,8 +123,13 @@ def create_project_with_render_assets(
         project.id,
         scene_plan_version_id=scene_plan.id,
     )
-    ImageAssetService(session, settings).generate_for_scene(scene.id, width=32, height=18, seed=7)
-    VoiceAssetService(session, settings).generate_for_scene(scene.id, seed=7)
+    image = ImageAssetService(session, settings).generate_for_scene(
+        scene.id, width=32, height=18, seed=7
+    )
+    voice = VoiceAssetService(session, settings).generate_for_scene(scene.id, seed=7)
+    reviewer = AssetReviewService(session, settings)
+    reviewer.review_asset(image.id, AssetReviewStatus.APPROVED)
+    reviewer.review_asset(voice.id, AssetReviewStatus.APPROVED)
     return project.id, scene.id, scene_plan.id
 
 

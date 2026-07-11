@@ -12,6 +12,7 @@ from ai_media_os.api.app import create_app
 from ai_media_os.application.approvals import ApprovalService
 from ai_media_os.application.assets import (
     AssetPlanningService,
+    AssetReviewService,
     ImageAssetService,
     VoiceAssetService,
 )
@@ -31,6 +32,7 @@ from ai_media_os.dashboard.security import csrf_token
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
+    AssetReviewStatus,
     ClaimImportance,
     ClaimSupportType,
     ContentFormat,
@@ -59,6 +61,7 @@ def settings(tmp_path: Path) -> AppSettings:
         projects_dir=tmp_path / "data" / "projects",
         logs_dir=tmp_path / "data" / "logs",
         dashboard_csrf_secret="test-dashboard-secret",  # noqa: S106
+        render_allow_pending_assets=False,
     )
 
 
@@ -156,9 +159,14 @@ def project_id(session: Session, settings: AppSettings) -> str:
         scene_plan_version_id=scene_plan.id,
     )
     scene_ids = {str(asset.scene_id) for asset in assets if asset.scene_id is not None}
+    asset_reviewer = AssetReviewService(session, settings)
     for scene_id in scene_ids:
-        ImageAssetService(session, settings).generate_for_scene(scene_id, width=16, height=9)
-        VoiceAssetService(session, settings).generate_for_scene(scene_id)
+        image = ImageAssetService(session, settings).generate_for_scene(
+            scene_id, width=16, height=9
+        )
+        voice = VoiceAssetService(session, settings).generate_for_scene(scene_id)
+        asset_reviewer.review_asset(image.id, AssetReviewStatus.APPROVED)
+        asset_reviewer.review_asset(voice.id, AssetReviewStatus.APPROVED)
     render = RenderPlanningService(session, settings).plan_render(
         project.id,
         scene_plan_version_id=scene_plan.id,
