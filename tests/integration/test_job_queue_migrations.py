@@ -142,6 +142,60 @@ def test_safety_migration_downgrade_creates_empty_verified_backups(
     get_settings.cache_clear()
 
 
+def test_safety_migration_downgrade_reuses_existing_backup_tables_without_duplicates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "safety-migration-existing-backups.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    _insert_render_metadata_row(engine)
+    _insert_safety_rows(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_rights_records AS SELECT * FROM rights_records"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_content_safety_checks "
+                "AS SELECT * FROM content_safety_checks"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_publishing_gates "
+                "AS SELECT * FROM publishing_gates"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE migration_backup_0010_rights_records SET review_notes = 'stale backup row'"
+            )
+        )
+
+    command.downgrade(config, "0009_thumbnail_metadata")
+
+    with engine.connect() as connection:
+        assert connection.execute(SAFETY_BACKUP_RIGHTS_COUNT).scalar_one() == 1
+        assert connection.execute(SAFETY_BACKUP_CHECKS_COUNT).scalar_one() == 1
+        assert connection.execute(SAFETY_BACKUP_GATES_COUNT).scalar_one() == 1
+        review_notes = connection.execute(
+            text("SELECT review_notes FROM migration_backup_0010_rights_records")
+        ).scalar_one()
+        assert review_notes == "Representative migration backup row."
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
 def test_safety_migration_refuses_to_drop_source_on_backup_count_mismatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
