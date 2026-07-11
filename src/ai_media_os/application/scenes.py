@@ -2,13 +2,16 @@
 
 import json
 import re
+from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ai_media_os.application.approvals import ApprovalError, ApprovalService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.scripts import ScriptPlanningError
+from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
@@ -19,8 +22,13 @@ from ai_media_os.domain.enums import (
     VisualType,
 )
 from ai_media_os.infrastructure.database.models import Approval, Claim, ContentVersion, Scene
+from ai_media_os.providers.text_generation import (
+    LocalRuleBasedTextProvider,
+    TextGenerationProvider,
+    TextGenerationRequest,
+)
 from ai_media_os.schemas.scene_plan import ScenePlanDocument, ScenePlanItem
-from ai_media_os.utils.hashing import hash_json
+from ai_media_os.utils.hashing import hash_json, hash_text
 
 
 class ScenePlanningError(RuntimeError):
@@ -30,8 +38,18 @@ class ScenePlanningError(RuntimeError):
 class ScenePlanService:
     """Create strict JSON scene plans from approved scripts."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        provider: TextGenerationProvider | None = None,
+        *,
+        provider_settings: dict[str, Any] | None = None,
+        timeout_seconds: float = 120.0,
+    ) -> None:
         self.session = session
+        self.provider = provider or LocalRuleBasedTextProvider()
+        self.provider_settings = provider_settings or {}
+        self.timeout_seconds = timeout_seconds
         self.versions = ContentVersionService(session)
         self.approvals = ApprovalService(session)
 
@@ -44,32 +62,53 @@ class ScenePlanService:
     ) -> ContentVersion:
         script = self._approved_script(video_project_id, script_version_id)
         claims = self._claims(video_project_id)
+        provider_fingerprint = hash_json(
+            {
+                "provider": self.provider.provider_name,
+                "model": self.provider.model_name,
+                "model_version": self.provider.model_version,
+                "prompt_version": self.provider.prompt_version,
+                "settings": {**self.provider.provider_settings, **self.provider_settings},
+                "schema_version": "1.0",
+                "output_type": "scene_plan",
+                "system_prompt_hash": hash_text("scene-plan-json-system-v1"),
+            }
+        )
         input_hashes = [
             script.content_hash,
             hash_json([{"id": claim.id, "text": claim.claim_text} for claim in claims]),
+            provider_fingerprint,
         ]
-        existing = self._matching_scene_plan(video_project_id, input_hashes)
+        existing = self._matching_scene_plan(
+            video_project_id, input_hashes, self.provider.provider_name
+        )
         if existing is not None:
             self._ensure_pending_approval(existing, job_id)
             return existing
 
-        document = self._build_scene_document(video_project_id, script, claims)
+        if isinstance(self.provider, LocalRuleBasedTextProvider):
+            document = self._build_scene_document(video_project_id, script, claims)
+            prompt_version = "scene-plan-template-v1"
+        else:
+            document = self._generate_structured_scene_document(video_project_id, script, claims)
+            prompt_version = self.provider.prompt_version
         content = document.model_dump_json(indent=2)
-        version = self.versions.create_initial_version(
-            video_project_id=video_project_id,
-            content_type=ContentType.SCENE_PLAN,
-            content=content,
-            content_format=ContentFormat.JSON,
-            prompt_version="scene-plan-template-v1",
-            provider="local_rules",
-            model="scene-planner-v1",
-            input_hashes=input_hashes,
-        )
-        self._replace_scenes(version, document)
-        version.status = VersionStatus.PENDING_APPROVAL
-        self.session.commit()
-        self._ensure_pending_approval(version, job_id)
-        return version
+        with write_transaction(self.session):
+            version = self.versions.create_initial_version(
+                video_project_id=video_project_id,
+                content_type=ContentType.SCENE_PLAN,
+                content=content,
+                content_format=ContentFormat.JSON,
+                prompt_version=prompt_version,
+                provider=self.provider.provider_name,
+                model=self.provider.model_name,
+                input_hashes=input_hashes,
+            )
+            self._replace_scenes(version, document)
+            version.status = VersionStatus.PENDING_APPROVAL
+            self._ensure_pending_approval(version, job_id)
+            self.session.flush()
+            return version
 
     def import_scene_plan(
         self,
@@ -85,21 +124,65 @@ class ScenePlanService:
             raise ScenePlanningError("Scene plan script version does not match.")
         script = self._approved_script(video_project_id, script_version_id)
         input_hashes = [script.content_hash, hash_json(document.model_dump(mode="json"))]
-        version = self.versions.create_initial_version(
-            video_project_id=video_project_id,
-            content_type=ContentType.SCENE_PLAN,
-            content=document.model_dump_json(indent=2),
-            content_format=ContentFormat.JSON,
-            prompt_version="manual-import",
-            provider="manual",
-            model="manual",
-            input_hashes=input_hashes,
+        with write_transaction(self.session):
+            version = self.versions.create_initial_version(
+                video_project_id=video_project_id,
+                content_type=ContentType.SCENE_PLAN,
+                content=document.model_dump_json(indent=2),
+                content_format=ContentFormat.JSON,
+                prompt_version="manual-import",
+                provider="manual",
+                model="manual",
+                input_hashes=input_hashes,
+            )
+            self._replace_scenes(version, document)
+            version.status = VersionStatus.PENDING_APPROVAL
+            self._ensure_pending_approval(version, job_id=None)
+            self.session.flush()
+            return version
+
+    def _generate_structured_scene_document(
+        self,
+        video_project_id: str,
+        script: ContentVersion,
+        claims: list[Claim],
+    ) -> ScenePlanDocument:
+        prompt = json.dumps(
+            {
+                "video_project_id": video_project_id,
+                "script_content_version_id": script.id,
+                "script": script.content,
+                "claims": [{"id": claim.id, "text": claim.claim_text} for claim in claims],
+                "json_schema": ScenePlanDocument.model_json_schema(),
+            },
+            sort_keys=True,
         )
-        self._replace_scenes(version, document)
-        version.status = VersionStatus.PENDING_APPROVAL
-        self.session.commit()
-        self._ensure_pending_approval(version, job_id=None)
-        return version
+        try:
+            result = self.provider.generate(
+                TextGenerationRequest(
+                    prompt=prompt,
+                    system_prompt=(
+                        "Return only JSON matching the supplied scene-plan schema. "
+                        "Do not add markdown fences or commentary."
+                    ),
+                    provider_settings={
+                        **self.provider_settings,
+                        "json_mode": True,
+                        "schema_version": "1.0",
+                        "output_type": "scene_plan",
+                        "system_prompt_hash": hash_text("scene-plan-json-system-v1"),
+                    },
+                    timeout_seconds=self.timeout_seconds,
+                )
+            )
+            document = ScenePlanDocument.model_validate_json(result.text)
+        except ValidationError as exc:
+            raise ScenePlanningError(f"Generated scene plan is invalid: {exc}") from exc
+        if document.video_project_id != video_project_id:
+            raise ScenePlanningError("Generated scene plan project does not match.")
+        if document.script_content_version_id != script.id:
+            raise ScenePlanningError("Generated scene plan script version does not match.")
+        return document
 
     def list_scenes(self, scene_plan_version_id: str) -> list[Scene]:
         return list(
@@ -195,6 +278,8 @@ class ScenePlanService:
         version: ContentVersion,
         job_id: str | None,
     ) -> None:
+        if version.status == VersionStatus.APPROVED:
+            return
         pending = self.session.scalar(
             select(Approval).where(
                 Approval.content_version_id == version.id,
@@ -205,7 +290,6 @@ class ScenePlanService:
         if pending is not None:
             return
         version.status = VersionStatus.PENDING_APPROVAL
-        self.session.commit()
         try:
             self.approvals.request_approval(
                 video_project_id=version.video_project_id,
@@ -239,6 +323,7 @@ class ScenePlanService:
         self,
         video_project_id: str,
         input_hashes: list[str],
+        provider_name: str,
     ) -> ContentVersion | None:
         return self.session.scalar(
             select(ContentVersion)
@@ -246,7 +331,7 @@ class ScenePlanService:
                 ContentVersion.video_project_id == video_project_id,
                 ContentVersion.content_type == ContentType.SCENE_PLAN,
                 ContentVersion.input_hashes == input_hashes,
-                ContentVersion.provider == "local_rules",
+                ContentVersion.provider == provider_name,
             )
             .order_by(ContentVersion.version_number.desc())
             .limit(1)

@@ -6,6 +6,7 @@ from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.infrastructure.database.models import Job
+from ai_media_os.providers.text_provider_factory import build_text_provider
 
 JOB_GENERATE_SCRIPT = "GENERATE_SCRIPT"
 JOB_GENERATE_FACT_CHECK_REPORT = "GENERATE_FACT_CHECK_REPORT"
@@ -14,7 +15,16 @@ JOB_GENERATE_SCENE_PLAN = "GENERATE_SCENE_PLAN"
 
 
 def generate_script_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    version = ScriptGenerationService(queue.session).generate_script(
+    provider = build_text_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model")),
+    )
+    version = ScriptGenerationService(
+        queue.session,
+        provider,
+        timeout_seconds=queue.settings.ollama_request_timeout_seconds,
+    ).generate_script(
         job.video_project_id,
         revision_feedback=_optional_str(job.payload.get("revision_feedback")),
     )
@@ -41,11 +51,21 @@ def evaluate_script_quality_handler(job: Job, queue: QueueService) -> dict[str, 
 
 
 def generate_scene_plan_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    version = ScenePlanService(queue.session).generate_scene_plan(
+    provider = build_text_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model")),
+    )
+    service = ScenePlanService(
+        queue.session,
+        provider,
+        timeout_seconds=queue.settings.ollama_request_timeout_seconds,
+    )
+    version = service.generate_scene_plan(
         job.video_project_id,
         script_version_id=_optional_str(job.payload.get("script_version_id")),
     )
-    scenes = ScenePlanService(queue.session).list_scenes(version.id)
+    scenes = service.list_scenes(version.id)
     return {
         "content_version_id": version.id,
         "version_number": version.version_number,

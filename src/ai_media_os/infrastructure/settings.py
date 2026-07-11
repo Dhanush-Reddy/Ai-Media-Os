@@ -43,6 +43,14 @@ class AppSettings(BaseSettings):
     queue_retry_base_delay_seconds: int = 60
     queue_retry_max_delay_seconds: int = 3600
     workflow_max_script_revisions: int = 1
+    text_provider_default: Literal["fake", "ollama"] = "fake"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_default_model: str = "qwen3:8b"
+    ollama_request_timeout_seconds: float = 120.0
+    ollama_temperature: float = 0.4
+    ollama_top_p: float = 0.9
+    ollama_num_predict: int = 2048
+    ollama_json_mode_enabled: bool = False
     research_max_source_bytes: int = 1_000_000
     research_allowed_text_extensions: set[str] = Field(default_factory=lambda: {".txt", ".md"})
     research_duplicate_content_warning_threshold: float = 0.5
@@ -118,6 +126,18 @@ class AppSettings(BaseSettings):
         if self.workflow_max_script_revisions < 0:
             msg = "Workflow max script revisions cannot be negative."
             raise ValueError(msg)
+        if not self.ollama_base_url.startswith(("http://", "https://")):
+            raise ValueError("Ollama base URL must use HTTP or HTTPS.")
+        if not self.ollama_default_model.strip():
+            raise ValueError("Ollama default model cannot be empty.")
+        if self.ollama_request_timeout_seconds <= 0:
+            raise ValueError("Ollama request timeout must be positive.")
+        if not 0 <= self.ollama_temperature <= 2:
+            raise ValueError("Ollama temperature must be between 0 and 2.")
+        if not 0 < self.ollama_top_p <= 1:
+            raise ValueError("Ollama top-p must be greater than 0 and at most 1.")
+        if self.ollama_num_predict <= 0:
+            raise ValueError("Ollama maximum generated tokens must be positive.")
         if self.research_max_source_bytes <= 0:
             msg = "Research max source bytes must be positive."
             raise ValueError(msg)

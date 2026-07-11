@@ -1,10 +1,10 @@
 from collections.abc import Generator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -34,12 +34,19 @@ from ai_media_os.infrastructure.database.models import (
 from ai_media_os.infrastructure.database.models import (
     Asset,
     Channel,
+    ContentVersion,
     Render,
     Scene,
     VideoProject,
 )
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
+from ai_media_os.providers.ollama import OllamaStructuredOutputError
+from ai_media_os.providers.ollama_content import (
+    OllamaMetadataGenerationProvider,
+    OllamaThumbnailConceptProvider,
+)
+from ai_media_os.providers.text_generation import TextGenerationRequest, TextGenerationResult
 from ai_media_os.schemas.thumbnail import ThumbnailConceptDocument
 from ai_media_os.schemas.video_metadata import ChapterItem, VideoMetadataDocument
 from ai_media_os.workers.job_worker import JobHandler, JobWorker
@@ -158,6 +165,101 @@ def valid_metadata_json() -> str:
 def revised_metadata_json() -> str:
     document = VideoMetadataDocument.model_validate_json(valid_metadata_json())
     return document.model_copy(update={"title": "AI Future Signals Revised"}).model_dump_json()
+
+
+class StubTextProvider:
+    provider_name = "ollama"
+    model_name = "qwen3:8b"
+    model_version = "qwen3:8b"
+    prompt_version = "ollama-generate-v1"
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.provider_settings: dict[str, Any] = {"temperature": 0.4}
+
+    def generate(self, request: TextGenerationRequest) -> TextGenerationResult:
+        return TextGenerationResult(
+            text=self.text,
+            provider=self.provider_name,
+            model=self.model_name,
+            model_version=self.model_version,
+            prompt_version=self.prompt_version,
+            provider_settings={**self.provider_settings, **request.provider_settings},
+        )
+
+
+def test_mocked_ollama_metadata_and_thumbnail_concept_services(
+    session: Session, settings: AppSettings
+) -> None:
+    project_id, render_id = create_packaging_project(session)
+    versions = ContentVersionService(session)
+    script = versions.approved_version(project_id, ContentType.SCRIPT)
+    scene_plan = versions.approved_version(project_id, ContentType.SCENE_PLAN)
+    assert script is not None and scene_plan is not None
+    metadata_document = VideoMetadataDocument(
+        title="AI Future Signals",
+        title_ideas=["AI Future Signals", "What Changed In AI"],
+        description="A grounded update based on the approved script.",
+        tags=["ai", "future"],
+        hashtags=["#AI"],
+        chapters=[ChapterItem(start_seconds=0, title="Opening")],
+        language="en",
+        target_audience="AI & Future viewers",
+        keywords=["ai", "future"],
+        source_script_version_id=script.id,
+        source_scene_plan_version_id=scene_plan.id,
+        source_render_id=render_id,
+        warnings=[],
+    )
+    metadata_provider = OllamaMetadataGenerationProvider(
+        StubTextProvider(metadata_document.model_dump_json()), 30
+    )
+    metadata = MetadataService(session, settings, metadata_provider).generate_metadata(
+        project_id, render_id=render_id
+    )
+    replay = MetadataService(session, settings, metadata_provider).generate_metadata(
+        project_id, render_id=render_id
+    )
+    assert metadata.id == replay.id
+    assert metadata.provider == "ollama"
+
+    concept_document = ThumbnailConceptDocument(
+        concept_title="AI Future Signals thumbnail",
+        text_options=["AI CHANGED AGAIN"],
+        selected_text="AI CHANGED AGAIN",
+        visual_description="Original editorial AI signal illustration.",
+        emotional_hook="Curiosity",
+        background_idea="High contrast signal grid",
+        foreground_subject="Original AI signal block",
+        composition_notes="Text left and visual right.",
+        style_notes="Clean, original, no third-party logos.",
+        source_metadata_version_id=metadata.id,
+        warnings=[],
+    )
+    concept_provider = OllamaThumbnailConceptProvider(
+        StubTextProvider(concept_document.model_dump_json()), 30
+    )
+    concept = ThumbnailService(
+        session, settings, concept_provider=concept_provider
+    ).generate_concept(project_id, metadata_version_id=metadata.id)
+    assert concept.provider == "ollama"
+
+
+def test_invalid_ollama_metadata_creates_no_version_or_approval(
+    session: Session, settings: AppSettings
+) -> None:
+    project_id, render_id = create_packaging_project(session)
+    version_count = session.scalar(select(func.count()).select_from(ContentVersion))
+    approval_count = session.scalar(select(func.count()).select_from(ApprovalModel))
+    provider = OllamaMetadataGenerationProvider(StubTextProvider("{}"), 30)
+
+    with pytest.raises(OllamaStructuredOutputError):
+        MetadataService(session, settings, provider).generate_metadata(
+            project_id, render_id=render_id
+        )
+
+    assert session.scalar(select(func.count()).select_from(ContentVersion)) == version_count
+    assert session.scalar(select(func.count()).select_from(ApprovalModel)) == approval_count
 
 
 def test_metadata_schema_rejects_public_safety_issues() -> None:

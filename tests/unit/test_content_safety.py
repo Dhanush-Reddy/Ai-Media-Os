@@ -2,7 +2,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -11,6 +11,7 @@ from ai_media_os.application.approvals import ApprovalService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.application.safety import ContentSafetyService
+from ai_media_os.application.safety_summaries import SafetySummaryService
 from ai_media_os.cli import main as cli_main
 from ai_media_os.domain.enums import (
     AssetReviewStatus,
@@ -30,12 +31,15 @@ from ai_media_os.infrastructure.database.models import (
     Asset,
     Channel,
     Claim,
+    ContentSafetyCheck,
     ContentVersion,
+    PublishingGate,
     Render,
     VideoProject,
 )
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
+from ai_media_os.providers.text_generation import LocalRuleBasedTextProvider
 from ai_media_os.schemas.video_metadata import ChapterItem, VideoMetadataDocument
 from ai_media_os.storage.filesystem import FileStorage
 
@@ -168,6 +172,14 @@ def test_fake_thumbnail_requires_disclosure_and_gate(
     result = service.run_publishing_gate(project_id)
     assert result.gate.status == PublishingGateStatus.NEEDS_REVIEW
     assert result.report_version.content_type == ContentType.COPYRIGHT_REPORT
+
+    gate_count = session.scalar(select(func.count()).select_from(PublishingGate))
+    finding_count = session.scalar(select(func.count()).select_from(ContentSafetyCheck))
+    summary = SafetySummaryService(session, LocalRuleBasedTextProvider()).summarize(project_id)
+    assert summary.authoritative_status == result.gate.status
+    assert summary.report_version_id == result.report_version.id
+    assert session.scalar(select(func.count()).select_from(PublishingGate)) == gate_count
+    assert session.scalar(select(func.count()).select_from(ContentSafetyCheck)) == finding_count
 
 
 def test_gate_persists_blocked_report_when_required_inputs_are_missing(

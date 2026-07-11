@@ -32,6 +32,7 @@ from ai_media_os.application.research import (
     SourceService,
 )
 from ai_media_os.application.safety import ContentSafetyService
+from ai_media_os.application.safety_summaries import SafetySummaryService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.domain.enums import (
@@ -52,6 +53,13 @@ from ai_media_os.domain.enums import (
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
+from ai_media_os.providers.ollama import OllamaTextGenerationProvider
+from ai_media_os.providers.text_generation import TextGenerationError, TextGenerationRequest
+from ai_media_os.providers.text_provider_factory import (
+    build_metadata_provider,
+    build_text_provider,
+    build_thumbnail_concept_provider,
+)
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.packaging_handlers import packaging_job_handlers
@@ -240,6 +248,8 @@ def build_parser() -> argparse.ArgumentParser:
     generate_script = subcommands.add_parser("generate-script")
     generate_script.add_argument("--project-id", required=True)
     generate_script.add_argument("--revision-feedback")
+    generate_script.add_argument("--provider", choices=["fake", "ollama"])
+    generate_script.add_argument("--model")
 
     fact_check = subcommands.add_parser("generate-fact-check")
     fact_check.add_argument("--project-id", required=True)
@@ -252,6 +262,8 @@ def build_parser() -> argparse.ArgumentParser:
     scene_plan = subcommands.add_parser("generate-scene-plan")
     scene_plan.add_argument("--project-id", required=True)
     scene_plan.add_argument("--script-version-id")
+    scene_plan.add_argument("--provider", choices=["fake", "ollama"])
+    scene_plan.add_argument("--model")
 
     import_scene_plan = subcommands.add_parser("import-scene-plan")
     import_scene_plan.add_argument("--project-id", required=True)
@@ -336,6 +348,8 @@ def build_parser() -> argparse.ArgumentParser:
     generate_metadata.add_argument("--keyword-hints")
     generate_metadata.add_argument("--title-count", type=int)
     generate_metadata.add_argument("--tag-count", type=int)
+    generate_metadata.add_argument("--provider", choices=["fake", "ollama"])
+    generate_metadata.add_argument("--model")
 
     import_metadata = subcommands.add_parser("import-metadata")
     import_metadata.add_argument("--project-id", required=True)
@@ -357,6 +371,8 @@ def build_parser() -> argparse.ArgumentParser:
     generate_thumbnail_concept = subcommands.add_parser("generate-thumbnail-concept")
     generate_thumbnail_concept.add_argument("--project-id", required=True)
     generate_thumbnail_concept.add_argument("--metadata-version-id")
+    generate_thumbnail_concept.add_argument("--provider", choices=["fake", "ollama"])
+    generate_thumbnail_concept.add_argument("--model")
 
     generate_thumbnail = subcommands.add_parser("generate-thumbnail")
     generate_thumbnail.add_argument("--project-id", required=True)
@@ -416,8 +432,24 @@ def build_parser() -> argparse.ArgumentParser:
     list_safety_findings = subcommands.add_parser("list-safety-findings")
     list_safety_findings.add_argument("--project-id", required=True)
 
+    summarize_safety = subcommands.add_parser("summarize-safety-report")
+    summarize_safety.add_argument("--project-id", required=True)
+    summarize_safety.add_argument("--provider", choices=["fake", "ollama"], default="fake")
+    summarize_safety.add_argument("--model")
+
     verify_thumbnail = subcommands.add_parser("verify-thumbnail-file")
     verify_thumbnail.add_argument("asset_id")
+
+    check_llm = subcommands.add_parser("check-llm-provider")
+    check_llm.add_argument("--provider", choices=["fake", "ollama"], default="fake")
+    check_llm.add_argument("--model")
+
+    test_llm = subcommands.add_parser("test-llm-generate")
+    test_llm.add_argument("--provider", choices=["fake", "ollama"], default="fake")
+    test_llm.add_argument("--model")
+    test_llm.add_argument("--prompt", required=True)
+    test_llm.add_argument("--system-prompt")
+    test_llm.add_argument("--json", action="store_true")
 
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
@@ -439,6 +471,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             reload=False,
         )
         return 0
+
+    if args.command in {"check-llm-provider", "test-llm-generate"}:
+        settings = get_settings()
+        try:
+            provider = build_text_provider(settings, args.provider, args.model)
+            if args.command == "check-llm-provider":
+                if isinstance(provider, OllamaTextGenerationProvider):
+                    health = provider.check_health()
+                    print(health.message)
+                    return 0 if health.reachable and health.model_available else 1
+                print("Fake text provider is ready.")
+                return 0
+            llm_result = provider.generate(
+                TextGenerationRequest(
+                    prompt=args.prompt,
+                    system_prompt=args.system_prompt,
+                    provider_settings={"json_mode": args.json},
+                    timeout_seconds=settings.ollama_request_timeout_seconds,
+                )
+            )
+            print(llm_result.text)
+            return 0
+        except (TextGenerationError, ValueError) as exc:
+            print(f"FAIL:{exc}")
+            return 1
 
     with SessionLocal() as session:
         queue = QueueService(session)
@@ -677,7 +734,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(readiness_result.as_dict())
             return 0
         if args.command == "generate-script":
-            version = ScriptGenerationService(session).generate_script(
+            settings = get_settings()
+            text_provider = build_text_provider(settings, args.provider, args.model)
+            version = ScriptGenerationService(
+                session,
+                text_provider,
+                timeout_seconds=settings.ollama_request_timeout_seconds,
+            ).generate_script(
                 args.project_id,
                 revision_feedback=args.revision_feedback,
             )
@@ -698,7 +761,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(script_quality_result.as_dict())
             return 0
         if args.command == "generate-scene-plan":
-            version = ScenePlanService(session).generate_scene_plan(
+            settings = get_settings()
+            text_provider = build_text_provider(settings, args.provider, args.model)
+            version = ScenePlanService(
+                session,
+                text_provider,
+                timeout_seconds=settings.ollama_request_timeout_seconds,
+            ).generate_scene_plan(
                 args.project_id,
                 script_version_id=args.script_version_id,
             )
@@ -819,7 +888,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(render.status.value)
             return 0
         if args.command == "generate-metadata":
-            version = MetadataService(session).generate_metadata(
+            settings = get_settings()
+            metadata_provider = build_metadata_provider(settings, args.provider, args.model)
+            version = MetadataService(session, settings, metadata_provider).generate_metadata(
                 args.project_id,
                 render_id=args.render_id,
                 keyword_hints=_csv_items(args.keyword_hints),
@@ -858,7 +929,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(args.content_version_id)
             return 0
         if args.command == "generate-thumbnail-concept":
-            version = ThumbnailService(session).generate_concept(
+            settings = get_settings()
+            concept_provider = build_thumbnail_concept_provider(settings, args.provider, args.model)
+            version = ThumbnailService(
+                session, settings, concept_provider=concept_provider
+            ).generate_concept(
                 args.project_id,
                 metadata_version_id=args.metadata_version_id,
             )
@@ -957,6 +1032,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{finding.check_type.value}\t{finding.status.value}\t"
                     f"{finding.severity.value}\t{finding.message}"
                 )
+            return 0
+        if args.command == "summarize-safety-report":
+            settings = get_settings()
+            text_provider = build_text_provider(settings, args.provider, args.model)
+            summary = SafetySummaryService(
+                session,
+                text_provider,
+                timeout_seconds=settings.ollama_request_timeout_seconds,
+            ).summarize(args.project_id)
+            print(summary.text)
             return 0
     return 1
 

@@ -46,6 +46,9 @@ class MetadataGenerationProvider(Protocol):
     model_name: str
     model_version: str
 
+    def fingerprint(self, request: MetadataGenerationRequest) -> str:
+        """Return the deterministic generation fingerprint."""
+
     def generate(self, request: MetadataGenerationRequest) -> MetadataGenerationResult:
         """Generate a metadata document."""
 
@@ -57,8 +60,8 @@ class FakeMetadataGenerationProvider:
     model_name = "rules-based-metadata"
     model_version = "v1"
 
-    def generate(self, request: MetadataGenerationRequest) -> MetadataGenerationResult:
-        fingerprint = hash_json(
+    def fingerprint(self, request: MetadataGenerationRequest) -> str:
+        return hash_json(
             {
                 "project_id": request.project_id,
                 "script_version_id": request.script_version_id,
@@ -70,6 +73,9 @@ class FakeMetadataGenerationProvider:
                 "input_hashes": request.input_hashes,
             }
         )
+
+    def generate(self, request: MetadataGenerationRequest) -> MetadataGenerationResult:
+        fingerprint = self.fingerprint(request)
         keywords = _keywords(request.topic, request.keyword_hints, request.tag_count)
         title_base = _title_case(request.working_title or request.topic)
         title_ideas = _title_ideas(title_base, keywords, request.title_count)

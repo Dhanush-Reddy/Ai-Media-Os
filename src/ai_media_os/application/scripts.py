@@ -90,8 +90,20 @@ class ScriptGenerationService:
             )
         claims = self._claims(video_project_id)
         prompt = self._build_script(project, research_brief, claims, revision_feedback)
+        system_prompt = (
+            None
+            if isinstance(self.provider, LocalRuleBasedTextProvider)
+            else (
+                "Expand the supplied source-grounded outline into a polished YouTube script in "
+                "Markdown. Preserve the Hook, Main Story, Context and Stakes, Review Boundaries, "
+                "and Outro sections. Do not invent facts, remove source qualifications, or add "
+                "claims absent from the supplied research. Return only the script."
+            )
+        )
         request = TextGenerationRequest(
             prompt=prompt,
+            system_prompt=system_prompt,
+            target_words=max(120, int((project.target_duration_seconds or 480) * 2.2)),
             provider_settings=self.provider_settings,
             timeout_seconds=self.timeout_seconds,
         )
@@ -127,6 +139,8 @@ class ScriptGenerationService:
             raise TextGenerationError(
                 f"Text provider {self.provider.provider_name} failed."
             ) from exc
+        if len(result.text.strip()) < 80:
+            raise ScriptPlanningError("Generated script is too short to persist.")
         version = self.versions.create_initial_version(
             video_project_id=video_project_id,
             content_type=ContentType.SCRIPT,
@@ -289,6 +303,8 @@ class ScriptGenerationService:
         approval_type: ApprovalType,
         job_id: str | None,
     ) -> None:
+        if version.status == VersionStatus.APPROVED:
+            return
         pending = self.session.scalar(
             select(Approval).where(
                 Approval.content_version_id == version.id,

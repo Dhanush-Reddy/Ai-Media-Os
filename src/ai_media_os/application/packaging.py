@@ -108,6 +108,12 @@ class MetadataService:
                 for scene in sorted(scenes, key=lambda item: item.scene_number)
             ],
         )
+        fingerprint = self.provider.fingerprint(request)
+        generation_hashes = [*input_hashes, fingerprint]
+        existing = self._matching_version(video_project_id, ContentType.METADATA, generation_hashes)
+        if existing is not None:
+            self.request_metadata_approval(existing.id, job_id=job_id)
+            return existing
         result = self.provider.generate(request)
         return self._store_document(
             video_project_id,
@@ -116,7 +122,7 @@ class MetadataService:
             provider=result.provider,
             model=result.model,
             prompt_version=result.prompt_version,
-            input_hashes=[*input_hashes, result.metadata["fingerprint"]],
+            input_hashes=generation_hashes,
             job_id=job_id,
         )
 
@@ -165,6 +171,8 @@ class MetadataService:
         job_id: str | None = None,
     ) -> None:
         version = self._version(content_version_id, ContentType.METADATA)
+        if version.status == VersionStatus.APPROVED:
+            return
         version.status = VersionStatus.PENDING_APPROVAL
         self.session.commit()
         try:
@@ -302,11 +310,12 @@ class ThumbnailService:
             keywords=metadata_document.keywords,
             input_hashes=input_hashes,
         )
-        result = self.concept_provider.generate(request)
-        hashes = [*input_hashes, result.metadata["fingerprint"]]
+        fingerprint = self.concept_provider.fingerprint(request)
+        hashes = [*input_hashes, fingerprint]
         existing = self._matching_version(video_project_id, ContentType.THUMBNAIL_CONCEPT, hashes)
         if existing is not None:
             return existing
+        result = self.concept_provider.generate(request)
         return self.versions.create_initial_version(
             video_project_id=video_project_id,
             content_type=ContentType.THUMBNAIL_CONCEPT,
