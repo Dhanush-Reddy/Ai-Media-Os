@@ -1,7 +1,7 @@
 """Provider interface and local deterministic text generator."""
 
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Protocol
+from typing import Any, Protocol
 
 
 class TextGenerationError(RuntimeError):
@@ -77,7 +77,9 @@ class LocalRuleBasedTextProvider:
     model_name = "script-writer-v1"
     model_version = "1"
     prompt_version = "script-template-v1"
-    provider_settings: ClassVar[dict[str, Any]] = {"strategy": "deterministic_rules"}
+
+    def __init__(self) -> None:
+        self.provider_settings: dict[str, Any] = {"strategy": "deterministic_rules"}
 
     def generate(self, request: TextGenerationRequest) -> TextGenerationResult:
         if request.cancellation_token is not None and request.cancellation_token.is_cancelled:

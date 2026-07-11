@@ -62,6 +62,9 @@ class ThumbnailConceptProvider(Protocol):
     model_name: str
     model_version: str
 
+    def fingerprint(self, request: ThumbnailConceptRequest) -> str:
+        """Return the deterministic generation fingerprint."""
+
     def generate(self, request: ThumbnailConceptRequest) -> ThumbnailConceptResult:
         """Generate a thumbnail concept."""
 
@@ -80,8 +83,8 @@ class FakeThumbnailConceptProvider:
     model_name = "rules-based-thumbnail-concept"
     model_version = "v1"
 
-    def generate(self, request: ThumbnailConceptRequest) -> ThumbnailConceptResult:
-        fingerprint = hash_json(
+    def fingerprint(self, request: ThumbnailConceptRequest) -> str:
+        return hash_json(
             {
                 "project_id": request.project_id,
                 "metadata_version_id": request.metadata_version_id,
@@ -90,6 +93,9 @@ class FakeThumbnailConceptProvider:
                 "input_hashes": request.input_hashes,
             }
         )
+
+    def generate(self, request: ThumbnailConceptRequest) -> ThumbnailConceptResult:
+        fingerprint = self.fingerprint(request)
         primary = request.title.upper()
         shorter = " ".join(primary.split()[:5])
         text_options = [primary[:80], shorter[:80], "AI IS MOVING FAST"]

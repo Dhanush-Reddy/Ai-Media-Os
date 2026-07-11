@@ -963,6 +963,25 @@ Do not implement this as one large feature. Build it in small stages after the e
 
 ---
 
+### Milestone 9A - Optional Local LLM Provider
+
+Status: implemented as an opt-in Ollama adapter. Fake/rules providers remain the default.
+
+Deliverables:
+
+* Provider-neutral local text generation
+* Ollama health and generation CLI commands
+* Optional script and scene-plan generation
+* Strict metadata and thumbnail-concept JSON generation
+* Read-only safety report summaries
+* Model/settings-aware fingerprints and typed failures
+* Offline tests using fake transports
+
+This milestone does not add a cloud LLM, automatic model downloads, autonomous safety decisions,
+publishing, Telegram, analytics, Shorts, real image generation, or real TTS.
+
+---
+
 ### Milestone 9 — Telegram Approval
 
 Deliverables:

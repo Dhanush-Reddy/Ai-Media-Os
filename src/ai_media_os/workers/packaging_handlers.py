@@ -7,6 +7,10 @@ from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.domain.enums import AssetReviewStatus
 from ai_media_os.infrastructure.database.models import Job
+from ai_media_os.providers.text_provider_factory import (
+    build_metadata_provider,
+    build_thumbnail_concept_provider,
+)
 
 JOB_GENERATE_VIDEO_METADATA = "GENERATE_VIDEO_METADATA"
 JOB_REVISE_VIDEO_METADATA = "REVISE_VIDEO_METADATA"
@@ -20,7 +24,12 @@ JOB_VERIFY_THUMBNAIL_FILE = "VERIFY_THUMBNAIL_FILE"
 
 
 def generate_video_metadata_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    version = MetadataService(queue.session, queue.settings).generate_metadata(
+    provider = build_metadata_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model")),
+    )
+    version = MetadataService(queue.session, queue.settings, provider).generate_metadata(
         job.video_project_id,
         render_id=_optional_str(job.payload.get("render_id")),
         keyword_hints=_optional_str_list(job.payload.get("keyword_hints")),
@@ -49,7 +58,14 @@ def import_video_metadata_handler(job: Job, queue: QueueService) -> dict[str, ob
 
 
 def generate_thumbnail_concept_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    version = ThumbnailService(queue.session, queue.settings).generate_concept(
+    provider = build_thumbnail_concept_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model")),
+    )
+    version = ThumbnailService(
+        queue.session, queue.settings, concept_provider=provider
+    ).generate_concept(
         job.video_project_id,
         metadata_version_id=_optional_str(job.payload.get("metadata_version_id")),
     )

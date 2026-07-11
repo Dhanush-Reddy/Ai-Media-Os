@@ -25,3 +25,19 @@ def test_settings_accept_custom_sqlite_url(tmp_path: Path) -> None:
 def test_settings_reject_non_sqlite_database_url() -> None:
     with pytest.raises(ValidationError):
         AppSettings(database_url="postgresql://localhost/ai_media_os")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"ollama_base_url": "file:///tmp/ollama"},
+        {"ollama_default_model": " "},
+        {"ollama_request_timeout_seconds": 0},
+        {"ollama_temperature": 2.1},
+        {"ollama_top_p": 0},
+        {"ollama_num_predict": 0},
+    ],
+)
+def test_settings_reject_invalid_ollama_configuration(overrides: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        AppSettings.model_validate(overrides)

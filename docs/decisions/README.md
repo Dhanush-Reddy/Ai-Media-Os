@@ -19,3 +19,4 @@ filenames to avoid rewriting merged history. New decisions continue with the nex
 | 0010 | Thumbnail and metadata |
 | 0011 | Content safety and rights engine |
 | 0012 | Reliability remediation |
+| 0013 | Optional local LLM through Ollama |

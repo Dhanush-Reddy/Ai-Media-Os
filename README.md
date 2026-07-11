@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 8.5:
+The current implementation covers Milestones 1 through 8.5 and the optional Milestone 9A local LLM provider:
 
 - Python project configuration
 - Environment-based settings
@@ -21,8 +21,9 @@ The current implementation covers Milestones 1 through 8.5:
 - Strict YouTube metadata documents, deterministic fake metadata generation, thumbnail concept documents, deterministic fake thumbnail PNG generation, manual metadata/thumbnail import, thumbnail verification/review, dashboard metadata/thumbnail pages, and packaging workflow/CLI handlers
 - Local rights records, deterministic claim/script/metadata/thumbnail checks, reused-content risk checks, AI disclosure decisions, persisted publishing-gate reports, and a dashboard safety view
 - Atomic workflow transitions with persisted-evidence validation, approved-asset immutability, signature-checked atomic imports, approved asset planning defaults, and provider-complete script fingerprints
+- Optional local Ollama text generation for scripts, scene plans, metadata, thumbnail concepts, and read-only safety summaries, with strict schemas and typed failures
 
-Milestone 9 has not started. Do not begin Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, scraping, or a real LLM provider until explicitly scoped.
+Milestone 9A adds only the optional local Ollama provider. Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, and scraping remain unstarted.
 
 ## Setup
 
@@ -83,6 +84,24 @@ ai-media-os dashboard
 Default URL: `http://127.0.0.1:8000`
 
 Do not expose the dashboard beyond localhost until authentication is added.
+
+## Optional Local Ollama
+
+The default text provider is still `fake`; no Ollama installation is required for tests or the
+normal deterministic demo. To opt into local LLM generation:
+
+```powershell
+ollama pull qwen3:8b
+ollama serve
+python -m ai_media_os.cli check-llm-provider --provider ollama --model qwen3:8b
+python -m ai_media_os.cli test-llm-generate --provider ollama --model qwen3:8b --prompt "Explain local AI in one sentence."
+python -m ai_media_os.cli generate-script --project-id $PROJECT_ID --provider ollama --model qwen3:8b
+python -m ai_media_os.cli generate-scene-plan --project-id $PROJECT_ID --provider ollama --model qwen3:8b
+python -m ai_media_os.cli generate-metadata --project-id $PROJECT_ID --provider ollama --model qwen3:8b
+python -m ai_media_os.cli generate-thumbnail-concept --project-id $PROJECT_ID --provider ollama --model qwen3:8b
+```
+
+See `docs/architecture/local-llm-ollama.md` for provider behavior and limitations.
 
 ## Local Asset Demo
 

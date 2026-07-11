@@ -1,14 +1,16 @@
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ai_media_os.application.approvals import ApprovalService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.research import ClaimService, SourceService
-from ai_media_os.application.scenes import ScenePlanService
+from ai_media_os.application.scenes import ScenePlanningError, ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService, ScriptPlanningError
 from ai_media_os.domain.enums import (
     ApprovalStatus,
@@ -27,17 +29,21 @@ from ai_media_os.infrastructure.database.models import (
     Approval,
     Channel,
     ContentVersion,
+    Scene,
     VideoProject,
 )
 from ai_media_os.infrastructure.database.session import create_db_engine
 from ai_media_os.infrastructure.settings import AppSettings
+from ai_media_os.providers.ollama import OllamaConnectionError
 from ai_media_os.providers.text_generation import (
     LocalRuleBasedTextProvider,
     TextGenerationCancelledError,
     TextGenerationRequest,
+    TextGenerationResult,
 )
 from ai_media_os.schemas.scene_plan import ScenePlanDocument
 from ai_media_os.storage.filesystem import FileStorage
+from ai_media_os.workers import script_scene_handlers as script_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.script_scene_handlers import (
     JOB_GENERATE_SCENE_PLAN,
@@ -150,6 +156,156 @@ def test_text_provider_has_typed_cancellation_failure() -> None:
         LocalRuleBasedTextProvider().generate(
             TextGenerationRequest(prompt="test", cancellation_token=Cancelled())
         )
+
+
+class StubTextProvider:
+    provider_name = "ollama"
+    model_name = "qwen3:8b"
+    model_version = "qwen3:8b"
+    prompt_version = "ollama-generate-v1"
+
+    def __init__(self, text: str, *, model_name: str = "qwen3:8b") -> None:
+        self.text = text
+        self.model_name = model_name
+        self.model_version = model_name
+        self.provider_settings: dict[str, Any] = {"temperature": 0.4}
+        self.requests: list[TextGenerationRequest] = []
+
+    def generate(self, request: TextGenerationRequest) -> TextGenerationResult:
+        self.requests.append(request)
+        return TextGenerationResult(
+            text=self.text,
+            provider=self.provider_name,
+            model=self.model_name,
+            model_version=self.model_version,
+            prompt_version=self.prompt_version,
+            provider_settings={**self.provider_settings, **request.provider_settings},
+        )
+
+
+class FailingTextProvider(StubTextProvider):
+    def generate(self, request: TextGenerationRequest) -> TextGenerationResult:
+        raise OllamaConnectionError("Could not connect to the local Ollama server.")
+
+
+def test_mocked_ollama_script_generation_and_short_output_rejection(
+    session: Session, project_id: str
+) -> None:
+    generated = "# Local Script\n\n" + ("AI planning systems need grounded evidence. " * 8)
+    provider = StubTextProvider(generated)
+    service = ScriptGenerationService(session, provider)
+    first = service.generate_script(project_id)
+    replay = service.generate_script(project_id)
+
+    assert first.id == replay.id
+    assert first.provider == "ollama"
+    assert first.model == "qwen3:8b"
+    assert provider.requests[0].system_prompt is not None
+    assert provider.requests[0].target_words is not None
+    approval = session.scalar(select(Approval).where(Approval.content_version_id == first.id))
+    assert approval is not None
+    ApprovalService(session).approve(approval.id, reviewer="test")
+    approved_replay = service.generate_script(project_id)
+    assert approved_replay.id == first.id
+    assert approved_replay.status == VersionStatus.APPROVED
+    with pytest.raises(ScriptPlanningError, match="too short"):
+        ScriptGenerationService(
+            session, StubTextProvider("too short", model_name="other:8b")
+        ).generate_script(project_id)
+
+
+def test_mocked_ollama_scene_plan_is_strict_and_atomic(
+    session: Session, project_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = ScriptGenerationService(session).generate_script(project_id)
+    approval = session.scalar(select(Approval).where(Approval.content_version_id == script.id))
+    assert approval is not None
+    ApprovalService(session).approve(approval.id, reviewer="test")
+    document = ScenePlanDocument.model_validate(
+        {
+            "video_project_id": project_id,
+            "script_content_version_id": script.id,
+            "total_duration_seconds": 8,
+            "scenes": [
+                {
+                    "scene_number": 1,
+                    "start_seconds": 0,
+                    "duration_seconds": 8,
+                    "narration": "A grounded opening about agentic AI planning systems.",
+                    "visual_type": "diagram",
+                    "visual_description": "An original planning workflow diagram.",
+                }
+            ],
+        }
+    )
+    service = ScenePlanService(session, StubTextProvider(document.model_dump_json()))
+    version = service.generate_scene_plan(project_id, script_version_id=script.id)
+    assert version.provider == "ollama"
+    assert len(service.list_scenes(version.id)) == 1
+
+    version_count = session.scalar(select(func.count()).select_from(ContentVersion))
+    scene_count = session.scalar(select(func.count()).select_from(Scene))
+    invalid_service = ScenePlanService(
+        session, StubTextProvider("not-json", model_name="invalid:8b")
+    )
+    with pytest.raises(ScenePlanningError, match="invalid"):
+        invalid_service.generate_scene_plan(project_id, script_version_id=script.id)
+    assert session.scalar(select(func.count()).select_from(ContentVersion)) == version_count
+    assert session.scalar(select(func.count()).select_from(Scene)) == scene_count
+
+    failing_service = ScenePlanService(
+        session, StubTextProvider(document.model_dump_json(), model_name="db-failure:8b")
+    )
+
+    def fail_scene_insert(*_args: object) -> None:
+        raise RuntimeError("scene insert failed")
+
+    monkeypatch.setattr(failing_service, "_replace_scenes", fail_scene_insert)
+    with pytest.raises(RuntimeError, match="scene insert failed"):
+        failing_service.generate_scene_plan(project_id, script_version_id=script.id)
+    assert session.scalar(select(func.count()).select_from(ContentVersion)) == version_count
+    assert session.scalar(select(func.count()).select_from(Scene)) == scene_count
+
+    unavailable_service = ScenePlanService(
+        session, FailingTextProvider("unused", model_name="offline:8b")
+    )
+    with pytest.raises(OllamaConnectionError):
+        unavailable_service.generate_scene_plan(project_id, script_version_id=script.id)
+    assert session.scalar(select(func.count()).select_from(ContentVersion)) == version_count
+    assert session.scalar(select(func.count()).select_from(Scene)) == scene_count
+
+
+def test_ollama_queue_failure_is_safe_and_retryable(
+    session: Session,
+    settings: AppSettings,
+    project_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        script_handlers,
+        "build_text_provider",
+        lambda *_args: FailingTextProvider("unused"),
+    )
+    queue = QueueService(session, settings)
+    job = queue.create_job(
+        video_project_id=project_id,
+        job_type=JOB_GENERATE_SCRIPT,
+        payload={"provider": "ollama", "model": "qwen3:8b"},
+    )
+    worker = JobWorker(
+        session,
+        handlers=script_scene_job_handlers(),
+        settings=settings,
+        worker_id="ollama-failure-worker",
+    )
+
+    result = worker.run_once()
+    session.refresh(job)
+    assert result.failed is True
+    assert job.status == JobStatus.RETRYING
+    assert job.last_error_type == "OllamaConnectionError"
+    assert job.last_error_message == "Could not connect to the local Ollama server."
+    assert session.scalar(select(func.count()).where(ContentVersion.provider == "ollama")) == 0
 
 
 def test_script_generation_requires_research_readiness(session: Session) -> None:
