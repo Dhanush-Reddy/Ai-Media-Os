@@ -26,6 +26,11 @@ RENDER_BACKUP_COUNT = text("SELECT COUNT(*) FROM migration_backup_0008_render_me
 SAFETY_BACKUP_RIGHTS_TABLE = "migration_backup_0010_rights_records"
 SAFETY_BACKUP_CHECKS_TABLE = "migration_backup_0010_content_safety_checks"
 SAFETY_BACKUP_GATES_TABLE = "migration_backup_0010_publishing_gates"
+SAFETY_BACKUP_RIGHTS_COUNT = text("SELECT COUNT(*) FROM migration_backup_0010_rights_records")
+SAFETY_BACKUP_CHECKS_COUNT = text(
+    "SELECT COUNT(*) FROM migration_backup_0010_content_safety_checks"
+)
+SAFETY_BACKUP_GATES_COUNT = text("SELECT COUNT(*) FROM migration_backup_0010_publishing_gates")
 
 
 def test_job_queue_migration_upgrade_downgrade_upgrade(
@@ -55,16 +60,191 @@ def test_safety_migration_upgrade_downgrade_upgrade(
     config = Config("alembic.ini")
 
     command.upgrade(config, "head")
-    command.downgrade(config, "0009_thumbnail_metadata")
-    command.upgrade(config, "head")
-    command.check(config)
-
     engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    _insert_render_metadata_row(engine)
+    _insert_safety_rows(engine)
+
+    command.downgrade(config, "0009_thumbnail_metadata")
+
     with engine.connect() as connection:
         inspector = inspect(connection)
         assert SAFETY_BACKUP_RIGHTS_TABLE in inspector.get_table_names()
         assert SAFETY_BACKUP_CHECKS_TABLE in inspector.get_table_names()
         assert SAFETY_BACKUP_GATES_TABLE in inspector.get_table_names()
+        assert "rights_records" not in inspector.get_table_names()
+        assert "content_safety_checks" not in inspector.get_table_names()
+        assert "publishing_gates" not in inspector.get_table_names()
+        rights = (
+            connection.execute(text("SELECT * FROM migration_backup_0010_rights_records"))
+            .mappings()
+            .one()
+        )
+        safety_check = (
+            connection.execute(text("SELECT * FROM migration_backup_0010_content_safety_checks"))
+            .mappings()
+            .one()
+        )
+        gate = (
+            connection.execute(text("SELECT * FROM migration_backup_0010_publishing_gates"))
+            .mappings()
+            .one()
+        )
+
+    assert rights["asset_id"] == "asset-1"
+    assert rights["rights_status"] == "SAFE"
+    assert rights["content_hash"] == "b" * 64
+    assert safety_check["check_type"] == "asset_rights"
+    assert safety_check["severity"] == "HIGH"
+    assert safety_check["evidence"] == '{"asset_id": "asset-1"}'
+    assert gate["render_id"] == "render-1"
+    assert gate["status"] == "NEEDS_REVIEW"
+    assert gate["blocking_reasons"] == '["missing license"]'
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM rights_records")).scalar_one() == 1
+        assert (
+            connection.execute(text("SELECT COUNT(*) FROM content_safety_checks")).scalar_one() == 1
+        )
+        assert connection.execute(text("SELECT COUNT(*) FROM publishing_gates")).scalar_one() == 1
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_safety_migration_downgrade_creates_empty_verified_backups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "safety-migration-empty.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    command.downgrade(config, "0009_thumbnail_metadata")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert SAFETY_BACKUP_RIGHTS_TABLE in inspector.get_table_names()
+        assert SAFETY_BACKUP_CHECKS_TABLE in inspector.get_table_names()
+        assert SAFETY_BACKUP_GATES_TABLE in inspector.get_table_names()
+        assert connection.execute(SAFETY_BACKUP_RIGHTS_COUNT).scalar_one() == 0
+        assert connection.execute(SAFETY_BACKUP_CHECKS_COUNT).scalar_one() == 0
+        assert connection.execute(SAFETY_BACKUP_GATES_COUNT).scalar_one() == 0
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM rights_records")).scalar_one() == 0
+        assert (
+            connection.execute(text("SELECT COUNT(*) FROM content_safety_checks")).scalar_one() == 0
+        )
+        assert connection.execute(text("SELECT COUNT(*) FROM publishing_gates")).scalar_one() == 0
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_safety_migration_downgrade_reuses_existing_backup_tables_without_duplicates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "safety-migration-existing-backups.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    _insert_render_metadata_row(engine)
+    _insert_safety_rows(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_rights_records AS SELECT * FROM rights_records"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_content_safety_checks "
+                "AS SELECT * FROM content_safety_checks"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_publishing_gates "
+                "AS SELECT * FROM publishing_gates"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE migration_backup_0010_rights_records SET review_notes = 'stale backup row'"
+            )
+        )
+
+    command.downgrade(config, "0009_thumbnail_metadata")
+
+    with engine.connect() as connection:
+        assert connection.execute(SAFETY_BACKUP_RIGHTS_COUNT).scalar_one() == 1
+        assert connection.execute(SAFETY_BACKUP_CHECKS_COUNT).scalar_one() == 1
+        assert connection.execute(SAFETY_BACKUP_GATES_COUNT).scalar_one() == 1
+        review_notes = connection.execute(
+            text("SELECT review_notes FROM migration_backup_0010_rights_records")
+        ).scalar_one()
+        assert review_notes == "Representative migration backup row."
+
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_safety_migration_refuses_to_drop_source_on_backup_count_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "safety-migration-mismatch.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    _insert_render_metadata_row(engine)
+    _insert_safety_rows(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE migration_backup_0010_rights_records "
+                "AS SELECT * FROM rights_records WHERE 0"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TRIGGER ignore_safety_rights_backup_insert "
+                "BEFORE INSERT ON migration_backup_0010_rights_records "
+                "BEGIN SELECT RAISE(IGNORE); END"
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="Refusing to drop rights_records"):
+        command.downgrade(config, "0009_thumbnail_metadata")
+
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        assert "rights_records" in inspector.get_table_names()
+        assert "content_safety_checks" in inspector.get_table_names()
+        assert "publishing_gates" in inspector.get_table_names()
+        assert connection.execute(text("SELECT COUNT(*) FROM rights_records")).scalar_one() == 1
+
     engine.dispose()
     get_settings.cache_clear()
 
@@ -595,6 +775,138 @@ def _insert_render_metadata_row(engine: sa.Engine) -> None:
                     '{"scene_count": 1}',
                     'diagnostic',
                     CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+
+
+def _insert_safety_rows(engine: sa.Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO rights_records (
+                    id,
+                    video_project_id,
+                    asset_id,
+                    source_type,
+                    source_url,
+                    license_name,
+                    license_url,
+                    rights_status,
+                    attribution_text,
+                    review_notes,
+                    provider,
+                    model,
+                    content_hash,
+                    assessment_fingerprint,
+                    rule_version,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    'rights-1',
+                    'project-1',
+                    'asset-1',
+                    'generated',
+                    NULL,
+                    'Internal generated asset',
+                    NULL,
+                    'SAFE',
+                    'AI-assisted asset',
+                    'Representative migration backup row.',
+                    'fake_image',
+                    'fake-placeholder-image',
+                    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                    'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+                    'safety-v1',
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO content_safety_checks (
+                    id,
+                    video_project_id,
+                    target_type,
+                    target_id,
+                    check_type,
+                    status,
+                    severity,
+                    message,
+                    evidence,
+                    recommendation,
+                    assessment_fingerprint,
+                    rule_version,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    'check-1',
+                    'project-1',
+                    'asset',
+                    'asset-1',
+                    'asset_rights',
+                    'WARNING',
+                    'HIGH',
+                    'Asset license needs review.',
+                    '{"asset_id": "asset-1"}',
+                    'Confirm provenance before publishing.',
+                    'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+                    'safety-v1',
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO publishing_gates (
+                    id,
+                    video_project_id,
+                    render_id,
+                    metadata_version_id,
+                    thumbnail_asset_id,
+                    status,
+                    summary,
+                    blocking_reasons,
+                    warnings,
+                    ai_disclosure_required,
+                    ai_disclosure_reasons,
+                    ai_disclosure_text,
+                    human_review_required,
+                    report_content_version_id,
+                    assessment_fingerprint,
+                    rule_version,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    'gate-1',
+                    'project-1',
+                    'render-1',
+                    'scene-plan-version-1',
+                    'asset-1',
+                    'NEEDS_REVIEW',
+                    'Rights review is required.',
+                    '["missing license"]',
+                    '["AI disclosure required"]',
+                    1,
+                    '["generated visual"]',
+                    'This video includes AI-assisted content.',
+                    1,
+                    'scene-plan-version-1',
+                    'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+                    'safety-v1',
                     CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP
                 )

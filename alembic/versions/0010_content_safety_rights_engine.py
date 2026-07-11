@@ -77,8 +77,17 @@ PUBLISHING_GATE_COLUMNS = [
 ]
 
 
-def _table_has_rows(connection: sa.Connection, name: str) -> bool:
+def _table_exists(connection: sa.Connection, name: str) -> bool:
     return sa.inspect(connection).has_table(name)
+
+
+def _table_has_rows(connection: sa.Connection, name: str) -> bool:
+    if not _table_exists(connection, name):
+        return False
+    row = connection.execute(
+        sa.select(sa.literal(1)).select_from(sa.table(name)).limit(1)
+    ).scalar_one_or_none()
+    return row is not None
 
 
 def upgrade() -> None:
@@ -259,6 +268,11 @@ def upgrade() -> None:
             "rights_records",
             RIGHTS_RECORD_COLUMNS,
         )
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_rights_records",
+            "rights_records",
+        )
     if _table_has_rows(connection, "migration_backup_0010_content_safety_checks"):
         _copy_backup_rows(
             connection,
@@ -266,12 +280,22 @@ def upgrade() -> None:
             "content_safety_checks",
             SAFETY_CHECK_COLUMNS,
         )
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_content_safety_checks",
+            "content_safety_checks",
+        )
     if _table_has_rows(connection, "migration_backup_0010_publishing_gates"):
         _copy_backup_rows(
             connection,
             "migration_backup_0010_publishing_gates",
             "publishing_gates",
             PUBLISHING_GATE_COLUMNS,
+        )
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_publishing_gates",
+            "publishing_gates",
         )
 
 
@@ -291,16 +315,52 @@ def _copy_backup_rows(
     )
 
 
-def _replace_backup_table(connection: sa.Connection, name: str, *columns: sa.Column) -> sa.Table:
-    if sa.inspect(connection).has_table(name):
-        op.drop_table(name)
-    return op.create_table(name, *columns)
+def _prepare_backup_table(connection: sa.Connection, name: str, *columns: sa.Column) -> None:
+    if _table_exists(connection, name):
+        connection.execute(sa.delete(sa.table(name)))
+    else:
+        op.create_table(name, *columns)
+
+
+def _row_count(connection: sa.Connection, table_name: str) -> int:
+    count = connection.execute(
+        sa.select(sa.func.count()).select_from(sa.table(table_name))
+    ).scalar_one()
+    return int(count)
+
+
+def _verify_restored_row_count(
+    connection: sa.Connection,
+    backup_name: str,
+    restored_name: str,
+) -> None:
+    backup_count = _row_count(connection, backup_name)
+    restored_count = _row_count(connection, restored_name)
+    if backup_count != restored_count:
+        raise RuntimeError(
+            f"Restoring {restored_name} from {backup_name} failed because row counts "
+            f"do not match ({restored_count} != {backup_count})."
+        )
+
+
+def _verify_backup_row_count(
+    connection: sa.Connection,
+    source_name: str,
+    backup_name: str,
+) -> None:
+    source_count = _row_count(connection, source_name)
+    backup_count = _row_count(connection, backup_name)
+    if source_count != backup_count:
+        raise RuntimeError(
+            f"Refusing to drop {source_name} during downgrade because backup row count "
+            f"does not match source row count ({backup_count} != {source_count})."
+        )
 
 
 def downgrade() -> None:
     connection = op.get_bind()
 
-    _replace_backup_table(
+    _prepare_backup_table(
         connection,
         "migration_backup_0010_rights_records",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -332,8 +392,13 @@ def downgrade() -> None:
         "migration_backup_0010_rights_records",
         RIGHTS_RECORD_COLUMNS,
     )
+    _verify_backup_row_count(
+        connection,
+        "rights_records",
+        "migration_backup_0010_rights_records",
+    )
 
-    _replace_backup_table(
+    _prepare_backup_table(
         connection,
         "migration_backup_0010_content_safety_checks",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -362,8 +427,13 @@ def downgrade() -> None:
         "migration_backup_0010_content_safety_checks",
         SAFETY_CHECK_COLUMNS,
     )
+    _verify_backup_row_count(
+        connection,
+        "content_safety_checks",
+        "migration_backup_0010_content_safety_checks",
+    )
 
-    _replace_backup_table(
+    _prepare_backup_table(
         connection,
         "migration_backup_0010_publishing_gates",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -398,6 +468,14 @@ def downgrade() -> None:
         "migration_backup_0010_publishing_gates",
         PUBLISHING_GATE_COLUMNS,
     )
+    _verify_backup_row_count(
+        connection,
+        "publishing_gates",
+        "migration_backup_0010_publishing_gates",
+    )
+
+    # SQLite DDL may not roll back atomically. Keep every source table intact until
+    # all three complete backups have passed explicit row-count verification.
 
     op.drop_index("ix_publishing_gates_project_render", table_name="publishing_gates")
     op.drop_index("ix_publishing_gates_project_status", table_name="publishing_gates")
