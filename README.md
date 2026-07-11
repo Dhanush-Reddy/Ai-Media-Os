@@ -41,6 +41,19 @@ Copy the example environment file if you want local overrides:
 copy .env.example .env
 ```
 
+Or use the local PowerShell launcher to install dependencies, migrate the database, create the
+default channel/project, and start the dashboard:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-local.ps1 -Setup -BootstrapProject
+```
+
+For Ollama after installing it and pulling the configured model:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-local.ps1 -Provider ollama -Model qwen3:8b -BootstrapProject
+```
+
 ## Database
 
 Create or update the local SQLite database with Alembic:
