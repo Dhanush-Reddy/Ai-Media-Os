@@ -81,6 +81,15 @@ def _table_exists(connection: sa.Connection, name: str) -> bool:
     return sa.inspect(connection).has_table(name)
 
 
+def _table_has_rows(connection: sa.Connection, name: str) -> bool:
+    if not _table_exists(connection, name):
+        return False
+    row = connection.execute(
+        sa.select(sa.literal(1)).select_from(sa.table(name)).limit(1)
+    ).scalar_one_or_none()
+    return row is not None
+
+
 def upgrade() -> None:
     connection = op.get_bind()
 
@@ -252,26 +261,41 @@ def upgrade() -> None:
         ["video_project_id", "render_id"],
     )
 
-    if _table_exists(connection, "migration_backup_0010_rights_records"):
+    if _table_has_rows(connection, "migration_backup_0010_rights_records"):
         _copy_backup_rows(
             connection,
             "migration_backup_0010_rights_records",
             "rights_records",
             RIGHTS_RECORD_COLUMNS,
         )
-    if _table_exists(connection, "migration_backup_0010_content_safety_checks"):
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_rights_records",
+            "rights_records",
+        )
+    if _table_has_rows(connection, "migration_backup_0010_content_safety_checks"):
         _copy_backup_rows(
             connection,
             "migration_backup_0010_content_safety_checks",
             "content_safety_checks",
             SAFETY_CHECK_COLUMNS,
         )
-    if _table_exists(connection, "migration_backup_0010_publishing_gates"):
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_content_safety_checks",
+            "content_safety_checks",
+        )
+    if _table_has_rows(connection, "migration_backup_0010_publishing_gates"):
         _copy_backup_rows(
             connection,
             "migration_backup_0010_publishing_gates",
             "publishing_gates",
             PUBLISHING_GATE_COLUMNS,
+        )
+        _verify_restored_row_count(
+            connection,
+            "migration_backup_0010_publishing_gates",
+            "publishing_gates",
         )
 
 
@@ -303,6 +327,20 @@ def _row_count(connection: sa.Connection, table_name: str) -> int:
         sa.select(sa.func.count()).select_from(sa.table(table_name))
     ).scalar_one()
     return int(count)
+
+
+def _verify_restored_row_count(
+    connection: sa.Connection,
+    backup_name: str,
+    restored_name: str,
+) -> None:
+    backup_count = _row_count(connection, backup_name)
+    restored_count = _row_count(connection, restored_name)
+    if backup_count != restored_count:
+        raise RuntimeError(
+            f"Restoring {restored_name} from {backup_name} failed because row counts "
+            f"do not match ({restored_count} != {backup_count})."
+        )
 
 
 def _verify_backup_row_count(

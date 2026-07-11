@@ -138,6 +138,15 @@ def test_safety_migration_downgrade_creates_empty_verified_backups(
         assert connection.execute(SAFETY_BACKUP_CHECKS_COUNT).scalar_one() == 0
         assert connection.execute(SAFETY_BACKUP_GATES_COUNT).scalar_one() == 0
 
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM rights_records")).scalar_one() == 0
+        assert (
+            connection.execute(text("SELECT COUNT(*) FROM content_safety_checks")).scalar_one() == 0
+        )
+        assert connection.execute(text("SELECT COUNT(*) FROM publishing_gates")).scalar_one() == 0
+
     engine.dispose()
     get_settings.cache_clear()
 
