@@ -157,6 +157,13 @@ class AssetItem:
     workflow_version: str | None
     verification_status: str
     generation_error: str | None
+    voice_name: str | None
+    language: str | None
+    sample_rate: int | None
+    original_text: str | None
+    effective_text: str | None
+    loudness_dbfs: float | None
+    quality_warnings: list[str]
     next_action: str
 
 

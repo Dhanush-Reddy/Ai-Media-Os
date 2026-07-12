@@ -45,7 +45,11 @@
               </td>
               <td>
                 {% if asset.preview_url %}
-                  <img class="asset-preview" src="{{ asset.preview_url }}" alt="Scene {{ asset.scene_number }} visual preview">
+                  {% if asset.asset_type == "Audio" %}
+                    <audio controls preload="none" src="{{ asset.preview_url }}"></audio>
+                  {% else %}
+                    <img class="asset-preview" src="{{ asset.preview_url }}" alt="Scene {{ asset.scene_number }} visual preview">
+                  {% endif %}
                 {% endif %}
                 {% if asset.duration_seconds %}
                   <p>{{ "%.2f"|format(asset.duration_seconds) }} seconds · {{ asset.mime_type or "" }}</p>
@@ -62,6 +66,10 @@
                 <span class="muted">{{ asset.verification_status }}</span><br>
                 {% if asset.generation_error %}<span class="badge error">{{ asset.generation_error }}</span><br>{% endif %}
                 {{ asset.provider or "Not generated" }}<br>
+                {% if asset.voice_name %}<span class="muted">Voice {{ asset.voice_name }} / {{ asset.language or "" }}</span><br>{% endif %}
+                {% if asset.sample_rate %}<span class="muted">{{ asset.sample_rate }} Hz{% if asset.loudness_dbfs is not none %} / {{ asset.loudness_dbfs }} dBFS RMS{% endif %}</span><br>{% endif %}
+                {% if asset.effective_text %}<p>{{ asset.effective_text }}</p>{% endif %}
+                {% for warning in asset.quality_warnings %}<span class="badge warning">{{ warning }}</span>{% endfor %}
                 <span class="muted">{{ asset.model or "" }}{% if asset.seed is not none %} · seed {{ asset.seed }}{% endif %}</span>
               </td>
               <td>

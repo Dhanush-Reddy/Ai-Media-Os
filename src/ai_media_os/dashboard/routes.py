@@ -320,6 +320,7 @@ def asset_preview(
         AssetType.CHART,
         AssetType.SCREENSHOT,
         AssetType.THUMBNAIL,
+        AssetType.AUDIO,
     }:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:

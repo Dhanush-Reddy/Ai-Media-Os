@@ -811,6 +811,12 @@ The exact model should remain configurable.
 
 ## 22. Voice Generation
 
+Current implementation: Milestone 9C provides optional offline Piper narration with one asset per
+scene, pronunciation preparation, deterministic WAV verification/normalization, cache reuse, human
+review, and approved-only render selection. Fake voice remains the default. Kokoro and advanced
+alignment remain future options. See `docs/architecture/local-tts-provider.md` and
+`docs/architecture/narration-pipeline.md`.
+
 The initial voice pipeline should be local.
 
 Possible local providers:

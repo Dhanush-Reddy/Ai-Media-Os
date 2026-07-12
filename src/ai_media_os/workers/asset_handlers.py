@@ -13,11 +13,13 @@ from ai_media_os.application.job_queue import QueueService
 from ai_media_os.domain.enums import AssetGenerationStatus, AssetReviewStatus
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.providers.image_provider_factory import build_image_provider
+from ai_media_os.providers.voice_provider_factory import build_voice_provider
 
 JOB_PLAN_SCENE_ASSETS = "PLAN_SCENE_ASSETS"
 JOB_GENERATE_SCENE_IMAGE = "GENERATE_SCENE_IMAGE"
 JOB_IMPORT_SCENE_IMAGE = "IMPORT_SCENE_IMAGE"
 JOB_GENERATE_SCENE_VOICE = "GENERATE_SCENE_VOICE"
+JOB_GENERATE_SCENE_NARRATION = "GENERATE_SCENE_NARRATION"
 JOB_IMPORT_SCENE_AUDIO = "IMPORT_SCENE_AUDIO"
 JOB_REVIEW_ASSET = "REVIEW_ASSET"
 
@@ -65,12 +67,27 @@ def import_scene_image_handler(job: Job, queue: QueueService) -> dict[str, objec
 
 
 def generate_scene_voice_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    asset = VoiceAssetService(queue.session, queue.settings).generate_for_scene(
+    voice_name = _optional_str(job.payload.get("voice_name"))
+    provider = build_voice_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model_path")),
+        voice_name,
+    )
+    asset = VoiceAssetService(queue.session, queue.settings, provider=provider).generate_for_scene(
         str(job.payload["scene_id"]),
-        voice_name=_optional_str(job.payload.get("voice_name")),
+        voice_name=voice_name,
         language=_optional_str(job.payload.get("language")),
         speaking_rate=float(job.payload.get("speaking_rate", 1.0)),
         seed=int(job.payload.get("seed", 1)),
+        pitch=_optional_float(job.payload.get("pitch")),
+        gain_db=float(job.payload.get("gain_db", 0.0)),
+        pronunciation_overrides=_string_mapping(job.payload.get("pronunciation_overrides")),
+        sentence_pause_ms=_optional_int(job.payload.get("sentence_pause_ms")),
+        paragraph_pause_ms=_optional_int(job.payload.get("paragraph_pause_ms")),
+        lead_silence_ms=_optional_int(job.payload.get("lead_silence_ms")),
+        tail_silence_ms=_optional_int(job.payload.get("tail_silence_ms")),
+        timeout_seconds=_optional_float(job.payload.get("timeout_seconds")),
     )
     return {
         "asset_id": asset.id,
@@ -112,6 +129,7 @@ def asset_job_handlers() -> dict[str, Callable[[Job, QueueService], dict[str, ob
         JOB_GENERATE_SCENE_IMAGE: generate_scene_image_handler,
         JOB_IMPORT_SCENE_IMAGE: import_scene_image_handler,
         JOB_GENERATE_SCENE_VOICE: generate_scene_voice_handler,
+        JOB_GENERATE_SCENE_NARRATION: generate_scene_voice_handler,
         JOB_IMPORT_SCENE_AUDIO: import_scene_audio_handler,
         JOB_REVIEW_ASSET: review_asset_handler,
     }
@@ -139,3 +157,11 @@ def _optional_float(value: object) -> float | None:
         return float(value)
     msg = f"Expected optional numeric value, got {type(value).__name__}."
     raise TypeError(msg)
+
+
+def _string_mapping(value: object) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise TypeError("Pronunciation overrides must be an object.")
+    return {str(key): str(item) for key, item in value.items()}

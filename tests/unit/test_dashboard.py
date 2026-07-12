@@ -254,6 +254,13 @@ def test_project_routes_and_research_rendering(
     preview = client.get(preview_url)
     assert preview.status_code == 200
     assert preview.headers["content-type"].startswith("image/png")
+    audio_match = re.search(r'<audio[^>]+src="([^"]+)"', assets.text)
+    assert audio_match is not None
+    audio_preview = client.get(audio_match.group(1))
+    assert audio_preview.status_code == 200
+    assert audio_preview.headers["content-type"].startswith("audio/wav")
+    assert "24000 Hz" in assets.text
+    assert "data/projects" not in assets.text
     renders = client.get(f"/projects/{project_id}/renders")
     assert renders.status_code == 200
     assert "Video Renders" in renders.text

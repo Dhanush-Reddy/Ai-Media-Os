@@ -342,7 +342,13 @@ class DashboardQueries:
             f"/assets/{asset.id}/preview"
             if has_file
             and asset.asset_type
-            in {AssetType.IMAGE, AssetType.CHART, AssetType.SCREENSHOT, AssetType.THUMBNAIL}
+            in {
+                AssetType.IMAGE,
+                AssetType.CHART,
+                AssetType.SCREENSHOT,
+                AssetType.THUMBNAIL,
+                AssetType.AUDIO,
+            }
             else None
         )
         return AssetItem(
@@ -368,6 +374,17 @@ class DashboardQueries:
             ),
             verification_status="Verified" if has_file and asset.content_hash else "Not verified",
             generation_error=_optional_metadata_string(asset.generation_metadata, "error"),
+            voice_name=_optional_metadata_string(asset.generation_metadata, "voice_name"),
+            language=_optional_metadata_string(asset.generation_metadata, "language"),
+            sample_rate=_nested_metadata_int(
+                asset.generation_metadata, "audio_metrics_after", "sample_rate"
+            ),
+            original_text=_optional_metadata_string(asset.generation_metadata, "original_text"),
+            effective_text=_optional_metadata_string(asset.generation_metadata, "effective_text"),
+            loudness_dbfs=_nested_metadata_float(
+                asset.generation_metadata, "audio_metrics_after", "rms_dbfs"
+            ),
+            quality_warnings=_metadata_string_list(asset.generation_metadata, "quality_warnings"),
             next_action=next_action,
         )
 
@@ -903,6 +920,23 @@ def _asset_sort_key(asset: Asset) -> tuple[int, str, datetime]:
 def _optional_metadata_string(metadata: JsonDict, key: str) -> str | None:
     value = metadata.get(key)
     return str(value) if value is not None else None
+
+
+def _metadata_string_list(metadata: JsonDict, key: str) -> list[str]:
+    value = metadata.get(key)
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _nested_metadata_int(metadata: JsonDict, section: str, key: str) -> int | None:
+    value = metadata.get(section)
+    nested = value.get(key) if isinstance(value, dict) else None
+    return int(nested) if isinstance(nested, int | float) else None
+
+
+def _nested_metadata_float(metadata: JsonDict, section: str, key: str) -> float | None:
+    value = metadata.get(section)
+    nested = value.get(key) if isinstance(value, dict) else None
+    return float(nested) if isinstance(nested, int | float) else None
 
 
 def _render_sort_key(render: Render) -> tuple[int, datetime]:

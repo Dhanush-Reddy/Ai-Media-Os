@@ -85,6 +85,25 @@ class AppSettings(BaseSettings):
     voice_default_name: str = "ai-future-neutral"
     voice_default_language: str = "en"
     voice_allowed_extensions: set[str] = Field(default_factory=lambda: {".wav", ".mp3"})
+    local_tts_provider: str = "piper"
+    tts_voice_id: str = "default"
+    tts_language: str = "en-US"
+    tts_sample_rate: int = 24_000
+    tts_output_format: str = "wav"
+    tts_request_timeout_seconds: float = 180.0
+    tts_speaking_rate: float = 1.0
+    tts_normalize_audio: bool = True
+    tts_target_loudness_dbfs: float = -16.0
+    tts_max_segment_characters: int = 500
+    tts_healthcheck_enabled: bool = True
+    tts_sentence_pause_ms: int = 220
+    tts_paragraph_pause_ms: int = 500
+    tts_lead_silence_ms: int = 150
+    tts_tail_silence_ms: int = 150
+    tts_pronunciation_profile_version: str = "pronunciation-v1"
+    piper_executable_path: str = "piper"
+    piper_model_path: Path = Path("")
+    piper_config_path: Path | None = None
     asset_max_file_bytes: int = 20_000_000
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
@@ -125,6 +144,11 @@ class AppSettings(BaseSettings):
             key if isinstance(key, ResourceClass) else ResourceClass(str(key)): limit
             for key, limit in value.items()
         }
+
+    @field_validator("piper_config_path", mode="before")
+    @classmethod
+    def normalize_optional_piper_config(cls, value: object) -> object:
+        return None if value in {None, ""} else value
 
     @model_validator(mode="after")
     def validate_queue_settings(self) -> "AppSettings":
@@ -194,6 +218,28 @@ class AppSettings(BaseSettings):
         if not self.voice_allowed_extensions:
             msg = "At least one voice extension must be allowed."
             raise ValueError(msg)
+        if self.local_tts_provider != "piper":
+            raise ValueError("Local TTS provider must be piper.")
+        if not self.tts_voice_id.strip() or not self.tts_language.strip():
+            raise ValueError("TTS voice and language are required.")
+        if self.tts_sample_rate <= 0 or self.tts_request_timeout_seconds <= 0:
+            raise ValueError("TTS sample rate and timeout must be positive.")
+        if self.tts_output_format != "wav":
+            raise ValueError("Local TTS output format must be wav.")
+        if not 0.5 <= self.tts_speaking_rate <= 2.0:
+            raise ValueError("TTS speaking rate must be between 0.5 and 2.0.")
+        if self.tts_max_segment_characters <= 0:
+            raise ValueError("TTS segment character limit must be positive.")
+        pauses = (
+            self.tts_sentence_pause_ms,
+            self.tts_paragraph_pause_ms,
+            self.tts_lead_silence_ms,
+            self.tts_tail_silence_ms,
+        )
+        if any(value < 0 for value in pauses):
+            raise ValueError("TTS pause settings cannot be negative.")
+        if not self.piper_executable_path.strip():
+            raise ValueError("Piper executable path cannot be empty.")
         if self.render_default_width <= 0 or self.render_default_height <= 0:
             msg = "Render dimensions must be positive."
             raise ValueError(msg)
