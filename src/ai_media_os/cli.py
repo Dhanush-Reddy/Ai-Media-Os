@@ -2,6 +2,7 @@
 
 import argparse
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 
 import uvicorn
@@ -382,6 +383,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--attribution-required", action=argparse.BooleanOptionalAction, required=True
     )
     record_asset_provenance.add_argument("--model-file-hash", required=True)
+    record_asset_provenance.add_argument("--config-file-hash")
+    record_asset_provenance.add_argument("--model-filename")
+    record_asset_provenance.add_argument("--config-filename")
+    record_asset_provenance.add_argument("--model-card-url")
+    record_asset_provenance.add_argument("--model-revision")
+    record_asset_provenance.add_argument("--repository-license")
+    record_asset_provenance.add_argument("--dataset-name")
+    record_asset_provenance.add_argument("--dataset-license")
+    record_asset_provenance.add_argument("--dataset-license-url")
+    record_asset_provenance.add_argument("--review-date", type=date.fromisoformat)
+    record_asset_provenance.add_argument(
+        "--reviewer-decision",
+        choices=["VERIFIED", "RESTRICTED", "BLOCKED", "NEEDS_REVIEW"],
+    )
+    record_asset_provenance.add_argument("--reviewer-notes")
     record_asset_provenance.add_argument("--attribution-text")
 
     verify_asset = subcommands.add_parser("verify-asset-file")
@@ -1012,6 +1028,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 commercial_use_allowed=args.commercial_use_allowed,
                 attribution_required=args.attribution_required,
                 model_file_hash=args.model_file_hash,
+                config_file_hash=args.config_file_hash,
+                model_filename=args.model_filename,
+                config_filename=args.config_filename,
+                model_card_url=args.model_card_url,
+                model_revision=args.model_revision,
+                repository_license=args.repository_license,
+                dataset_name=args.dataset_name,
+                dataset_license=args.dataset_license,
+                dataset_license_url=args.dataset_license_url,
+                review_date=args.review_date,
+                reviewer_decision=args.reviewer_decision,
+                reviewer_notes=args.reviewer_notes,
                 attribution_text=args.attribution_text,
             )
             print(f"{asset.id}\t{asset.license_status.value}")

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     ForeignKey,
     Index,
@@ -407,6 +408,9 @@ class Asset(Base):
         index=True,
     )
     scene_id: Mapped[str | None] = mapped_column(ForeignKey("scenes.id"), index=True)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    supersedes_asset_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     asset_type: Mapped[AssetType] = mapped_column(enum_column(AssetType), nullable=False)
     asset_role: Mapped[AssetRole] = mapped_column(
         enum_column(AssetRole),
@@ -469,11 +473,19 @@ class Asset(Base):
         CheckConstraint("duration_seconds IS NULL OR duration_seconds > 0"),
         Index("ix_assets_project_type_license", "video_project_id", "asset_type", "license_status"),
         Index(
-            "uq_assets_scene_role",
+            "uq_assets_scene_role_revision",
+            "scene_id",
+            "asset_role",
+            "revision_number",
+            unique=True,
+            sqlite_where=text("scene_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_assets_scene_role_active",
             "scene_id",
             "asset_role",
             unique=True,
-            sqlite_where=text("scene_id IS NOT NULL"),
+            sqlite_where=text("scene_id IS NOT NULL AND is_active = 1"),
         ),
     )
 

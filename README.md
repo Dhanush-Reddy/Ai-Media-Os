@@ -283,6 +283,8 @@ python -m ai_media_os.cli record-asset-provenance $ASSET_ID `
 
 The command updates provenance fields only. It does not alter approved media bytes or their review state. Use `BLOCKED` with `--no-commercial-use-allowed` when the verified terms exclude the intended commercial use, then rerun the publishing gate.
 
+Scene image and narration assets are revisioned. Regenerating an approved or blocked active asset creates a new row and versioned file, marks the prior row inactive, and preserves its review and provenance history. Render planning and publishing-gate rights evaluation use only the active scene asset revision. Migration downgrade backs up revision state and temporarily detaches inactive rows; re-upgrade restores and verifies the complete lineage.
+
 ## Verification
 
 ```bash

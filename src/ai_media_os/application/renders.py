@@ -216,8 +216,12 @@ class RenderPlanningService:
         candidates = list(
             self.session.scalars(
                 select(Asset)
-                .where(Asset.scene_id == scene.id, Asset.asset_role == role)
-                .order_by(Asset.updated_at.desc())
+                .where(
+                    Asset.scene_id == scene.id,
+                    Asset.asset_role == role,
+                    Asset.is_active.is_(True),
+                )
+                .order_by(Asset.revision_number.desc(), Asset.updated_at.desc())
             )
         )
         if not candidates:
@@ -401,6 +405,8 @@ class RenderReviewService:
         }:
             raise RenderError("Unsupported render review status.")
         render = self._render(render_id)
+        if render.status == RenderStatus.APPROVED and status != RenderStatus.APPROVED:
+            raise RenderError("Approved render decisions cannot be changed in place.")
         render.status = status
         render.updated_at = utc_now()
         self.session.commit()

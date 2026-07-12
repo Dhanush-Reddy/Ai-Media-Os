@@ -117,3 +117,24 @@ The core real-provider path succeeded:
 `ComfyUI image -> Piper narration -> human approvals -> FFmpeg render -> metadata -> thumbnail -> safety report -> publishing gate`
 
 The result is `PASS_WITH_LIMITATIONS`: media generation and composition work locally, while publishing remains gated on explicit rights/provenance review and AI disclosure. Milestone 9D was not started.
+
+## Voice License Remediation
+
+On 2026-07-13, provenance review established that the original Piper Lessac voice depends on a research-only dataset license. Its asset remains historical, inactive, and `BLOCKED`.
+
+The replacement used Piper `en_US-ljspeech-medium`, trained from scratch on the public-domain LJ Speech dataset:
+
+- Active narration asset: `8271c15c-c911-450e-8bb6-0edbde712ff1`
+- Path: `data/projects/2d9fb350-3c4a-4d5a-9543-6c6f2e46be90/audio/scene_001/narration_v003.wav`
+- Narration SHA-256: `8bb90f5872b055ff2be1e48707ac55d6f00e2cfdb0d7fe977d2955ad68215823`
+- Model SHA-256: `6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22`
+- Config SHA-256: `141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860`
+- Quality review: approved
+- Replacement render: `146be226-8dd2-42b4-afb3-aa31b1501631`
+- Render path: `data/projects/2d9fb350-3c4a-4d5a-9543-6c6f2e46be90/renders/render_v002.mp4`
+- Render SHA-256: `fa546444d5deb337d446ca23d32891e25cfe0421029385f9aab4902f62b4755c`
+- Render review: approved
+- Updated publishing gate: `NEEDS_REVIEW`
+- Updated blocking reasons: none
+
+The gate still requires human review for SDXL-Turbo's conditional commercial-license terms, and AI disclosure remains required. The narration-specific publishing block is resolved without deleting the Lessac history.

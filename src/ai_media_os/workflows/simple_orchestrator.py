@@ -556,6 +556,7 @@ class SimpleWorkflowOrchestrator:
                 select(Asset).where(
                     Asset.video_project_id == project_id,
                     Asset.asset_role.in_({AssetRole.SCENE_VISUAL, AssetRole.SCENE_NARRATION}),
+                    Asset.is_active.is_(True),
                 )
             ).all()
         )

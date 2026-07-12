@@ -89,7 +89,10 @@ class ContentSafetyService:
         project = self._project(video_project_id)
         with write_transaction(self.session):
             records: list[RightsRecord] = []
-            for asset in sorted(project.assets, key=lambda item: (item.created_at, item.id)):
+            for asset in sorted(
+                (item for item in project.assets if item.is_active),
+                key=lambda item: (item.created_at, item.id),
+            ):
                 record = self._evaluate_asset_rights(asset)
                 existing = self._rights_by_fingerprint(record.assessment_fingerprint)
                 if existing is not None:

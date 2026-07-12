@@ -153,6 +153,43 @@ def test_render_planning_is_idempotent_and_uses_asset_hashes(
     assert session.scalar(select(func.count()).select_from(Render)) == 1
 
 
+def test_replacement_narration_creates_new_render_fingerprint(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, scene_id, scene_plan_id = create_project_with_render_assets(session, settings)
+    first = RenderPlanningService(session, settings).plan_render(
+        project_id, scene_plan_version_id=scene_plan_id
+    )
+    original_audio_hash = first.input_hashes[1]
+    original = session.scalar(
+        select(Asset).where(
+            Asset.scene_id == scene_id,
+            Asset.asset_role == AssetRole.SCENE_NARRATION,
+            Asset.is_active.is_(True),
+        )
+    )
+    assert original is not None
+
+    replacement = VoiceAssetService(session, settings).generate_for_scene(
+        scene_id, voice_name="replacement", seed=99
+    )
+    AssetReviewService(session, settings).review_asset(replacement.id, AssetReviewStatus.APPROVED)
+    second = RenderPlanningService(session, settings).plan_render(
+        project_id, scene_plan_version_id=scene_plan_id
+    )
+    session.refresh(original)
+
+    assert original.is_active is False
+    assert replacement.supersedes_asset_id == original.id
+    assert second.id != first.id
+    assert second.version_number == 2
+    assert second.settings["fingerprint"] != first.settings["fingerprint"]
+    assert second.input_hashes[1] != original_audio_hash
+    assert first.output_path.endswith("render_v001.mp4")
+    assert second.output_path.endswith("render_v002.mp4")
+
+
 def test_render_planning_rejects_missing_asset_file(
     session: Session,
     settings: AppSettings,
@@ -235,6 +272,8 @@ def test_approved_render_is_not_overwritten(
             settings,
             provider=FakeVideoComposer(),
         ).compose_video(project_id, render_id=render.id)
+    with pytest.raises(RenderError, match="cannot be changed"):
+        RenderReviewService(session, settings).review_render(render.id, RenderStatus.REJECTED)
 
 
 def test_missing_ffmpeg_reports_clear_error(tmp_path: Path) -> None:
