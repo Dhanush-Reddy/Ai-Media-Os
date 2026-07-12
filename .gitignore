@@ -21,6 +21,7 @@ data/projects/*
 data/assets/*
 data/exports/*
 data/logs/*
+data/models/*
 
 !data/database/.gitkeep
 !data/cache/.gitkeep
