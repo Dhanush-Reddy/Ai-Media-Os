@@ -182,20 +182,27 @@ class PiperVoiceGenerationProvider:
         started_at = time.monotonic()
         with TemporaryDirectory(prefix="ai-media-os-piper-") as temporary_dir:
             output_path = Path(temporary_dir) / "narration.wav"
+            input_path = Path(temporary_dir) / "narration.txt"
+            input_path.write_text(request.text + "\n", encoding="utf-8")
             command = [
                 executable,
-                "--model",
+                "-m",
                 str(self.model_path.resolve()),
-                "--output_file",
+                "-f",
                 str(output_path),
-                "--length_scale",
+                "-i",
+                str(input_path),
+                "--length-scale",
                 str(round(1 / request.speaking_rate, 6)),
+                "--sentence-silence",
+                str(round(request.sentence_pause_ms / 1000, 3)),
+                "--no-normalize",
             ]
             if self.config_path is not None:
-                command.extend(["--config", str(self.config_path.resolve())])
+                command.extend(["-c", str(self.config_path.resolve())])
             result = self.runner.run(
                 command,
-                input_data=(request.text + "\n").encode("utf-8"),
+                input_data=b"",
                 timeout_seconds=timeout,
             )
             if result.returncode != 0:

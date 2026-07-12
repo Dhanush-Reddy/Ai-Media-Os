@@ -23,7 +23,8 @@ AI_MEDIA_OS_TTS_LANGUAGE=en-US
 ```
 
 The application never downloads or executes a model installer. The adapter validates configured
-paths, invokes Piper with an argument list and `shell=False`, sends narration over stdin, writes only
+paths, invokes Piper with an argument list and `shell=False`, passes narration through a managed
+temporary input file, writes only
 to a managed temporary file, applies a bounded timeout, sanitizes process failures, and removes the
 temporary directory after reading the result.
 
@@ -38,8 +39,8 @@ python -m ai_media_os.cli preview-narration NARRATION_ASSET_ID
 ```
 
 Health checks validate the executable with a bounded `--help` call and require an ONNX model,
-optional JSON configuration, and voice ID. Generation accepts WAV only and verifies the configured
-sample rate before returning provider output.
+optional JSON configuration, and voice ID. Generation accepts WAV only and uses the voice model's
+native sample rate unless `AI_MEDIA_OS_TTS_SAMPLE_RATE` explicitly requires a particular rate.
 
 ## Limitations
 
