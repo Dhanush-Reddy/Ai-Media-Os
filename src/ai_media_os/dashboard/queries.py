@@ -363,6 +363,11 @@ class DashboardQueries:
             has_file=has_file,
             file_warning=warning,
             preview_url=preview_url,
+            workflow_version=_optional_metadata_string(
+                asset.generation_metadata, "workflow_version"
+            ),
+            verification_status="Verified" if has_file and asset.content_hash else "Not verified",
+            generation_error=_optional_metadata_string(asset.generation_metadata, "error"),
             next_action=next_action,
         )
 
@@ -893,6 +898,11 @@ def source_authority_display(source: Source) -> str:
 def _asset_sort_key(asset: Asset) -> tuple[int, str, datetime]:
     scene_number = asset.scene.scene_number if asset.scene is not None else 0
     return (scene_number, asset.asset_role.value, asset.created_at)
+
+
+def _optional_metadata_string(metadata: JsonDict, key: str) -> str | None:
+    value = metadata.get(key)
+    return str(value) if value is not None else None
 
 
 def _render_sort_key(render: Render) -> tuple[int, datetime]:

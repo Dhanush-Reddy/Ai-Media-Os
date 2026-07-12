@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 8.5 and the optional Milestone 9A local LLM provider:
+The current implementation covers Milestones 1 through 8.5, optional Milestone 9A local LLM generation, and optional Milestone 9B local image generation:
 
 - Python project configuration
 - Environment-based settings
@@ -22,8 +22,9 @@ The current implementation covers Milestones 1 through 8.5 and the optional Mile
 - Local rights records, deterministic claim/script/metadata/thumbnail checks, reused-content risk checks, AI disclosure decisions, persisted publishing-gate reports, and a dashboard safety view
 - Atomic workflow transitions with persisted-evidence validation, approved-asset immutability, signature-checked atomic imports, approved asset planning defaults, and provider-complete script fingerprints
 - Optional local Ollama text generation for scripts, scene plans, metadata, thumbnail concepts, and read-only safety summaries, with strict schemas and typed failures
+- Optional local ComfyUI scene-image generation with local-only HTTP controls, fixed workflow injection, verified output storage, cache reuse, and pending human review
 
-Milestone 9A adds only the optional local Ollama provider. Telegram, publishing, analytics, Shorts, real ComfyUI, real TTS, automated search, and scraping remain unstarted.
+The optional providers do not change deterministic defaults. Telegram, publishing, analytics, Shorts, real TTS, automated search, and scraping remain unstarted.
 
 ## Setup
 
@@ -115,6 +116,21 @@ python -m ai_media_os.cli generate-thumbnail-concept --project-id $PROJECT_ID --
 ```
 
 See `docs/architecture/local-llm-ollama.md` for provider behavior and limitations.
+
+## Optional Local ComfyUI
+
+Install and start ComfyUI manually, add a compatible local checkpoint, and set
+`AI_MEDIA_OS_COMFYUI_DEFAULT_CHECKPOINT`. No model or ComfyUI files are downloaded by this project.
+
+```powershell
+python -m ai_media_os.cli check-image-provider --provider comfyui --model your-checkpoint.safetensors
+python -m ai_media_os.cli generate-scene-image --scene-id $SCENE_ID --provider comfyui --model your-checkpoint.safetensors --seed 42
+python -m ai_media_os.cli verify-asset-file IMAGE_ASSET_ID
+```
+
+The server is restricted to localhost by default. Generated images are stored as pending-review,
+synthetic assets and remain subject to the rights and publishing gate. See
+`docs/architecture/comfyui-image-provider.md`.
 
 ## Local Asset Demo
 
@@ -245,6 +261,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not include Telegram, real ComfyUI integration, real local TTS integration, local language models, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment.
+This repository intentionally does not include Telegram, real local TTS integration, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment. ComfyUI and checkpoints must be installed separately.
 
 The implemented local Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`. It provides risk-reduction checks, not legal advice or a platform-compliance guarantee.

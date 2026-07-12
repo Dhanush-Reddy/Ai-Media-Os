@@ -58,6 +58,9 @@
                 {% endif %}
               </td>
               <td>
+                {% if asset.workflow_version %}<span class="muted">Workflow {{ asset.workflow_version }}</span><br>{% endif %}
+                <span class="muted">{{ asset.verification_status }}</span><br>
+                {% if asset.generation_error %}<span class="badge error">{{ asset.generation_error }}</span><br>{% endif %}
                 {{ asset.provider or "Not generated" }}<br>
                 <span class="muted">{{ asset.model or "" }}{% if asset.seed is not none %} · seed {{ asset.seed }}{% endif %}</span>
               </td>

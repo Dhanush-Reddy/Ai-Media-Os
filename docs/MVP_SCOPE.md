@@ -982,6 +982,23 @@ publishing, Telegram, analytics, Shorts, real image generation, or real TTS.
 
 ---
 
+### Milestone 9B - Optional Local ComfyUI Image Provider
+
+Status: implemented as an opt-in local ComfyUI adapter. The fake provider remains the default.
+
+Deliverables:
+
+* Local-only ComfyUI health, submission, history polling, and output retrieval
+* Fixed version-controlled text-to-image workflow and safe settings injection
+* PNG/JPEG/WebP signature, size, and dimension verification
+* Atomic asset storage, synthetic provenance, pending review, and cache fingerprints
+* Queue routing, CLI controls, dashboard generation details, and offline mocked tests
+
+ComfyUI and checkpoints require manual installation. This milestone does not add real TTS,
+publishing, Telegram, analytics, Shorts, cloud image APIs, model downloads, or advanced image editing.
+
+---
+
 ### Milestone 9 — Telegram Approval
 
 Deliverables:

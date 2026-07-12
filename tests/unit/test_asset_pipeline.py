@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -25,6 +26,7 @@ from ai_media_os.domain.enums import (
     ContentFormat,
     ContentType,
     JobStatus,
+    LicenseStatus,
     VersionStatus,
     VisualType,
 )
@@ -42,6 +44,7 @@ from ai_media_os.infrastructure.settings import AppSettings
 from ai_media_os.providers.image_generation import (
     FakeImageGenerationProvider,
     ImageGenerationRequest,
+    ImageGenerationResult,
 )
 from ai_media_os.providers.voice_generation import (
     FakeVoiceGenerationProvider,
@@ -299,6 +302,55 @@ def test_generate_image_and_voice_use_cache_and_verify_files(
     assert voice_again.duration_seconds is not None
     assert AssetReviewService(session, settings).verify_asset_file(image.id).ok is True
     assert AssetReviewService(session, settings).verify_asset_file(voice.id).ok is True
+
+
+def test_comfyui_asset_provenance_and_cache_replay(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    class CountingComfyProvider(FakeImageGenerationProvider):
+        provider_name = "comfyui"
+        model_name = "model.safetensors"
+        model_version = "local-checkpoint"
+        checkpoint = "model.safetensors"
+        workflow_path = Path("workflows/comfyui/text_to_image_v001.json")
+        steps = 20
+        cfg = 7.0
+        sampler = "euler"
+        scheduler = "normal"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
+            self.calls += 1
+            result = super().generate(request)
+            return replace(
+                result,
+                provider=self.provider_name,
+                model=self.model_name,
+                model_version=self.model_version,
+                metadata=result.metadata
+                | {
+                    "synthetic": True,
+                    "mime_type": "image/png",
+                    "workflow_version": "text-to-image-v001",
+                },
+            )
+
+    provider = CountingComfyProvider()
+    service = ImageAssetService(session, settings, provider=provider)
+    first = service.generate_for_scene(scene_id, width=16, height=9, seed=8)
+    second = service.generate_for_scene(scene_id, width=16, height=9, seed=8)
+
+    assert first.id == second.id
+    assert provider.calls == 1
+    assert second.provider == "comfyui"
+    assert second.review_status == AssetReviewStatus.PENDING_REVIEW
+    assert second.license_status == LicenseStatus.UNKNOWN
+    assert second.generation_metadata["synthetic"] is True
+    assert second.generation_metadata["workflow_version"] == "text-to-image-v001"
 
 
 def test_cache_corruption_is_rejected(
