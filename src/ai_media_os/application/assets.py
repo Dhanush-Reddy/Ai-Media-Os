@@ -1,5 +1,6 @@
 """Asset planning, generation, import, review, and verification services."""
 
+import re
 import wave
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -274,6 +275,7 @@ class ImageAssetService:
             self._copy_cached(cached.path, destination)
             output_hash = hash_file(destination)
         else:
+            planned_destination = _next_asset_revision_destination(asset, planned_destination)
             generation = self.provider.generate(
                 ImageGenerationRequest(
                     prompt=prompt,
@@ -345,8 +347,9 @@ class ImageAssetService:
             mime_type = validate_media_signature(source_path)
         except MediaFileError as exc:
             raise AssetError(str(exc)) from exc
-        destination = self.storage.resolve_inside(
-            self.storage.data_root, asset.file_path
+        destination = _next_asset_revision_destination(
+            asset,
+            self.storage.resolve_inside(self.storage.data_root, asset.file_path),
         ).with_suffix(source_path.suffix.lower())
         output_hash = self.storage.atomic_write(destination, source_path.read_bytes())
         provider = ManualImageProvider()
@@ -458,6 +461,21 @@ class ImageAssetService:
             or asset.generation_status == AssetGenerationStatus.APPROVED
         ):
             raise AssetError("Approved assets must not be overwritten.")
+
+
+def _next_asset_revision_destination(asset: Asset, current: Path) -> Path:
+    if not asset.content_hash:
+        return current
+    match = re.fullmatch(r"(.+)_v(\d+)", current.stem)
+    if match is None:
+        raise AssetError("Existing asset path is not versioned.")
+    prefix, version_text = match.groups()
+    version = int(version_text) + 1
+    while True:
+        candidate = current.with_name(f"{prefix}_v{version:0{len(version_text)}d}{current.suffix}")
+        if not candidate.exists():
+            return candidate
+        version += 1
 
 
 def _image_extension(mime_type: str) -> str:
@@ -573,6 +591,7 @@ class VoiceAssetService:
             metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
             duration = _duration_from_metadata(metadata)
         else:
+            destination = _next_asset_revision_destination(asset, destination)
             generation = self.provider.synthesize(
                 VoiceGenerationRequest(
                     text=prepared.effective_text,
@@ -734,8 +753,9 @@ class VoiceAssetService:
             mime_type = validate_media_signature(source_path)
         except MediaFileError as exc:
             raise AssetError(str(exc)) from exc
-        destination = self.storage.resolve_inside(
-            self.storage.data_root, asset.file_path
+        destination = _next_asset_revision_destination(
+            asset,
+            self.storage.resolve_inside(self.storage.data_root, asset.file_path),
         ).with_suffix(source_path.suffix.lower())
         output_hash = self.storage.atomic_write(destination, source_path.read_bytes())
         provider = ManualAudioProvider()

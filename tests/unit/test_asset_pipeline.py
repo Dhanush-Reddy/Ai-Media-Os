@@ -468,6 +468,31 @@ def test_cache_corruption_is_rejected(
     assert rejected.reason == "corrupt"
 
 
+def test_changed_generation_settings_preserve_prior_versioned_files(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    image_service = ImageAssetService(session, settings)
+    first_image = image_service.generate_for_scene(scene_id, width=16, height=9, seed=11)
+    first_image_path = settings.data_dir / first_image.file_path
+    second_image = image_service.generate_for_scene(scene_id, width=16, height=9, seed=12)
+    second_image_path = settings.data_dir / second_image.file_path
+
+    voice_service = VoiceAssetService(session, settings)
+    first_voice = voice_service.generate_for_scene(scene_id, voice_name="narrator-a")
+    first_voice_path = settings.data_dir / first_voice.file_path
+    second_voice = voice_service.generate_for_scene(scene_id, voice_name="narrator-b")
+    second_voice_path = settings.data_dir / second_voice.file_path
+
+    assert first_image_path.name == "visual_v001.png"
+    assert second_image_path.name == "visual_v002.png"
+    assert first_image_path.exists() and second_image_path.exists()
+    assert first_voice_path.name == "narration_v001.wav"
+    assert second_voice_path.name == "narration_v002.wav"
+    assert first_voice_path.exists() and second_voice_path.exists()
+
+
 def test_manual_imports_and_validation(
     session: Session,
     settings: AppSettings,
