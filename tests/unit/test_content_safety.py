@@ -14,10 +14,14 @@ from ai_media_os.application.safety import ContentSafetyService
 from ai_media_os.application.safety_summaries import SafetySummaryService
 from ai_media_os.cli import main as cli_main
 from ai_media_os.domain.enums import (
+    AssetGenerationStatus,
     AssetReviewStatus,
+    AssetRole,
+    AssetType,
     ClaimImportance,
     ContentFormat,
     ContentType,
+    LicenseStatus,
     PublishingGateStatus,
     RenderStatus,
     RenderType,
@@ -42,6 +46,7 @@ from ai_media_os.infrastructure.settings import AppSettings, get_settings
 from ai_media_os.providers.text_generation import LocalRuleBasedTextProvider
 from ai_media_os.schemas.video_metadata import ChapterItem, VideoMetadataDocument
 from ai_media_os.storage.filesystem import FileStorage
+from ai_media_os.utils.hashing import hash_file
 
 
 @pytest.fixture()
@@ -180,6 +185,65 @@ def test_fake_thumbnail_requires_disclosure_and_gate(
     assert summary.report_version_id == result.report_version.id
     assert session.scalar(select(func.count()).select_from(PublishingGate)) == gate_count
     assert session.scalar(select(func.count()).select_from(ContentSafetyCheck)) == finding_count
+
+
+def test_historical_blocked_asset_does_not_block_active_safe_revision(
+    session: Session, settings: AppSettings
+) -> None:
+    project_id, _script_id, _scene_plan_id, metadata_id, thumbnail_id = build_project(
+        session, settings
+    )
+    project = session.get(VideoProject, project_id)
+    assert project is not None
+    historical_path = settings.data_dir / "historical.wav"
+    active_path = settings.data_dir / "active.wav"
+    historical_path.parent.mkdir(parents=True, exist_ok=True)
+    historical_path.write_bytes(b"historical")
+    active_path.write_bytes(b"active")
+    historical = Asset(
+        video_project_id=project_id,
+        asset_type=AssetType.AUDIO,
+        asset_role=AssetRole.SCENE_NARRATION,
+        revision_number=1,
+        is_active=False,
+        file_path="historical.wav",
+        content_hash="h" * 64,
+        provider="piper",
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+        license_status=LicenseStatus.BLOCKED,
+        generation_metadata={"synthetic": True},
+    )
+    session.add(historical)
+    session.flush()
+    active = Asset(
+        video_project_id=project_id,
+        asset_type=AssetType.AUDIO,
+        asset_role=AssetRole.SCENE_NARRATION,
+        revision_number=2,
+        supersedes_asset_id=historical.id,
+        is_active=True,
+        file_path="active.wav",
+        content_hash=hash_file(active_path),
+        provider="piper",
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+        license_status=LicenseStatus.SAFE,
+        generation_metadata={"synthetic": True},
+    )
+    session.add(active)
+    session.commit()
+
+    result = ContentSafetyService(session, settings).run_publishing_gate(
+        project_id,
+        metadata_version_id=metadata_id,
+        thumbnail_asset_id=thumbnail_id,
+    )
+
+    assert result.gate.status != PublishingGateStatus.BLOCKED
+    assert result.disclosure.required is True
+    assert all(record.asset_id != historical.id for record in result.rights_records)
+    assert any(record.asset_id == active.id for record in result.rights_records)
 
 
 def test_gate_persists_blocked_report_when_required_inputs_are_missing(

@@ -3,6 +3,7 @@
 import re
 import wave
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -182,7 +183,11 @@ class AssetPlanningService:
 
     def _asset_for_scene_role(self, scene_id: str, role: AssetRole) -> Asset | None:
         return self.session.scalar(
-            select(Asset).where(Asset.scene_id == scene_id, Asset.asset_role == role)
+            select(Asset).where(
+                Asset.scene_id == scene_id,
+                Asset.asset_role == role,
+                Asset.is_active.is_(True),
+            )
         )
 
     def _image_relative_path(self, video_project_id: str, scene_number: int) -> str:
@@ -236,8 +241,7 @@ class ImageAssetService:
         timeout_seconds: float | None = None,
     ) -> Asset:
         scene = self._scene(scene_id)
-        asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
-        self._ensure_mutable(asset)
+        asset = self._writable_asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
         prompt = asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
         negative_prompt = asset.negative_prompt or scene.negative_prompt
         provider_is_comfyui = self.provider.provider_name == "comfyui"
@@ -342,8 +346,7 @@ class ImageAssetService:
     def import_manual(self, scene_id: str, source_path: Path) -> Asset:
         self._validate_source_path(source_path, self.settings.image_allowed_extensions)
         scene = self._scene(scene_id)
-        asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
-        self._ensure_mutable(asset)
+        asset = self._writable_asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
         try:
             mime_type = validate_media_signature(source_path)
         except MediaFileError as exc:
@@ -428,7 +431,11 @@ class ImageAssetService:
 
     def _asset(self, scene: Scene, role: AssetRole, asset_type: AssetType) -> Asset:
         asset = self.session.scalar(
-            select(Asset).where(Asset.scene_id == scene.id, Asset.asset_role == role)
+            select(Asset).where(
+                Asset.scene_id == scene.id,
+                Asset.asset_role == role,
+                Asset.is_active.is_(True),
+            )
         )
         if asset is None:
             AssetPlanningService(self.session, self.settings, self.storage).plan_scene_assets(
@@ -436,12 +443,49 @@ class ImageAssetService:
                 scene_plan_version_id=scene.scene_plan_version_id,
             )
             asset = self.session.scalar(
-                select(Asset).where(Asset.scene_id == scene.id, Asset.asset_role == role)
+                select(Asset).where(
+                    Asset.scene_id == scene.id,
+                    Asset.asset_role == role,
+                    Asset.is_active.is_(True),
+                )
             )
         if asset is None:
             raise AssetError("Could not create planned asset.")
         asset.asset_type = asset_type
         return asset
+
+    def _writable_asset(self, scene: Scene, role: AssetRole, asset_type: AssetType) -> Asset:
+        asset = self._asset(scene, role, asset_type)
+        immutable = (
+            asset.review_status == AssetReviewStatus.APPROVED
+            or asset.generation_status == AssetGenerationStatus.APPROVED
+            or asset.license_status == LicenseStatus.BLOCKED
+        )
+        if not immutable:
+            return asset
+        current_path = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        next_path = _next_asset_revision_destination(asset, current_path)
+        asset.is_active = False
+        replacement = Asset(
+            video_project_id=asset.video_project_id,
+            scene_id=asset.scene_id,
+            asset_type=asset_type,
+            asset_role=role,
+            revision_number=asset.revision_number + 1,
+            supersedes_asset_id=asset.id,
+            is_active=True,
+            file_path=self.storage.relative_to_data_root(next_path),
+            prompt=asset.prompt,
+            negative_prompt=asset.negative_prompt,
+            generation_status=AssetGenerationStatus.PLANNED,
+            review_status=AssetReviewStatus.PENDING_REVIEW,
+            generation_metadata={},
+            license_status=LicenseStatus.UNKNOWN,
+        )
+        self.session.add(replacement)
+        self.session.commit()
+        self.session.refresh(replacement)
+        return replacement
 
     def _validate_source_path(self, source_path: Path, allowed_extensions: set[str]) -> None:
         if ".." in source_path.parts:
@@ -526,8 +570,8 @@ class VoiceAssetService:
         timeout_seconds: float | None = None,
     ) -> Asset:
         scene = self._scene(scene_id)
-        asset = self._asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
-        ImageAssetService(self.session, self.settings, self.storage)._ensure_mutable(asset)
+        image_service = ImageAssetService(self.session, self.settings, self.storage)
+        asset = image_service._writable_asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
         provider_is_piper = self.provider.provider_name == "piper"
         resolved_voice = voice_name or (
             self.settings.tts_voice_id if provider_is_piper else self.settings.voice_default_name
@@ -748,8 +792,8 @@ class VoiceAssetService:
             self.settings.voice_allowed_extensions,
         )
         scene = self._scene(scene_id)
-        asset = self._asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
-        ImageAssetService(self.session, self.settings, self.storage)._ensure_mutable(asset)
+        image_service = ImageAssetService(self.session, self.settings, self.storage)
+        asset = image_service._writable_asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
         try:
             mime_type = validate_media_signature(source_path)
         except MediaFileError as exc:
@@ -863,6 +907,11 @@ class AssetReviewService:
         generation_status: AssetGenerationStatus | None = None,
     ) -> Asset:
         asset = self._asset(asset_id)
+        if (
+            asset.review_status == AssetReviewStatus.APPROVED
+            and review_status != AssetReviewStatus.APPROVED
+        ):
+            raise AssetError("Approved asset decisions cannot be changed in place.")
         asset.review_status = review_status
         if generation_status is not None:
             asset.generation_status = generation_status
@@ -887,6 +936,18 @@ class AssetReviewService:
         commercial_use_allowed: bool,
         attribution_required: bool,
         model_file_hash: str,
+        config_file_hash: str | None = None,
+        model_filename: str | None = None,
+        config_filename: str | None = None,
+        model_card_url: str | None = None,
+        model_revision: str | None = None,
+        repository_license: str | None = None,
+        dataset_name: str | None = None,
+        dataset_license: str | None = None,
+        dataset_license_url: str | None = None,
+        review_date: date | None = None,
+        reviewer_decision: str | None = None,
+        reviewer_notes: str | None = None,
         attribution_text: str | None = None,
     ) -> Asset:
         asset = self._asset(asset_id)
@@ -902,6 +963,20 @@ class AssetReviewService:
         normalized_hash = model_file_hash.casefold()
         if re.fullmatch(r"[0-9a-f]{64}", normalized_hash) is None:
             raise AssetError("Model file hash must be a SHA-256 hex digest.")
+        normalized_config_hash = config_file_hash.casefold() if config_file_hash else None
+        if normalized_config_hash and re.fullmatch(r"[0-9a-f]{64}", normalized_config_hash) is None:
+            raise AssetError("Config file hash must be a SHA-256 hex digest.")
+        metadata = asset.generation_metadata
+        generated_model_hash = metadata.get("model_hash")
+        generated_config_hash = metadata.get("config_hash")
+        if generated_model_hash and str(generated_model_hash).casefold() != normalized_hash:
+            raise AssetError("Recorded model hash does not match provider metadata.")
+        if (
+            normalized_config_hash
+            and generated_config_hash
+            and str(generated_config_hash).casefold() != normalized_config_hash
+        ):
+            raise AssetError("Recorded config hash does not match provider metadata.")
         if license_status == LicenseStatus.BLOCKED and commercial_use_allowed:
             raise AssetError("Blocked provenance cannot allow commercial use.")
         if license_status == LicenseStatus.ATTRIBUTION_REQUIRED and not attribution_required:
@@ -916,9 +991,21 @@ class AssetReviewService:
         asset.commercial_use_allowed = commercial_use_allowed
         asset.attribution_required = attribution_required
         asset.generation_metadata = {
-            **asset.generation_metadata,
+            **metadata,
             "license_url": license_url,
             "model_file_hash": normalized_hash,
+            "config_file_hash": normalized_config_hash,
+            "model_filename": model_filename,
+            "config_filename": config_filename,
+            "model_card_url": model_card_url,
+            "model_revision": model_revision,
+            "repository_license": repository_license,
+            "training_dataset": dataset_name,
+            "dataset_license": dataset_license,
+            "dataset_license_url": dataset_license_url,
+            "provenance_review_date": review_date.isoformat() if review_date else None,
+            "provenance_reviewer_decision": reviewer_decision,
+            "provenance_reviewer_notes": reviewer_notes,
             "attribution_text": attribution_text.strip() if attribution_text else None,
             "provenance_verified": True,
         }

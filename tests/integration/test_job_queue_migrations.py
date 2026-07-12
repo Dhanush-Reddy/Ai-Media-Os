@@ -55,7 +55,8 @@ def test_reliability_migration_enforces_unique_scene_asset_roles(
     engine = sa.create_engine(f"sqlite:///{database_path}")
     with engine.connect() as connection:
         indexes = {index["name"]: index for index in inspect(connection).get_indexes("assets")}
-        assert indexes["uq_assets_scene_role"]["unique"] == 1
+        assert indexes["uq_assets_scene_role_revision"]["unique"] == 1
+        assert indexes["uq_assets_scene_role_active"]["unique"] == 1
 
     command.downgrade(config, "0010_content_safety_rights_engine")
     with engine.connect() as connection:
@@ -67,6 +68,15 @@ def test_reliability_migration_enforces_unique_scene_asset_roles(
     command.check(config)
     engine.dispose()
     get_settings.cache_clear()
+
+
+def test_asset_revision_migration_preserves_history_across_cycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "asset-revision-migration.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
     config = Config("alembic.ini")
 
     command.upgrade(config, "head")
@@ -74,6 +84,64 @@ def test_reliability_migration_enforces_unique_scene_asset_roles(
     command.upgrade(config, "head")
     command.check(config)
 
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    _insert_asset_metadata_row(engine)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE assets SET is_active = 0 WHERE id = 'asset-1'"))
+        connection.execute(
+            text(
+                """
+                INSERT INTO assets (
+                    id, video_project_id, scene_id, asset_type, asset_role, file_path,
+                    revision_number, supersedes_asset_id, is_active,
+                    generation_status, review_status, generation_metadata, license_status,
+                    created_at, updated_at
+                ) VALUES (
+                    'asset-2', 'project-1', 'scene-1', 'placeholder', 'scene_visual',
+                    'projects/project-1/images/scene_001/visual_v002.png',
+                    2, 'asset-1', 1,
+                    'approved', 'approved', '{}', 'SAFE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+
+    command.downgrade(config, "-1")
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                text("SELECT COUNT(*) FROM migration_backup_0012_asset_revisions")
+            ).scalar_one()
+            == 2
+        )
+        assert (
+            connection.execute(
+                text("SELECT scene_id FROM assets WHERE id = 'asset-1'")
+            ).scalar_one()
+            is None
+        )
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT id, scene_id, revision_number, supersedes_asset_id, is_active
+                FROM assets ORDER BY revision_number
+                """
+            )
+        ).all()
+        assert rows == [
+            ("asset-1", "scene-1", 1, None, 0),
+            ("asset-2", "scene-1", 2, "asset-1", 1),
+        ]
+        assert "migration_backup_0012_asset_revisions" not in inspect(connection).get_table_names()
+    command.check(config)
+    engine.dispose()
     get_settings.cache_clear()
 
 

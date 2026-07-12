@@ -565,8 +565,22 @@ def test_asset_review_status_changes(
     assert reviewed.review_status == AssetReviewStatus.APPROVED
     assert reviewed.generation_status == AssetGenerationStatus.APPROVED
 
-    with pytest.raises(AssetError, match="Approved assets must not be overwritten"):
-        ImageAssetService(session, settings).generate_for_scene(scene_id, seed=2)
+    original_path = settings.data_dir / reviewed.file_path
+    original_hash = reviewed.content_hash
+    revision = ImageAssetService(session, settings).generate_for_scene(scene_id, seed=2)
+    session.refresh(reviewed)
+
+    assert reviewed.is_active is False
+    assert reviewed.content_hash == original_hash
+    assert original_path.exists()
+    assert revision.id != reviewed.id
+    assert revision.supersedes_asset_id == reviewed.id
+    assert revision.revision_number == 2
+    assert revision.is_active is True
+    assert revision.review_status == AssetReviewStatus.PENDING_REVIEW
+    assert (settings.data_dir / revision.file_path).exists()
+    with pytest.raises(AssetError, match="cannot be changed"):
+        AssetReviewService(session, settings).review_asset(reviewed.id, AssetReviewStatus.REJECTED)
 
 
 def test_record_asset_provenance_preserves_approved_asset(
@@ -660,6 +674,48 @@ def test_record_asset_provenance_rejects_inconsistent_evidence(
 
     with pytest.raises(AssetError, match=message):
         AssetReviewService(session, settings).record_provenance(asset.id, **values)  # type: ignore[arg-type]
+
+
+def test_record_asset_provenance_rejects_provider_hash_mismatch(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    asset = VoiceAssetService(session, settings).generate_for_scene(scene_id)
+    asset.generation_metadata = {
+        **asset.generation_metadata,
+        "model_hash": "1" * 64,
+        "config_hash": "2" * 64,
+    }
+    session.commit()
+
+    with pytest.raises(AssetError, match="model hash does not match"):
+        AssetReviewService(session, settings).record_provenance(
+            asset.id,
+            source_url="https://models.example/model.onnx",
+            creator="Creator",
+            license_name="Public Domain",
+            license_url="https://models.example/license",
+            license_status=LicenseStatus.SAFE,
+            commercial_use_allowed=True,
+            attribution_required=False,
+            model_file_hash="3" * 64,
+            config_file_hash="2" * 64,
+        )
+
+    with pytest.raises(AssetError, match="config hash does not match"):
+        AssetReviewService(session, settings).record_provenance(
+            asset.id,
+            source_url="https://models.example/model.onnx",
+            creator="Creator",
+            license_name="Public Domain",
+            license_url="https://models.example/license",
+            license_status=LicenseStatus.SAFE,
+            commercial_use_allowed=True,
+            attribution_required=False,
+            model_file_hash="1" * 64,
+            config_file_hash="3" * 64,
+        )
 
 
 def test_asset_queue_handlers_execute(
