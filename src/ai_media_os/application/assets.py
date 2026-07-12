@@ -218,14 +218,30 @@ class ImageAssetService:
         width: int | None = None,
         height: int | None = None,
         seed: int = 1,
+        checkpoint: str | None = None,
+        workflow_path: str | None = None,
+        steps: int | None = None,
+        cfg: float | None = None,
+        sampler: str | None = None,
+        scheduler: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Asset:
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
         self._ensure_mutable(asset)
         prompt = asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
         negative_prompt = asset.negative_prompt or scene.negative_prompt
-        resolved_width = width or self.settings.image_default_width
-        resolved_height = height or self.settings.image_default_height
+        provider_is_comfyui = self.provider.provider_name == "comfyui"
+        resolved_width = width or (
+            self.settings.comfyui_default_width
+            if provider_is_comfyui
+            else self.settings.image_default_width
+        )
+        resolved_height = height or (
+            self.settings.comfyui_default_height
+            if provider_is_comfyui
+            else self.settings.image_default_height
+        )
         request = self._cache_request(
             scene=scene,
             prompt=prompt,
@@ -233,14 +249,23 @@ class ImageAssetService:
             width=resolved_width,
             height=resolved_height,
             seed=seed,
+            checkpoint=checkpoint,
+            workflow_path=workflow_path,
+            steps=steps,
+            cfg=cfg,
+            sampler=sampler,
+            scheduler=scheduler,
         )
-        destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        planned_destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         cache_key = self.cache.build_cache_key(request)
         cached = self.cache.lookup(cache_key)
         if cached.hit and cached.path is not None:
+            metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
+            destination = planned_destination.with_suffix(
+                _image_extension(str(metadata.get("mime_type", "image/png")))
+            )
             self._copy_cached(cached.path, destination)
             output_hash = hash_file(destination)
-            metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
         else:
             generation = self.provider.generate(
                 ImageGenerationRequest(
@@ -252,21 +277,38 @@ class ImageAssetService:
                     scene_id=scene.id,
                     prompt_version="image-prompt-v1",
                     input_hashes=[hash_text(scene.narration)],
+                    project_id=scene.video_project_id,
+                    checkpoint=checkpoint,
+                    workflow_path=workflow_path,
+                    steps=steps,
+                    cfg=cfg,
+                    sampler=sampler,
+                    scheduler=scheduler,
+                    timeout_seconds=timeout_seconds,
                 )
+            )
+            metadata = generation.metadata | {
+                "mime_type": generation.metadata.get("mime_type", "image/png"),
+                "file_size": len(generation.data),
+                "provider": generation.provider,
+                "model": generation.model,
+                "model_version": generation.model_version,
+            }
+            destination = planned_destination.with_suffix(
+                _image_extension(str(metadata["mime_type"]))
             )
             output_hash = self.storage.atomic_write(destination, generation.data)
             self.cache.store_bytes(
                 request,
                 generation.data,
-                extension=".png",
-                metadata=generation.metadata,
+                extension=destination.suffix,
+                metadata=metadata,
             )
-            metadata = generation.metadata
         asset.file_path = self.storage.relative_to_data_root(destination)
-        asset.mime_type = "image/png"
-        asset.provider = self.provider.provider_name
-        asset.model = self.provider.model_name
-        asset.model_version = self.provider.model_version
+        asset.mime_type = str(metadata.get("mime_type", "image/png"))
+        asset.provider = str(metadata.get("provider", self.provider.provider_name))
+        asset.model = str(metadata.get("model", self.provider.model_name))
+        asset.model_version = str(metadata.get("model_version", self.provider.model_version))
         asset.prompt_version = "image-prompt-v1"
         asset.prompt = prompt
         asset.negative_prompt = negative_prompt
@@ -276,7 +318,11 @@ class ImageAssetService:
         asset.content_hash = output_hash
         asset.generation_status = AssetGenerationStatus.GENERATED
         asset.review_status = AssetReviewStatus.PENDING_REVIEW
-        asset.license_status = LicenseStatus.SAFE
+        asset.license_status = (
+            LicenseStatus.UNKNOWN
+            if self.provider.provider_name == "comfyui"
+            else LicenseStatus.SAFE
+        )
         asset.generation_metadata = metadata | {"cache_key": cache_key}
         asset.updated_at = utc_now()
         self.session.commit()
@@ -321,7 +367,19 @@ class ImageAssetService:
         width: int,
         height: int,
         seed: int,
+        checkpoint: str | None,
+        workflow_path: str | None,
+        steps: int | None,
+        cfg: float | None,
+        sampler: str | None,
+        scheduler: str | None,
     ) -> CacheKeyRequest:
+        effective_workflow = workflow_path or str(getattr(self.provider, "workflow_path", ""))
+        workflow_hash = None
+        if effective_workflow:
+            workflow_file = Path(effective_workflow)
+            if workflow_file.is_file():
+                workflow_hash = hash_file(workflow_file)
         return CacheKeyRequest(
             operation="generate_scene_image",
             provider=self.provider.provider_name,
@@ -334,6 +392,18 @@ class ImageAssetService:
                 "negative_prompt": negative_prompt,
                 "width": width,
                 "height": height,
+                "checkpoint": checkpoint or getattr(self.provider, "checkpoint", None),
+                "workflow_hash": workflow_hash,
+                "steps": (steps if steps is not None else getattr(self.provider, "steps", None)),
+                "cfg": cfg if cfg is not None else getattr(self.provider, "cfg", None),
+                "sampler": (
+                    sampler if sampler is not None else getattr(self.provider, "sampler", None)
+                ),
+                "scheduler": (
+                    scheduler
+                    if scheduler is not None
+                    else getattr(self.provider, "scheduler", None)
+                ),
             },
             seed=seed,
             input_hashes=[hash_text(scene.narration)],
@@ -381,6 +451,18 @@ class ImageAssetService:
             or asset.generation_status == AssetGenerationStatus.APPROVED
         ):
             raise AssetError("Approved assets must not be overwritten.")
+
+
+def _image_extension(mime_type: str) -> str:
+    extensions = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/webp": ".webp",
+    }
+    try:
+        return extensions[mime_type]
+    except KeyError as exc:
+        raise AssetError(f"Unsupported generated image MIME type: {mime_type}") from exc
 
 
 class VoiceAssetService:

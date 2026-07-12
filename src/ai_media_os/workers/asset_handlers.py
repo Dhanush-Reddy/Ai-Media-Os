@@ -12,6 +12,7 @@ from ai_media_os.application.assets import (
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.domain.enums import AssetGenerationStatus, AssetReviewStatus
 from ai_media_os.infrastructure.database.models import Job
+from ai_media_os.providers.image_provider_factory import build_image_provider
 
 JOB_PLAN_SCENE_ASSETS = "PLAN_SCENE_ASSETS"
 JOB_GENERATE_SCENE_IMAGE = "GENERATE_SCENE_IMAGE"
@@ -34,11 +35,23 @@ def plan_scene_assets_handler(job: Job, queue: QueueService) -> dict[str, object
 
 
 def generate_scene_image_handler(job: Job, queue: QueueService) -> dict[str, object]:
-    asset = ImageAssetService(queue.session, queue.settings).generate_for_scene(
+    provider = build_image_provider(
+        queue.settings,
+        _optional_str(job.payload.get("provider")),
+        _optional_str(job.payload.get("model")),
+    )
+    asset = ImageAssetService(queue.session, queue.settings, provider=provider).generate_for_scene(
         str(job.payload["scene_id"]),
         width=_optional_int(job.payload.get("width")),
         height=_optional_int(job.payload.get("height")),
         seed=int(job.payload.get("seed", 1)),
+        checkpoint=_optional_str(job.payload.get("model")),
+        workflow_path=_optional_str(job.payload.get("workflow_path")),
+        steps=_optional_int(job.payload.get("steps")),
+        cfg=_optional_float(job.payload.get("cfg")),
+        sampler=_optional_str(job.payload.get("sampler")),
+        scheduler=_optional_str(job.payload.get("scheduler")),
+        timeout_seconds=_optional_float(job.payload.get("timeout_seconds")),
     )
     return {"asset_id": asset.id, "content_hash": asset.content_hash or ""}
 
@@ -116,4 +129,13 @@ def _optional_int(value: object) -> int | None:
     if isinstance(value, int):
         return value
     msg = f"Expected optional integer-compatible value, got {type(value).__name__}."
+    raise TypeError(msg)
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, str | int | float):
+        return float(value)
+    msg = f"Expected optional numeric value, got {type(value).__name__}."
     raise TypeError(msg)

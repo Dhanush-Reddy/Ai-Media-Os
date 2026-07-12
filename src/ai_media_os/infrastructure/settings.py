@@ -66,6 +66,20 @@ class AppSettings(BaseSettings):
     image_default_width: int = 1280
     image_default_height: int = 720
     image_default_provider: str = "fake_image"
+    comfyui_base_url: str = "http://127.0.0.1:8188"
+    comfyui_request_timeout_seconds: float = 300.0
+    comfyui_poll_interval_seconds: float = 1.0
+    comfyui_default_workflow_path: Path = Path("workflows/comfyui/text_to_image_v001.json")
+    comfyui_default_checkpoint: str = ""
+    comfyui_default_width: int = 1024
+    comfyui_default_height: int = 576
+    comfyui_default_steps: int = 20
+    comfyui_default_cfg: float = 7.0
+    comfyui_default_sampler: str = "euler"
+    comfyui_default_scheduler: str = "normal"
+    comfyui_max_output_bytes: int = 20_000_000
+    comfyui_allow_remote_host: bool = False
+    comfyui_healthcheck_enabled: bool = True
     image_allowed_extensions: set[str] = Field(default_factory=lambda: {".png", ".jpg", ".jpeg"})
     voice_default_provider: str = "fake_voice"
     voice_default_name: str = "ai-future-neutral"
@@ -138,6 +152,12 @@ class AppSettings(BaseSettings):
             raise ValueError("Ollama top-p must be greater than 0 and at most 1.")
         if self.ollama_num_predict <= 0:
             raise ValueError("Ollama maximum generated tokens must be positive.")
+        if self.comfyui_request_timeout_seconds <= 0 or self.comfyui_poll_interval_seconds <= 0:
+            raise ValueError("ComfyUI timeout and poll interval must be positive.")
+        if self.comfyui_default_steps <= 0 or self.comfyui_default_cfg <= 0:
+            raise ValueError("ComfyUI steps and CFG must be positive.")
+        if self.comfyui_max_output_bytes <= 0:
+            raise ValueError("ComfyUI maximum output size must be positive.")
         if self.research_max_source_bytes <= 0:
             msg = "Research max source bytes must be positive."
             raise ValueError(msg)

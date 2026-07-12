@@ -20,6 +20,14 @@ class ImageGenerationRequest:
     scene_id: str
     prompt_version: str
     input_hashes: list[str] = field(default_factory=list)
+    project_id: str | None = None
+    checkpoint: str | None = None
+    workflow_path: str | None = None
+    steps: int | None = None
+    cfg: float | None = None
+    sampler: str | None = None
+    scheduler: str | None = None
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)

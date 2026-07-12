@@ -154,6 +154,9 @@ class AssetItem:
     has_file: bool
     file_warning: str | None
     preview_url: str | None
+    workflow_version: str | None
+    verification_status: str
+    generation_error: str | None
     next_action: str
 
 

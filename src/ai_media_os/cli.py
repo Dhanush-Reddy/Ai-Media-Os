@@ -53,6 +53,8 @@ from ai_media_os.domain.enums import (
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
+from ai_media_os.providers.comfyui import ComfyUIImageGenerationProvider
+from ai_media_os.providers.image_provider_factory import build_image_provider
 from ai_media_os.providers.ollama import OllamaTextGenerationProvider
 from ai_media_os.providers.text_generation import TextGenerationError, TextGenerationRequest
 from ai_media_os.providers.text_provider_factory import (
@@ -282,6 +284,18 @@ def build_parser() -> argparse.ArgumentParser:
     generate_image.add_argument("--width", type=int)
     generate_image.add_argument("--height", type=int)
     generate_image.add_argument("--seed", type=int, default=1)
+    generate_image.add_argument("--provider", choices=["fake", "comfyui"])
+    generate_image.add_argument("--model")
+    generate_image.add_argument("--workflow-path")
+    generate_image.add_argument("--steps", type=int)
+    generate_image.add_argument("--cfg", type=float)
+    generate_image.add_argument("--sampler")
+    generate_image.add_argument("--scheduler")
+    generate_image.add_argument("--timeout-seconds", type=float)
+
+    check_image_provider = subcommands.add_parser("check-image-provider")
+    check_image_provider.add_argument("--provider", choices=["fake", "comfyui"], default="fake")
+    check_image_provider.add_argument("--model")
 
     import_image = subcommands.add_parser("import-scene-image")
     import_image.add_argument("--scene-id", required=True)
@@ -798,14 +812,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(len(assets))
             return 0
         if args.command == "generate-scene-image":
-            asset = ImageAssetService(session).generate_for_scene(
+            default_service = ImageAssetService(session)
+            image_provider = build_image_provider(
+                default_service.settings, args.provider, args.model
+            )
+            asset = ImageAssetService(
+                session, default_service.settings, provider=image_provider
+            ).generate_for_scene(
                 args.scene_id,
                 width=args.width,
                 height=args.height,
                 seed=args.seed,
+                checkpoint=args.model,
+                workflow_path=args.workflow_path,
+                steps=args.steps,
+                cfg=args.cfg,
+                sampler=args.sampler,
+                scheduler=args.scheduler,
+                timeout_seconds=args.timeout_seconds,
             )
             print(asset.id)
             return 0
+        if args.command == "check-image-provider":
+            image_provider = build_image_provider(get_settings(), args.provider, args.model)
+            if not isinstance(image_provider, ComfyUIImageGenerationProvider):
+                print("READY\tfake_image\tlocal deterministic provider")
+                return 0
+            image_health = image_provider.check_health()
+            status = (
+                "READY"
+                if all(
+                    (
+                        image_health.reachable,
+                        image_health.workflow_valid,
+                        image_health.model_available,
+                    )
+                )
+                else "NOT_READY"
+            )
+            print(f"{status}\tcomfyui\t{image_health.message}")
+            return 0 if status == "READY" else 1
         if args.command == "import-scene-image":
             asset = ImageAssetService(session).import_manual(args.scene_id, Path(args.file))
             print(asset.id)

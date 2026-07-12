@@ -780,6 +780,10 @@ The Shorts pipeline should support:
 
 ## 21. Image Generation
 
+Current implementation: Milestone 9B provides an optional local ComfyUI adapter for one fixed
+text-to-image workflow. Fake generation remains the default; installation, checkpoints, and
+advanced workflows remain manual/deferred. See `docs/architecture/comfyui-image-provider.md`.
+
 Recommended local strategy:
 
 * Use ComfyUI as the workflow engine
