@@ -604,9 +604,14 @@ class VoiceAssetService:
                 )
             )
             try:
+                source_metrics = inspect_wav_bytes(
+                    generation.data,
+                    expected_sample_rate=self.settings.tts_sample_rate,
+                    max_bytes=self.settings.asset_max_file_bytes,
+                )
                 processed = process_wav_bytes(
                     generation.data,
-                    sample_rate=self.settings.tts_sample_rate,
+                    sample_rate=source_metrics.sample_rate,
                     normalize=resolved_normalize,
                     target_rms_dbfs=self.settings.tts_target_loudness_dbfs,
                     gain_db=gain_db,
@@ -667,7 +672,7 @@ class VoiceAssetService:
             "tail_silence_ms": resolved_tail_silence,
             "pitch": pitch,
             "gain_db": gain_db,
-            "sample_rate": self.settings.tts_sample_rate,
+            "sample_rate": int(metadata.get("sample_rate", 0)) or None,
             "channels": 1,
             "synthetic": True,
             "segment_number": scene.scene_number,

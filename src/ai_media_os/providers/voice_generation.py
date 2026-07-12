@@ -30,7 +30,7 @@ class VoiceGenerationRequest:
     tail_silence_ms: int = 150
     pronunciation_overrides: dict[str, str] = field(default_factory=dict)
     pronunciation_profile_version: str = "pronunciation-v1"
-    sample_rate: int = 24_000
+    sample_rate: int | None = None
     output_format: str = "wav"
     normalize_audio: bool = True
     target_loudness_dbfs: float = -16.0
@@ -80,7 +80,8 @@ class FakeVoiceGenerationProvider:
         )
         duration = max(0.25, min(0.75, len(request.text.split()) / 2.6 / request.speaking_rate))
         frequency = 220 + (int(payload_hash[:4], 16) % 330)
-        data = _tone_wav(duration, frequency, request.sample_rate)
+        sample_rate = request.sample_rate or 24_000
+        data = _tone_wav(duration, frequency, sample_rate)
         return VoiceGenerationResult(
             data=data,
             provider=self.provider_name,
@@ -94,7 +95,7 @@ class FakeVoiceGenerationProvider:
                 "placeholder": True,
                 "payload_hash": payload_hash,
                 "frequency": frequency,
-                "sample_rate": request.sample_rate,
+                "sample_rate": sample_rate,
                 "channels": 1,
                 "synthetic": True,
             },

@@ -88,7 +88,7 @@ class AppSettings(BaseSettings):
     local_tts_provider: str = "piper"
     tts_voice_id: str = "default"
     tts_language: str = "en-US"
-    tts_sample_rate: int = 24_000
+    tts_sample_rate: int | None = None
     tts_output_format: str = "wav"
     tts_request_timeout_seconds: float = 180.0
     tts_speaking_rate: float = 1.0
@@ -222,8 +222,10 @@ class AppSettings(BaseSettings):
             raise ValueError("Local TTS provider must be piper.")
         if not self.tts_voice_id.strip() or not self.tts_language.strip():
             raise ValueError("TTS voice and language are required.")
-        if self.tts_sample_rate <= 0 or self.tts_request_timeout_seconds <= 0:
-            raise ValueError("TTS sample rate and timeout must be positive.")
+        if self.tts_sample_rate is not None and self.tts_sample_rate <= 0:
+            raise ValueError("TTS sample rate must be positive when configured.")
+        if self.tts_request_timeout_seconds <= 0:
+            raise ValueError("TTS timeout must be positive.")
         if self.tts_output_format != "wav":
             raise ValueError("Local TTS output format must be wav.")
         if not 0.5 <= self.tts_speaking_rate <= 2.0:

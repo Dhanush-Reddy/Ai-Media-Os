@@ -61,10 +61,12 @@ class WritingRunner:
         self.commands.append(command)
         if "--help" in command:
             return PiperProcessResult(self.returncode, "")
-        assert input_data.endswith(b"\n")
+        assert input_data == b""
         assert timeout_seconds > 0
         if self.returncode == 0:
-            output_path = Path(command[command.index("--output_file") + 1])
+            output_path = Path(command[command.index("-f") + 1])
+            input_path = Path(command[command.index("-i") + 1])
+            assert input_path.read_text(encoding="utf-8").endswith("\n")
             output_path.write_bytes(self.data)
         return PiperProcessResult(self.returncode, "sensitive local diagnostic")
 
@@ -96,7 +98,8 @@ def test_piper_health_and_synthesis_use_safe_argument_list(tmp_path: Path) -> No
     assert result.metadata["sample_rate"] == 24_000
     assert result.metadata["synthetic"] is True
     assert runner.commands[-1][0].endswith("piper.exe")
-    assert "--length_scale" in runner.commands[-1]
+    assert "--length-scale" in runner.commands[-1]
+    assert "-i" in runner.commands[-1]
 
 
 def test_piper_health_reports_missing_model(tmp_path: Path) -> None:

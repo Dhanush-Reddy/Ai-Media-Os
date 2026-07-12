@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_instructions:
+    - path: "alembic/versions/**"
+      instructions: |
+        Review migrations as high-risk code.
+
+        Check upgrade and downgrade correctness, SQLite compatibility,
+        foreign keys, indexes, constraints, and schema drift.
+
+        For destructive downgrades, require:
+        1. Create a backup table.
+        2. Copy all meaningful data.
+        3. Verify source and backup row counts.
+        4. Abort on mismatch.
+        5. Only then drop tables or columns.
+
+        Check for premature returns, missing backup-table creation,
+        partial copies, duplicate backup rows, and omitted fields.
+
+    - path: "src/ai_media_os/application/**"
+      instructions: |
+        Review transaction boundaries, idempotency, concurrency, and
+        service-layer responsibilities.
+
+        Flag partial writes, hidden commits, check-then-insert races,
+        duplicate records, approved content being overwritten, and direct
+        ORM changes that bypass application services.
+
+    - path: "src/ai_media_os/workers/**"
+      instructions: |
+        Verify workers use application services, are retry-safe, preserve
+        clear failure messages, and do not create duplicate records during
+        replay.
+
+    - path: "src/ai_media_os/providers/**"
+      instructions: |
+        Preserve provider-neutral architecture. Provider-specific behavior
+        must remain behind interfaces. Fake and manual providers must work
+        without network, GPU, paid APIs, or external services.
+
+    - path: "tests/**"
+      instructions: |
+        Prioritize meaningful regression coverage for migrations,
+        transaction rollback, concurrency, duplicate prevention, workflow
+        replay, approval bypass, path traversal, missing files, corrupt
+        files, and publishing-gate blockers.
+
+    - path: "**"
+      instructions: |
+        Review this repository as a local-first, provider-neutral,
+        versioned, approval-gated, auditable media-production system.
+
+        Prioritize data loss, migration safety, transaction consistency,
+        concurrency, idempotency, approval bypass, filesystem security,
+        cache correctness, workflow correctness, and missing regression
+        tests.
+
+        Do not block for formatting preferences or speculative refactoring.
+        For actionable findings include severity, file, location, impact,
+        fix, and a suggested regression test.
+
+chat:
+  auto_reply: true
