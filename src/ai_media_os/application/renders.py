@@ -223,7 +223,9 @@ class RenderPlanningService:
         if not candidates:
             raise RenderError(f"Scene {scene.scene_number} is missing {role.value} asset.")
         usable_statuses = {AssetGenerationStatus.GENERATED, AssetGenerationStatus.IMPORTED}
-        if self.settings.render_allow_pending_assets:
+        if role == AssetRole.SCENE_NARRATION:
+            review_statuses = {AssetReviewStatus.APPROVED}
+        elif self.settings.render_allow_pending_assets:
             review_statuses = {
                 AssetReviewStatus.PENDING_REVIEW,
                 AssetReviewStatus.APPROVED,

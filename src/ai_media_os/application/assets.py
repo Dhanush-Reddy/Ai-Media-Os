@@ -1,7 +1,7 @@
 """Asset planning, generation, import, review, and verification services."""
 
 import wave
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
+from ai_media_os.application.narration import prepare_narration
 from ai_media_os.application.transactions import write_transaction
 from ai_media_os.domain.enums import (
     AssetGenerationStatus,
@@ -22,6 +23,12 @@ from ai_media_os.domain.enums import (
 from ai_media_os.infrastructure.database.base import utc_now
 from ai_media_os.infrastructure.database.models import Asset, ContentVersion, Scene
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
+from ai_media_os.media.audio_processing import (
+    AudioMetrics,
+    AudioProcessingError,
+    inspect_wav_bytes,
+    process_wav_bytes,
+)
 from ai_media_os.providers.image_generation import (
     FakeImageGenerationProvider,
     ImageGenerationProvider,
@@ -29,11 +36,11 @@ from ai_media_os.providers.image_generation import (
     ManualImageProvider,
 )
 from ai_media_os.providers.voice_generation import (
-    FakeVoiceGenerationProvider,
     ManualAudioProvider,
     VoiceGenerationProvider,
     VoiceGenerationRequest,
 )
+from ai_media_os.providers.voice_provider_factory import build_voice_provider
 from ai_media_os.storage.filesystem import FileStorage, StorageError
 from ai_media_os.storage.media_files import MediaFileError, validate_media_signature
 from ai_media_os.utils.hashing import hash_file, hash_text
@@ -479,7 +486,7 @@ class VoiceAssetService:
         self.settings = settings or get_settings()
         self.storage = storage or FileStorage(self.settings)
         self.cache = CacheService(session, self.storage)
-        self.provider = provider or FakeVoiceGenerationProvider()
+        self.provider = provider or build_voice_provider(self.settings)
 
     def generate_for_scene(
         self,
@@ -487,20 +494,74 @@ class VoiceAssetService:
         *,
         voice_name: str | None = None,
         language: str | None = None,
-        speaking_rate: float = 1.0,
+        speaking_rate: float | None = None,
         seed: int = 1,
+        pitch: float | None = None,
+        gain_db: float = 0.0,
+        pronunciation_overrides: dict[str, str] | None = None,
+        sentence_pause_ms: int | None = None,
+        paragraph_pause_ms: int | None = None,
+        lead_silence_ms: int | None = None,
+        tail_silence_ms: int | None = None,
+        normalize_audio: bool | None = None,
+        timeout_seconds: float | None = None,
     ) -> Asset:
         scene = self._scene(scene_id)
         asset = self._asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
         ImageAssetService(self.session, self.settings, self.storage)._ensure_mutable(asset)
-        resolved_voice = voice_name or self.settings.voice_default_name
-        resolved_language = language or self.settings.voice_default_language
+        provider_is_piper = self.provider.provider_name == "piper"
+        resolved_voice = voice_name or (
+            self.settings.tts_voice_id if provider_is_piper else self.settings.voice_default_name
+        )
+        resolved_language = language or (
+            self.settings.tts_language
+            if provider_is_piper
+            else self.settings.voice_default_language
+        )
+        resolved_rate = (
+            speaking_rate if speaking_rate is not None else self.settings.tts_speaking_rate
+        )
+        resolved_sentence_pause = (
+            sentence_pause_ms
+            if sentence_pause_ms is not None
+            else self.settings.tts_sentence_pause_ms
+        )
+        resolved_paragraph_pause = (
+            paragraph_pause_ms
+            if paragraph_pause_ms is not None
+            else self.settings.tts_paragraph_pause_ms
+        )
+        resolved_lead_silence = (
+            lead_silence_ms if lead_silence_ms is not None else self.settings.tts_lead_silence_ms
+        )
+        resolved_tail_silence = (
+            tail_silence_ms if tail_silence_ms is not None else self.settings.tts_tail_silence_ms
+        )
+        resolved_normalize = (
+            normalize_audio if normalize_audio is not None else self.settings.tts_normalize_audio
+        )
+        prepared = prepare_narration(
+            scene.narration,
+            overrides=pronunciation_overrides,
+            max_characters=self.settings.tts_max_segment_characters,
+        )
+        script_version_id = scene.scene_plan_version.parent_version_id
         request = self._cache_request(
             scene=scene,
             voice_name=resolved_voice,
             language=resolved_language,
-            speaking_rate=speaking_rate,
+            speaking_rate=resolved_rate,
             seed=seed,
+            effective_text=prepared.effective_text,
+            script_version_id=script_version_id,
+            pitch=pitch,
+            gain_db=gain_db,
+            pronunciation_overrides=prepared.applied_pronunciations,
+            sentence_pause_ms=resolved_sentence_pause,
+            paragraph_pause_ms=resolved_paragraph_pause,
+            lead_silence_ms=resolved_lead_silence,
+            tail_silence_ms=resolved_tail_silence,
+            normalize_audio=resolved_normalize,
         )
         destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         cache_key = self.cache.build_cache_key(request)
@@ -514,41 +575,147 @@ class VoiceAssetService:
         else:
             generation = self.provider.synthesize(
                 VoiceGenerationRequest(
-                    text=scene.narration,
+                    text=prepared.effective_text,
                     voice_name=resolved_voice,
                     language=resolved_language,
-                    speaking_rate=speaking_rate,
+                    speaking_rate=resolved_rate,
                     scene_id=scene.id,
                     seed=seed,
                     input_hashes=[hash_text(scene.narration)],
+                    project_id=scene.video_project_id,
+                    script_version_id=script_version_id,
+                    pitch=pitch,
+                    gain_db=gain_db,
+                    sentence_pause_ms=resolved_sentence_pause,
+                    paragraph_pause_ms=resolved_paragraph_pause,
+                    lead_silence_ms=resolved_lead_silence,
+                    tail_silence_ms=resolved_tail_silence,
+                    pronunciation_overrides=prepared.applied_pronunciations,
+                    pronunciation_profile_version=(self.settings.tts_pronunciation_profile_version),
+                    sample_rate=self.settings.tts_sample_rate,
+                    output_format=self.settings.tts_output_format,
+                    normalize_audio=resolved_normalize,
+                    target_loudness_dbfs=self.settings.tts_target_loudness_dbfs,
+                    timeout_seconds=(
+                        timeout_seconds
+                        if timeout_seconds is not None
+                        else self.settings.tts_request_timeout_seconds
+                    ),
                 )
             )
-            output_hash = self.storage.atomic_write(destination, generation.data)
-            metadata = generation.metadata | {"duration_seconds": generation.duration_seconds}
-            self.cache.store_bytes(request, generation.data, extension=".wav", metadata=metadata)
-            duration = generation.duration_seconds
+            try:
+                processed = process_wav_bytes(
+                    generation.data,
+                    sample_rate=self.settings.tts_sample_rate,
+                    normalize=resolved_normalize,
+                    target_rms_dbfs=self.settings.tts_target_loudness_dbfs,
+                    gain_db=gain_db,
+                    lead_silence_ms=resolved_lead_silence,
+                    tail_silence_ms=resolved_tail_silence,
+                    max_bytes=self.settings.asset_max_file_bytes,
+                )
+            except AudioProcessingError as exc:
+                raise AssetError(str(exc)) from exc
+            output_hash = self.storage.atomic_write(destination, processed.data)
+            quality_warnings = _audio_quality_warnings(
+                processed.after, len(prepared.effective_text.split())
+            )
+            if processed.before.clipped_samples:
+                quality_warnings.insert(0, "Source audio contained clipped samples.")
+            metadata = generation.metadata | {
+                "provider": generation.provider,
+                "model": generation.model,
+                "model_version": generation.model_version,
+                "duration_seconds": processed.after.duration_seconds,
+                "mime_type": "audio/wav",
+                "file_size": len(processed.data),
+                "audio_metrics_before": asdict(processed.before),
+                "audio_metrics_after": asdict(processed.after),
+                "normalization_applied": processed.normalized,
+                "audio_processing_version": processed.processing_version,
+                "quality_warnings": quality_warnings,
+            }
+            self.cache.store_bytes(request, processed.data, extension=".wav", metadata=metadata)
+            duration = processed.after.duration_seconds
         asset.file_path = self.storage.relative_to_data_root(destination)
         asset.mime_type = "audio/wav"
-        asset.provider = self.provider.provider_name
-        asset.model = self.provider.model_name
-        asset.model_version = self.provider.model_version
+        asset.provider = str(metadata.get("provider", self.provider.provider_name))
+        asset.model = str(metadata.get("model", self.provider.model_name))
+        asset.model_version = str(metadata.get("model_version", self.provider.model_version))
         asset.prompt = scene.narration
         asset.seed = seed
         asset.duration_seconds = duration or estimate_wav_duration(destination)
         asset.content_hash = output_hash
         asset.generation_status = AssetGenerationStatus.GENERATED
         asset.review_status = AssetReviewStatus.PENDING_REVIEW
-        asset.license_status = LicenseStatus.SAFE
+        asset.license_status = (
+            LicenseStatus.UNKNOWN if self.provider.provider_name == "piper" else LicenseStatus.SAFE
+        )
         asset.generation_metadata = metadata | {
             "cache_key": cache_key,
             "voice_name": resolved_voice,
             "language": resolved_language,
-            "speaking_rate": speaking_rate,
+            "speaking_rate": resolved_rate,
+            "original_text": prepared.original_text,
+            "effective_text": prepared.effective_text,
+            "script_version_id": script_version_id,
+            "pronunciation_overrides": prepared.applied_pronunciations,
+            "pronunciation_profile_version": self.settings.tts_pronunciation_profile_version,
+            "sentence_pause_ms": resolved_sentence_pause,
+            "paragraph_pause_ms": resolved_paragraph_pause,
+            "lead_silence_ms": resolved_lead_silence,
+            "tail_silence_ms": resolved_tail_silence,
+            "pitch": pitch,
+            "gain_db": gain_db,
+            "sample_rate": self.settings.tts_sample_rate,
+            "channels": 1,
+            "synthetic": True,
+            "segment_number": scene.scene_number,
+            "segment_start_seconds": scene.start_seconds,
+            "segment_end_seconds": (
+                (scene.start_seconds or 0.0) + (duration or scene.duration_seconds)
+            ),
         }
         asset.updated_at = utc_now()
         self.session.commit()
         self.session.refresh(asset)
         return asset
+
+    def generate_for_project(
+        self,
+        video_project_id: str,
+        *,
+        voice_name: str | None = None,
+        language: str | None = None,
+        speaking_rate: float | None = None,
+        seed: int = 1,
+        pronunciation_overrides: dict[str, str] | None = None,
+    ) -> list[Asset]:
+        scene_plan = ContentVersionService(self.session).approved_version(
+            video_project_id, ContentType.SCENE_PLAN
+        )
+        if scene_plan is None:
+            raise AssetError("Project narration requires an approved scene plan.")
+        scenes = list(
+            self.session.scalars(
+                select(Scene)
+                .where(Scene.scene_plan_version_id == scene_plan.id)
+                .order_by(Scene.scene_number.asc())
+            )
+        )
+        if not scenes:
+            raise AssetError("Approved scene plan has no narration segments.")
+        return [
+            self.generate_for_scene(
+                scene.id,
+                voice_name=voice_name,
+                language=language,
+                speaking_rate=speaking_rate,
+                seed=seed,
+                pronunciation_overrides=pronunciation_overrides,
+            )
+            for scene in scenes
+        ]
 
     def import_manual(self, scene_id: str, source_path: Path) -> Asset:
         ImageAssetService(self.session, self.settings, self.storage)._validate_source_path(
@@ -591,6 +758,16 @@ class VoiceAssetService:
         language: str,
         speaking_rate: float,
         seed: int,
+        effective_text: str,
+        script_version_id: str | None,
+        pitch: float | None,
+        gain_db: float,
+        pronunciation_overrides: dict[str, str],
+        sentence_pause_ms: int,
+        paragraph_pause_ms: int,
+        lead_silence_ms: int,
+        tail_silence_ms: int,
+        normalize_audio: bool,
     ) -> CacheKeyRequest:
         return CacheKeyRequest(
             operation="generate_scene_voice",
@@ -603,6 +780,23 @@ class VoiceAssetService:
                 "language": language,
                 "speaking_rate": speaking_rate,
                 "narration_hash": hash_text(scene.narration),
+                "effective_text_hash": hash_text(effective_text),
+                "script_version_id": script_version_id,
+                "pitch": pitch,
+                "gain_db": gain_db,
+                "pronunciation_overrides": pronunciation_overrides,
+                "pronunciation_profile_version": (self.settings.tts_pronunciation_profile_version),
+                "sentence_pause_ms": sentence_pause_ms,
+                "paragraph_pause_ms": paragraph_pause_ms,
+                "lead_silence_ms": lead_silence_ms,
+                "tail_silence_ms": tail_silence_ms,
+                "sample_rate": self.settings.tts_sample_rate,
+                "output_format": self.settings.tts_output_format,
+                "normalize_audio": normalize_audio,
+                "target_loudness_dbfs": self.settings.tts_target_loudness_dbfs,
+                "model_hash": getattr(self.provider, "model_hash", None),
+                "config_hash": getattr(self.provider, "config_hash", None),
+                "schema_version": "narration-v1",
             },
             seed=seed,
             input_hashes=[hash_text(scene.narration)],
@@ -667,6 +861,17 @@ class AssetReviewService:
             return AssetVerificationResult(False, asset_id, "missing-file")
         if hash_file(path) != asset.content_hash:
             return AssetVerificationResult(False, asset_id, "hash-mismatch")
+        if asset.asset_type == AssetType.AUDIO and path.suffix.casefold() == ".wav":
+            try:
+                expected_rate = asset.generation_metadata.get("sample_rate")
+                process_rate = int(expected_rate) if isinstance(expected_rate, int) else None
+                inspect_wav_bytes(
+                    path.read_bytes(),
+                    expected_sample_rate=process_rate,
+                    max_bytes=self.settings.asset_max_file_bytes,
+                )
+            except (AudioProcessingError, OSError):
+                return AssetVerificationResult(False, asset_id, "invalid-audio")
         return AssetVerificationResult(True, asset_id)
 
     def list_project_assets(self, video_project_id: str) -> list[Asset]:
@@ -703,6 +908,23 @@ def _duration_from_metadata(metadata: dict[str, object]) -> float | None:
     if isinstance(value, int | float):
         return float(value)
     return None
+
+
+def _audio_quality_warnings(metrics: AudioMetrics, word_count: int) -> list[str]:
+    warnings: list[str] = []
+    if metrics.clipped_samples:
+        warnings.append("Audio contains clipped samples.")
+    if metrics.leading_silence_seconds > 1.5:
+        warnings.append("Audio has excessive leading silence.")
+    if metrics.trailing_silence_seconds > 1.5:
+        warnings.append("Audio has excessive trailing silence.")
+    minimum = max(0.2, word_count / 5.0)
+    maximum = max(2.0, word_count / 0.8)
+    if metrics.duration_seconds < minimum:
+        warnings.append("Audio duration is unusually short for the narration text.")
+    if metrics.duration_seconds > maximum:
+        warnings.append("Audio duration is unusually long for the narration text.")
+    return warnings
 
 
 def _mime_for(extension: str) -> str:

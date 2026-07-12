@@ -49,6 +49,7 @@ from ai_media_os.providers.image_generation import (
 from ai_media_os.providers.voice_generation import (
     FakeVoiceGenerationProvider,
     VoiceGenerationRequest,
+    VoiceGenerationResult,
 )
 from ai_media_os.utils.hashing import hash_content_version
 from ai_media_os.workers.asset_handlers import (
@@ -351,6 +352,101 @@ def test_comfyui_asset_provenance_and_cache_replay(
     assert second.license_status == LicenseStatus.UNKNOWN
     assert second.generation_metadata["synthetic"] is True
     assert second.generation_metadata["workflow_version"] == "text-to-image-v001"
+
+
+def test_narration_preparation_normalization_and_cache_replay(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    class CountingPiperProvider(FakeVoiceGenerationProvider):
+        provider_name = "piper"
+        model_name = "voice.onnx"
+        model_version = "local-onnx"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def synthesize(self, request: VoiceGenerationRequest) -> VoiceGenerationResult:
+            self.calls += 1
+            result = super().synthesize(request)
+            return replace(
+                result,
+                provider=self.provider_name,
+                model=self.model_name,
+                model_version=self.model_version,
+                metadata=result.metadata | {"synthetic": True},
+            )
+
+    provider = CountingPiperProvider()
+    service = VoiceAssetService(session, settings, provider=provider)
+    first = service.generate_for_scene(
+        scene_id,
+        voice_name="narrator",
+        pronunciation_overrides={"AI": "A I"},
+    )
+    second = service.generate_for_scene(
+        scene_id,
+        voice_name="narrator",
+        pronunciation_overrides={"AI": "A I"},
+    )
+
+    assert first.id == second.id
+    assert provider.calls == 1
+    assert second.provider == "piper"
+    assert second.license_status == LicenseStatus.UNKNOWN
+    assert second.review_status == AssetReviewStatus.PENDING_REVIEW
+    assert second.generation_metadata["original_text"]
+    assert "A I" in str(second.generation_metadata["effective_text"])
+    assert second.generation_metadata["audio_metrics_after"]["sample_rate"] == 24_000
+    assert second.generation_metadata["normalization_applied"] is True
+    cached = service.cache.lookup(str(second.generation_metadata["cache_key"]))
+    assert cached.path is not None
+    cached.path.write_bytes(b"corrupt")
+    regenerated = service.generate_for_scene(
+        scene_id,
+        voice_name="narrator",
+        pronunciation_overrides={"AI": "A I"},
+    )
+    regenerated_hash = regenerated.content_hash
+    changed_voice = service.generate_for_scene(scene_id, voice_name="alternate")
+    assert provider.calls == 3
+    assert changed_voice.content_hash != regenerated_hash
+
+
+def test_project_narration_uses_scene_order(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, _scene_id, _scene_plan_id = create_project_with_scene(session)
+    assets = VoiceAssetService(session, settings).generate_for_project(project_id)
+    assert len(assets) == 1
+    assert assets[0].scene is not None
+    assert assets[0].scene.scene_number == 1
+
+
+def test_invalid_generated_narration_does_not_finalize_asset(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    class CorruptVoiceProvider(FakeVoiceGenerationProvider):
+        def synthesize(self, request: VoiceGenerationRequest) -> VoiceGenerationResult:
+            return replace(super().synthesize(request), data=b"corrupt")
+
+    with pytest.raises(AssetError, match="not a WAV"):
+        VoiceAssetService(session, settings, provider=CorruptVoiceProvider()).generate_for_scene(
+            scene_id
+        )
+    asset = session.scalar(
+        select(Asset).where(
+            Asset.scene_id == scene_id,
+            Asset.asset_role == AssetRole.SCENE_NARRATION,
+        )
+    )
+    assert asset is not None
+    assert asset.generation_status == AssetGenerationStatus.PLANNED
+    assert asset.content_hash is None
 
 
 def test_cache_corruption_is_rejected(

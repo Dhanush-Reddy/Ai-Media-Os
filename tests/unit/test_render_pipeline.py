@@ -20,6 +20,7 @@ from ai_media_os.application.renders import (
     VideoCompositionService,
 )
 from ai_media_os.domain.enums import (
+    AssetGenerationStatus,
     AssetReviewStatus,
     AssetRole,
     ContentFormat,
@@ -167,6 +168,29 @@ def test_render_planning_rejects_missing_asset_file(
         RenderPlanningService(session, settings).plan_render(
             project_id,
             scene_plan_version_id=scene_plan_id,
+        )
+
+
+def test_render_never_uses_pending_narration_even_when_pending_visuals_are_allowed(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, scene_id, scene_plan_id = create_project_with_render_assets(session, settings)
+    narration = session.scalar(
+        select(Asset).where(
+            Asset.scene_id == scene_id,
+            Asset.asset_role == AssetRole.SCENE_NARRATION,
+        )
+    )
+    assert narration is not None
+    narration.review_status = AssetReviewStatus.PENDING_REVIEW
+    narration.generation_status = AssetGenerationStatus.GENERATED
+    settings.render_allow_pending_assets = True
+    session.commit()
+
+    with pytest.raises(RenderError, match="no usable scene_narration"):
+        RenderPlanningService(session, settings).plan_render(
+            project_id, scene_plan_version_id=scene_plan_id
         )
 
 

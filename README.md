@@ -2,7 +2,7 @@
 
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
-The current implementation covers Milestones 1 through 8.5, optional Milestone 9A local LLM generation, and optional Milestone 9B local image generation:
+The current implementation covers Milestones 1 through 8.5 and optional local providers through Milestone 9C:
 
 - Python project configuration
 - Environment-based settings
@@ -23,8 +23,9 @@ The current implementation covers Milestones 1 through 8.5, optional Milestone 9
 - Atomic workflow transitions with persisted-evidence validation, approved-asset immutability, signature-checked atomic imports, approved asset planning defaults, and provider-complete script fingerprints
 - Optional local Ollama text generation for scripts, scene plans, metadata, thumbnail concepts, and read-only safety summaries, with strict schemas and typed failures
 - Optional local ComfyUI scene-image generation with local-only HTTP controls, fixed workflow injection, verified output storage, cache reuse, and pending human review
+- Optional offline Piper narration with pronunciation preparation, verified/normalized WAV output, scene-level cache reuse, safe audio preview, and mandatory human approval before rendering
 
-The optional providers do not change deterministic defaults. Telegram, publishing, analytics, Shorts, real TTS, automated search, and scraping remain unstarted.
+The optional providers do not change deterministic defaults. Telegram, publishing, analytics, Shorts, automated search, and scraping remain unstarted.
 
 ## Setup
 
@@ -131,6 +132,23 @@ python -m ai_media_os.cli verify-asset-file IMAGE_ASSET_ID
 The server is restricted to localhost by default. Generated images are stored as pending-review,
 synthetic assets and remain subject to the rights and publishing gate. See
 `docs/architecture/comfyui-image-provider.md`.
+
+## Optional Local Piper Narration
+
+Install Piper and an ONNX voice model manually, then configure the executable, model, optional JSON
+config, voice ID, language, and sample rate in `.env`.
+
+```powershell
+python -m ai_media_os.cli check-voice-provider --provider piper --model-path C:\models\voice.onnx --voice en_US-lessac-medium
+python -m ai_media_os.cli generate-scene-narration --scene-id $SCENE_ID --provider piper --model-path C:\models\voice.onnx --voice en_US-lessac-medium --pronunciation "API=A P I"
+python -m ai_media_os.cli generate-project-narration --project-id $PROJECT_ID --provider piper --model-path C:\models\voice.onnx --voice en_US-lessac-medium
+python -m ai_media_os.cli list-narration-assets --project-id $PROJECT_ID
+python -m ai_media_os.cli verify-audio-asset NARRATION_ASSET_ID
+```
+
+Narration is generated per scene, normalized, stored as pending review, and playable on the project
+asset dashboard. Rendering always requires approved narration. See
+`docs/architecture/local-tts-provider.md` and `docs/architecture/narration-pipeline.md`.
 
 ## Local Asset Demo
 
@@ -261,6 +279,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not include Telegram, real local TTS integration, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment. ComfyUI and checkpoints must be installed separately.
+This repository intentionally does not include Telegram, voice cloning, cloud TTS, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment. ComfyUI, Piper, checkpoints, and voice models must be installed separately.
 
 The implemented local Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`. It provides risk-reduction checks, not legal advice or a platform-compliance guarantee.

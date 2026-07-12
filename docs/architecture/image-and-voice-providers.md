@@ -41,12 +41,12 @@ Open `http://127.0.0.1:8000/projects/{project_id}/assets` to inspect the generat
 Known limitations:
 
 - Real image generation is available only through the optional, separately installed local ComfyUI adapter documented in `comfyui-image-provider.md`.
-- No real Kokoro, Piper, Coqui, or other TTS integration.
+- Real narration is available through the optional, separately installed Piper adapter documented in `local-tts-provider.md` and `narration-pipeline.md`.
 - This provider milestone does not itself compose video or generate thumbnails; later milestones consume its assets for those stages.
 - Publishing, analytics, Shorts, and Telegram remain deferred. Milestone 8.5 now evaluates the stored rights metadata through local risk checks.
 
 Future integration points:
 
 - Expand the initial ComfyUI adapter only after the fixed text-to-image workflow is validated locally.
-- Add a local TTS adapter behind `VoiceGenerationProvider`.
+- Evaluate Kokoro later behind the existing `VoiceGenerationProvider` contract if its naturalness benefit justifies the heavier local runtime.
 - Add richer provider provenance while retaining the current rights-check interface.

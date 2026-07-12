@@ -20,6 +20,21 @@ class VoiceGenerationRequest:
     scene_id: str
     seed: int
     input_hashes: list[str] = field(default_factory=list)
+    project_id: str | None = None
+    script_version_id: str | None = None
+    pitch: float | None = None
+    gain_db: float = 0.0
+    sentence_pause_ms: int = 220
+    paragraph_pause_ms: int = 500
+    lead_silence_ms: int = 150
+    tail_silence_ms: int = 150
+    pronunciation_overrides: dict[str, str] = field(default_factory=dict)
+    pronunciation_profile_version: str = "pronunciation-v1"
+    sample_rate: int = 24_000
+    output_format: str = "wav"
+    normalize_audio: bool = True
+    target_loudness_dbfs: float = -16.0
+    timeout_seconds: float = 180.0
 
 
 @dataclass(frozen=True)
@@ -63,9 +78,9 @@ class FakeVoiceGenerationProvider:
                 "input_hashes": request.input_hashes,
             }
         )
-        duration = max(0.25, min(10.0, len(request.text.split()) / 2.6 / request.speaking_rate))
+        duration = max(0.25, min(0.75, len(request.text.split()) / 2.6 / request.speaking_rate))
         frequency = 220 + (int(payload_hash[:4], 16) % 330)
-        data = _tone_wav(duration, frequency)
+        data = _tone_wav(duration, frequency, request.sample_rate)
         return VoiceGenerationResult(
             data=data,
             provider=self.provider_name,
@@ -75,7 +90,14 @@ class FakeVoiceGenerationProvider:
             language=request.language,
             speaking_rate=request.speaking_rate,
             duration_seconds=round(duration, 3),
-            metadata={"placeholder": True, "payload_hash": payload_hash, "frequency": frequency},
+            metadata={
+                "placeholder": True,
+                "payload_hash": payload_hash,
+                "frequency": frequency,
+                "sample_rate": request.sample_rate,
+                "channels": 1,
+                "synthetic": True,
+            },
         )
 
 
@@ -85,8 +107,7 @@ class ManualAudioProvider:
     model_version = "v1"
 
 
-def _tone_wav(duration_seconds: float, frequency: int) -> bytes:
-    sample_rate = 8000
+def _tone_wav(duration_seconds: float, frequency: int, sample_rate: int = 8000) -> bytes:
     sample_count = int(sample_rate * duration_seconds)
     amplitude = 8000
     buffer = BytesIO()

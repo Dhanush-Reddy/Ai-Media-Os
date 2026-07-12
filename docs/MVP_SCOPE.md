@@ -999,6 +999,25 @@ publishing, Telegram, analytics, Shorts, cloud image APIs, model downloads, or a
 
 ---
 
+### Milestone 9C - Optional Local TTS Narration Provider
+
+Status: implemented as an opt-in offline Piper adapter. The fake voice provider remains default.
+
+Deliverables:
+
+* Piper executable/model health and availability checks
+* Scene-level narration preparation with pronunciation overrides and pacing metadata
+* Verified 16-bit mono WAV synthesis and deterministic RMS normalization
+* Silence, clipping, duration, sample-rate, channel, size, and corruption checks
+* Atomic asset storage, complete cache fingerprints, pending review, and synthetic provenance
+* Project narration CLI, queue routing, safe dashboard playback, and approved-only rendering
+* Offline tests using fake providers and injected subprocess runners
+
+Piper and voice models require manual installation. Kokoro, voice cloning, cloud TTS, real-time
+streaming, publishing, Telegram, analytics, Shorts, translation, and dubbing remain deferred.
+
+---
+
 ### Milestone 9 — Telegram Approval
 
 Deliverables:

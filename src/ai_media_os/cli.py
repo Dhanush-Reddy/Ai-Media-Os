@@ -38,6 +38,7 @@ from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.domain.enums import (
     ApprovalType,
     AssetReviewStatus,
+    AssetRole,
     ClaimImportance,
     ClaimSupportType,
     ContentFormat,
@@ -50,18 +51,20 @@ from ai_media_os.domain.enums import (
     SourceType,
     VerificationStatus,
 )
-from ai_media_os.infrastructure.database.models import Job
+from ai_media_os.infrastructure.database.models import Asset, Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.providers.comfyui import ComfyUIImageGenerationProvider
 from ai_media_os.providers.image_provider_factory import build_image_provider
 from ai_media_os.providers.ollama import OllamaTextGenerationProvider
+from ai_media_os.providers.piper import PiperVoiceGenerationProvider
 from ai_media_os.providers.text_generation import TextGenerationError, TextGenerationRequest
 from ai_media_os.providers.text_provider_factory import (
     build_metadata_provider,
     build_text_provider,
     build_thumbnail_concept_provider,
 )
+from ai_media_os.providers.voice_provider_factory import build_voice_provider
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.packaging_handlers import packaging_job_handlers
@@ -307,6 +310,43 @@ def build_parser() -> argparse.ArgumentParser:
     generate_voice.add_argument("--language")
     generate_voice.add_argument("--speaking-rate", type=float, default=1.0)
     generate_voice.add_argument("--seed", type=int, default=1)
+    generate_voice.add_argument("--provider", choices=["fake", "piper"])
+    generate_voice.add_argument("--model-path")
+    generate_voice.add_argument("--pronunciation", action="append", default=[])
+
+    generate_narration = subcommands.add_parser("generate-scene-narration")
+    generate_narration.add_argument("--scene-id", required=True)
+    generate_narration.add_argument("--provider", choices=["fake", "piper"])
+    generate_narration.add_argument("--model-path")
+    generate_narration.add_argument("--voice")
+    generate_narration.add_argument("--language")
+    generate_narration.add_argument("--speaking-rate", type=float)
+    generate_narration.add_argument("--seed", type=int, default=1)
+    generate_narration.add_argument("--pronunciation", action="append", default=[])
+
+    generate_project_narration = subcommands.add_parser("generate-project-narration")
+    generate_project_narration.add_argument("--project-id", required=True)
+    generate_project_narration.add_argument("--provider", choices=["fake", "piper"])
+    generate_project_narration.add_argument("--model-path")
+    generate_project_narration.add_argument("--voice")
+    generate_project_narration.add_argument("--language")
+    generate_project_narration.add_argument("--speaking-rate", type=float)
+    generate_project_narration.add_argument("--seed", type=int, default=1)
+    generate_project_narration.add_argument("--pronunciation", action="append", default=[])
+
+    check_voice_provider = subcommands.add_parser("check-voice-provider")
+    check_voice_provider.add_argument("--provider", choices=["fake", "piper"], default="fake")
+    check_voice_provider.add_argument("--model-path")
+    check_voice_provider.add_argument("--voice")
+
+    list_narration = subcommands.add_parser("list-narration-assets")
+    list_narration.add_argument("--project-id", required=True)
+
+    verify_audio = subcommands.add_parser("verify-audio-asset")
+    verify_audio.add_argument("asset_id")
+
+    preview_narration = subcommands.add_parser("preview-narration")
+    preview_narration.add_argument("asset_id")
 
     import_audio = subcommands.add_parser("import-scene-audio")
     import_audio.add_argument("--scene-id", required=True)
@@ -856,16 +896,61 @@ def main(argv: Sequence[str] | None = None) -> int:
             asset = ImageAssetService(session).import_manual(args.scene_id, Path(args.file))
             print(asset.id)
             return 0
-        if args.command == "generate-scene-voice":
-            asset = VoiceAssetService(session).generate_for_scene(
+        if args.command in {"generate-scene-voice", "generate-scene-narration"}:
+            default_voice_service = VoiceAssetService(session)
+            selected_voice = getattr(args, "voice", None) or getattr(args, "voice_name", None)
+            voice_provider = build_voice_provider(
+                default_voice_service.settings,
+                args.provider,
+                args.model_path,
+                selected_voice,
+            )
+            asset = VoiceAssetService(
+                session, default_voice_service.settings, provider=voice_provider
+            ).generate_for_scene(
                 args.scene_id,
-                voice_name=args.voice_name,
+                voice_name=selected_voice,
                 language=args.language,
                 speaking_rate=args.speaking_rate,
                 seed=args.seed,
+                pronunciation_overrides=_parse_pronunciations(args.pronunciation),
             )
             print(asset.id)
             return 0
+        if args.command == "generate-project-narration":
+            default_voice_service = VoiceAssetService(session)
+            voice_provider = build_voice_provider(
+                default_voice_service.settings,
+                args.provider,
+                args.model_path,
+                args.voice,
+            )
+            assets = VoiceAssetService(
+                session, default_voice_service.settings, provider=voice_provider
+            ).generate_for_project(
+                args.project_id,
+                voice_name=args.voice,
+                language=args.language,
+                speaking_rate=args.speaking_rate,
+                seed=args.seed,
+                pronunciation_overrides=_parse_pronunciations(args.pronunciation),
+            )
+            for asset in assets:
+                print(asset.id)
+            return 0
+        if args.command == "check-voice-provider":
+            voice_provider = build_voice_provider(
+                get_settings(), args.provider, args.model_path, args.voice
+            )
+            if not isinstance(voice_provider, PiperVoiceGenerationProvider):
+                print("READY\tfake_voice\tlocal deterministic provider")
+                return 0
+            voice_health = voice_provider.check_health()
+            print(
+                f"{'READY' if voice_health.available else 'NOT_READY'}\t"
+                f"piper\t{voice_health.message}"
+            )
+            return 0 if voice_health.available else 1
         if args.command == "import-scene-audio":
             asset = VoiceAssetService(session).import_manual(args.scene_id, Path(args.file))
             print(asset.id)
@@ -879,6 +964,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{asset.generation_status.value}\t{asset.review_status.value}"
                 )
             return 0
+        if args.command == "list-narration-assets":
+            assets = AssetReviewService(session).list_project_assets(args.project_id)
+            for asset in assets:
+                if asset.asset_role == AssetRole.SCENE_NARRATION:
+                    print(
+                        f"{asset.id}\t{asset.provider or ''}\t"
+                        f"{asset.review_status.value}\t{asset.duration_seconds or 0}"
+                    )
+            return 0
         if args.command == "review-asset":
             asset = AssetReviewService(session).review_asset(
                 args.asset_id,
@@ -889,6 +983,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "verify-asset-file":
             verify_result = AssetReviewService(session).verify_asset_file(args.asset_id)
             print("OK" if verify_result.ok else f"FAIL:{verify_result.reason}")
+            return 0
+        if args.command == "verify-audio-asset":
+            verify_result = AssetReviewService(session).verify_asset_file(args.asset_id)
+            print("OK" if verify_result.ok else f"FAIL:{verify_result.reason}")
+            return 0
+        if args.command == "preview-narration":
+            preview_asset = session.get(Asset, args.asset_id)
+            if preview_asset is None or preview_asset.asset_role != AssetRole.SCENE_NARRATION:
+                print("Narration asset not found.")
+                return 1
+            print(f"http://127.0.0.1:8000/assets/{preview_asset.id}/preview")
             return 0
         if args.command == "plan-render":
             render = RenderPlanningService(session).plan_render(
@@ -1104,6 +1209,16 @@ def _csv_items(value: str | None) -> list[str] | None:
     if value is None:
         return None
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _parse_pronunciations(values: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for value in values:
+        source, separator, spoken = value.partition("=")
+        if not separator or not source.strip() or not spoken.strip():
+            raise ValueError("Pronunciation overrides must use TERM=SPOKEN form.")
+        result[source.strip()] = spoken.strip()
+    return result
 
 
 if __name__ == "__main__":
