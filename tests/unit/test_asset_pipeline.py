@@ -17,6 +17,7 @@ from ai_media_os.application.assets import (
     VoiceAssetService,
 )
 from ai_media_os.application.job_queue import QueueService
+from ai_media_os.application.safety import ContentSafetyService
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
@@ -27,6 +28,7 @@ from ai_media_os.domain.enums import (
     ContentType,
     JobStatus,
     LicenseStatus,
+    RightsStatus,
     VersionStatus,
     VisualType,
 )
@@ -51,7 +53,7 @@ from ai_media_os.providers.voice_generation import (
     VoiceGenerationRequest,
     VoiceGenerationResult,
 )
-from ai_media_os.utils.hashing import hash_content_version
+from ai_media_os.utils.hashing import hash_content_version, hash_file
 from ai_media_os.workers.asset_handlers import (
     JOB_GENERATE_SCENE_IMAGE,
     JOB_GENERATE_SCENE_VOICE,
@@ -567,6 +569,99 @@ def test_asset_review_status_changes(
         ImageAssetService(session, settings).generate_for_scene(scene_id, seed=2)
 
 
+def test_record_asset_provenance_preserves_approved_asset(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    asset = ImageAssetService(session, settings).generate_for_scene(scene_id)
+    approved = AssetReviewService(session, settings).review_asset(
+        asset.id,
+        AssetReviewStatus.APPROVED,
+    )
+    original_path = approved.file_path
+    original_hash = approved.content_hash
+
+    recorded = AssetReviewService(session, settings).record_provenance(
+        asset.id,
+        source_url="https://models.example/checkpoint.safetensors",
+        creator="Example Creator",
+        license_name="Example Attribution License",
+        license_url="https://models.example/license",
+        license_status=LicenseStatus.ATTRIBUTION_REQUIRED,
+        commercial_use_allowed=True,
+        attribution_required=True,
+        model_file_hash="a" * 64,
+        attribution_text="Created with the Example model.",
+    )
+
+    assert recorded.file_path == original_path
+    assert recorded.content_hash == original_hash
+    assert recorded.review_status == AssetReviewStatus.APPROVED
+    assert recorded.generation_status == AssetGenerationStatus.APPROVED
+    assert recorded.license_status == LicenseStatus.ATTRIBUTION_REQUIRED
+    assert recorded.commercial_use_allowed is True
+    assert recorded.attribution_required is True
+    assert recorded.generation_metadata["license_url"] == "https://models.example/license"
+    assert recorded.generation_metadata["model_file_hash"] == "a" * 64
+    assert recorded.generation_metadata["provenance_verified"] is True
+    assert (settings.data_dir / recorded.file_path).exists()
+    assert hash_file(settings.data_dir / recorded.file_path) == recorded.content_hash
+
+    rights_record = next(
+        record
+        for record in ContentSafetyService(session, settings).check_asset_rights(
+            recorded.video_project_id
+        )
+        if record.asset_id == recorded.id
+    )
+    assert (
+        rights_record.rights_status,
+        rights_record.review_notes,
+    ) == (RightsStatus.ATTRIBUTION_REQUIRED, None)
+    assert rights_record.attribution_text == "Created with the Example model."
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"source_url": "file:///model"}, r"HTTP\(S\) URL"),
+        ({"model_file_hash": "not-a-hash"}, "SHA-256"),
+        ({"commercial_use_allowed": True}, "Blocked provenance"),
+        (
+            {
+                "license_status": LicenseStatus.ATTRIBUTION_REQUIRED,
+                "attribution_required": False,
+            },
+            "must require attribution",
+        ),
+    ],
+)
+def test_record_asset_provenance_rejects_inconsistent_evidence(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    asset = ImageAssetService(session, settings).generate_for_scene(scene_id)
+    values: dict[str, object] = {
+        "source_url": "https://models.example/model.onnx",
+        "creator": "Example Creator",
+        "license_name": "Research Only",
+        "license_url": "https://models.example/license",
+        "license_status": LicenseStatus.BLOCKED,
+        "commercial_use_allowed": False,
+        "attribution_required": False,
+        "model_file_hash": "b" * 64,
+        "attribution_text": None,
+    }
+    values.update(overrides)
+
+    with pytest.raises(AssetError, match=message):
+        AssetReviewService(session, settings).record_provenance(asset.id, **values)  # type: ignore[arg-type]
+
+
 def test_asset_queue_handlers_execute(
     session: Session,
     settings: AppSettings,
@@ -649,3 +744,25 @@ def test_cli_parser_exposes_asset_commands() -> None:
         parser.parse_args(["plan-scene-assets", "--project-id", "p"]).command == "plan-scene-assets"
     )
     assert parser.parse_args(["verify-asset-file", "asset"]).command == "verify-asset-file"
+    provenance = parser.parse_args(
+        [
+            "record-asset-provenance",
+            "asset",
+            "--source-url",
+            "https://models.example/model",
+            "--creator",
+            "Creator",
+            "--license-name",
+            "Research Only",
+            "--license-url",
+            "https://models.example/license",
+            "--license-status",
+            "BLOCKED",
+            "--no-commercial-use-allowed",
+            "--no-attribution-required",
+            "--model-file-hash",
+            "a" * 64,
+        ]
+    )
+    assert provenance.command == "record-asset-provenance"
+    assert provenance.commercial_use_allowed is False

@@ -1234,10 +1234,18 @@ class ContentSafetyService:
         return asset.asset_role.value
 
     def _attribution_text(self, asset: Asset) -> str | None:
+        if asset.attribution_required:
+            metadata = (
+                asset.generation_metadata if isinstance(asset.generation_metadata, dict) else {}
+            )
+            explicit_text = metadata.get("attribution_text")
+            if isinstance(explicit_text, str) and explicit_text.strip():
+                return explicit_text.strip()
+            parts = [part for part in (asset.creator, asset.license_name, asset.source_url) if part]
+            return " | ".join(parts) if parts else None
         if self._is_synthetic_provider(asset.provider):
             return "AI-generated asset created with a local rules-based provider."
-        parts = [part for part in (asset.creator, asset.license_name, asset.source_url) if part]
-        return " | ".join(parts) if parts else None
+        return None
 
     def _unsupported_claims_in_text(self, project: VideoProject, text: str) -> list[str]:
         unsupported: list[str] = []

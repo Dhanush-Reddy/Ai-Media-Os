@@ -43,6 +43,7 @@ from ai_media_os.domain.enums import (
     ClaimSupportType,
     ContentFormat,
     ContentType,
+    LicenseStatus,
     RenderStatus,
     ResearchNoteType,
     ResourceClass,
@@ -362,6 +363,26 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         choices=[item.value for item in AssetReviewStatus],
     )
+
+    record_asset_provenance = subcommands.add_parser("record-asset-provenance")
+    record_asset_provenance.add_argument("asset_id")
+    record_asset_provenance.add_argument("--source-url", required=True)
+    record_asset_provenance.add_argument("--creator", required=True)
+    record_asset_provenance.add_argument("--license-name", required=True)
+    record_asset_provenance.add_argument("--license-url", required=True)
+    record_asset_provenance.add_argument(
+        "--license-status",
+        required=True,
+        choices=[item.value for item in LicenseStatus],
+    )
+    record_asset_provenance.add_argument(
+        "--commercial-use-allowed", action=argparse.BooleanOptionalAction, required=True
+    )
+    record_asset_provenance.add_argument(
+        "--attribution-required", action=argparse.BooleanOptionalAction, required=True
+    )
+    record_asset_provenance.add_argument("--model-file-hash", required=True)
+    record_asset_provenance.add_argument("--attribution-text")
 
     verify_asset = subcommands.add_parser("verify-asset-file")
     verify_asset.add_argument("asset_id")
@@ -979,6 +1000,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 AssetReviewStatus(args.status),
             )
             print(asset.review_status.value)
+            return 0
+        if args.command == "record-asset-provenance":
+            asset = AssetReviewService(session).record_provenance(
+                args.asset_id,
+                source_url=args.source_url,
+                creator=args.creator,
+                license_name=args.license_name,
+                license_url=args.license_url,
+                license_status=LicenseStatus(args.license_status),
+                commercial_use_allowed=args.commercial_use_allowed,
+                attribution_required=args.attribution_required,
+                model_file_hash=args.model_file_hash,
+                attribution_text=args.attribution_text,
+            )
+            print(f"{asset.id}\t{asset.license_status.value}")
             return 0
         if args.command == "verify-asset-file":
             verify_result = AssetReviewService(session).verify_asset_file(args.asset_id)

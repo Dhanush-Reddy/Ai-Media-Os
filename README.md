@@ -267,6 +267,22 @@ python -m ai_media_os.cli list-safety-findings --project-id $PROJECT_ID
 
 Open `http://127.0.0.1:8000/projects/{project_id}/safety` to review the gate decision, findings, and rights records.
 
+Record verified model provenance before treating a generated asset as publishing-ready. Do not infer or guess license terms; use the model's authoritative source and license documents.
+
+```powershell
+python -m ai_media_os.cli record-asset-provenance $ASSET_ID `
+  --source-url $MODEL_SOURCE_URL `
+  --creator $MODEL_CREATOR `
+  --license-name $LICENSE_NAME `
+  --license-url $LICENSE_URL `
+  --license-status EDITORIAL_ONLY `
+  --commercial-use-allowed `
+  --no-attribution-required `
+  --model-file-hash $MODEL_SHA256
+```
+
+The command updates provenance fields only. It does not alter approved media bytes or their review state. Use `BLOCKED` with `--no-commercial-use-allowed` when the verified terms exclude the intended commercial use, then rerun the publishing gate.
+
 ## Verification
 
 ```bash

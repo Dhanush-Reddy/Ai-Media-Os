@@ -4,6 +4,7 @@ import re
 import wave
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -869,6 +870,58 @@ class AssetReviewService:
             asset.generation_status = AssetGenerationStatus.APPROVED
         elif review_status == AssetReviewStatus.REJECTED:
             asset.generation_status = AssetGenerationStatus.REJECTED
+        asset.updated_at = utc_now()
+        self.session.commit()
+        self.session.refresh(asset)
+        return asset
+
+    def record_provenance(
+        self,
+        asset_id: str,
+        *,
+        source_url: str,
+        creator: str,
+        license_name: str,
+        license_url: str,
+        license_status: LicenseStatus,
+        commercial_use_allowed: bool,
+        attribution_required: bool,
+        model_file_hash: str,
+        attribution_text: str | None = None,
+    ) -> Asset:
+        asset = self._asset(asset_id)
+        for label, value in {
+            "source URL": source_url,
+            "license URL": license_url,
+        }.items():
+            parsed = urlparse(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise AssetError(f"{label.capitalize()} must be an HTTP(S) URL.")
+        if not creator.strip() or not license_name.strip():
+            raise AssetError("Creator and license name are required.")
+        normalized_hash = model_file_hash.casefold()
+        if re.fullmatch(r"[0-9a-f]{64}", normalized_hash) is None:
+            raise AssetError("Model file hash must be a SHA-256 hex digest.")
+        if license_status == LicenseStatus.BLOCKED and commercial_use_allowed:
+            raise AssetError("Blocked provenance cannot allow commercial use.")
+        if license_status == LicenseStatus.ATTRIBUTION_REQUIRED and not attribution_required:
+            raise AssetError("Attribution-required provenance must require attribution.")
+        if attribution_required and not (attribution_text or "").strip():
+            raise AssetError("Attribution text is required when attribution is required.")
+
+        asset.source_url = source_url
+        asset.creator = creator.strip()
+        asset.license_name = license_name.strip()
+        asset.license_status = license_status
+        asset.commercial_use_allowed = commercial_use_allowed
+        asset.attribution_required = attribution_required
+        asset.generation_metadata = {
+            **asset.generation_metadata,
+            "license_url": license_url,
+            "model_file_hash": normalized_hash,
+            "attribution_text": attribution_text.strip() if attribution_text else None,
+            "provenance_verified": True,
+        }
         asset.updated_at = utc_now()
         self.session.commit()
         self.session.refresh(asset)
