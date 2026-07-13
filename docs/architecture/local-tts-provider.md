@@ -1,15 +1,16 @@
 # Local TTS Provider
 
 Milestone 9C adds optional offline narration through a separately installed Piper executable and
-ONNX voice model. `fake_voice` remains the default, and automated tests do not require Piper, model
-downloads, a GPU, network access, speakers, or other audio hardware.
+ONNX voice model. Chatterbox Multilingual is now a second, heavier provider for expressive or
+speaker-conditioned dialogue. `fake_voice` remains the default, and automated tests do not require
+either runtime, model downloads, a GPU, network access, speakers, or other audio hardware.
 
 ## Provider Choice
 
-Piper is the first real adapter because it has a small offline subprocess boundary, predictable WAV
-output, low memory requirements, and no runtime coupling to AI Media OS. Kokoro remains a future
-higher-naturalness adapter behind the same `VoiceGenerationProvider` contract; no placeholder
-Kokoro implementation or heavy dependency is included.
+Piper remains the lightweight adapter because it has a small offline subprocess boundary,
+predictable WAV output, and low memory requirements. Chatterbox uses the same provider contract but
+runs in an isolated Python environment because of its heavier dependency and GPU requirements. See
+`chatterbox-multilingual-voice.md`.
 
 Install Piper and a compatible voice model manually, then configure:
 
@@ -44,8 +45,9 @@ native sample rate unless `AI_MEDIA_OS_TTS_SAMPLE_RATE` explicitly requires a pa
 
 ## Limitations
 
-The first adapter supports one configured narrator profile per generation command. Piper pitch is
-not supported and produces a warning. Model-native speaker selection, Kokoro, true EBU R128 LUFS
-measurement, word timestamps, voice cloning, streaming, multilingual dubbing, and cloud TTS are not
-implemented. Generated narration remains synthetic, pending human review, and subject to the safety
-and publishing gate.
+Piper supports one configured narrator profile per generation command. Piper pitch is not supported
+and produces a warning. Chatterbox adds multilingual speaker conditioning, but the current scene
+contract still stores one utterance and one narration asset per scene. True EBU R128 LUFS
+measurement, word timestamps, overlapping dialogue, streaming, and cloud TTS are not implemented.
+Generated narration remains synthetic, pending human review, and subject to the safety and
+publishing gate.

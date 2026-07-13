@@ -24,6 +24,7 @@ The current implementation covers Milestones 1 through 8.5 and optional local pr
 - Optional local Ollama text generation for scripts, scene plans, metadata, thumbnail concepts, and read-only safety summaries, with strict schemas and typed failures
 - Optional local ComfyUI scene-image generation with local-only HTTP controls, fixed workflow injection, verified output storage, cache reuse, and pending human review
 - Optional offline Piper narration with pronunciation preparation, verified/normalized WAV output, scene-level cache reuse, safe audio preview, and mandatory human approval before rendering
+- Optional isolated Chatterbox Multilingual V3 narration with local-only model loading, hashed speaker references, expressive controls, and mandatory rights/quality review
 
 The optional providers do not change deterministic defaults. Telegram, publishing, analytics, Shorts, automated search, and scraping remain unstarted.
 
@@ -149,6 +150,28 @@ python -m ai_media_os.cli verify-audio-asset NARRATION_ASSET_ID
 Narration is generated per scene, normalized, stored as pending review, and playable on the project
 asset dashboard. Rendering always requires approved narration. See
 `docs/architecture/local-tts-provider.md` and `docs/architecture/narration-pipeline.md`.
+
+## Optional Chatterbox Multilingual Dialogue
+
+Chatterbox Multilingual V3 is available as an opt-in provider for expressive narration and
+character dialogue. It runs in a separate local Python environment, requires manually downloaded
+model files, and never uses the public demo or performs an application-triggered model download.
+
+```powershell
+python -m ai_media_os.cli check-voice-provider --provider chatterbox `
+  --model-path C:\AI-Models\Chatterbox\multilingual-v3 `
+  --reference-audio C:\AI-Models\Chatterbox\voices\narrator.wav
+
+python -m ai_media_os.cli generate-scene-narration --scene-id $SCENE_ID `
+  --provider chatterbox `
+  --model-path C:\AI-Models\Chatterbox\multilingual-v3 `
+  --reference-audio C:\AI-Models\Chatterbox\voices\narrator.wav `
+  --voice narrator --language en --exaggeration 0.6 --cfg-weight 0.4
+```
+
+Each character uses a stable voice name and an independently reviewed reference WAV. Generated
+audio remains pending approval with unknown rights until exact model provenance and reference-voice
+consent are recorded. See `docs/architecture/chatterbox-multilingual-voice.md`.
 
 ## Local Asset Demo
 
@@ -297,6 +320,6 @@ alembic upgrade head
 
 ## Scope
 
-This repository intentionally does not include Telegram, voice cloning, cloud TTS, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment. ComfyUI, Piper, checkpoints, and voice models must be installed separately.
+This repository intentionally does not include Telegram, cloud TTS, publishing automation, analytics, automated web search, scraping, AI research generation, Redis, Celery, Docker, Kubernetes, React, Next.js, WebSockets, authentication, or a cloud deployment. Optional speaker-conditioned Chatterbox audio requires an authorized local reference WAV; automatic speaker enrollment and public-demo integration are not included. ComfyUI, Piper, Chatterbox, checkpoints, and voice models must be installed separately.
 
 The implemented local Content Safety and Rights Engine is documented in `docs/architecture/content-safety-rights-engine.md`. It provides risk-reduction checks, not legal advice or a platform-compliance guarantee.

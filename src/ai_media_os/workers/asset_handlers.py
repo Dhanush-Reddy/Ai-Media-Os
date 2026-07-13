@@ -10,7 +10,7 @@ from ai_media_os.application.assets import (
     VoiceAssetService,
 )
 from ai_media_os.application.job_queue import QueueService
-from ai_media_os.domain.enums import AssetGenerationStatus, AssetReviewStatus
+from ai_media_os.domain.enums import AssetGenerationStatus, AssetReviewStatus, ResourceClass
 from ai_media_os.infrastructure.database.models import Job
 from ai_media_os.providers.image_provider_factory import build_image_provider
 from ai_media_os.providers.voice_provider_factory import build_voice_provider
@@ -73,7 +73,10 @@ def generate_scene_voice_handler(job: Job, queue: QueueService) -> dict[str, obj
         _optional_str(job.payload.get("provider")),
         _optional_str(job.payload.get("model_path")),
         voice_name,
+        _optional_str(job.payload.get("reference_audio_path")),
     )
+    if provider.provider_name == "chatterbox" and job.resource_class != ResourceClass.GPU_HEAVY:
+        raise ValueError("Chatterbox narration jobs must use the GPU_HEAVY resource class.")
     asset = VoiceAssetService(queue.session, queue.settings, provider=provider).generate_for_scene(
         str(job.payload["scene_id"]),
         voice_name=voice_name,
@@ -88,6 +91,13 @@ def generate_scene_voice_handler(job: Job, queue: QueueService) -> dict[str, obj
         lead_silence_ms=_optional_int(job.payload.get("lead_silence_ms")),
         tail_silence_ms=_optional_int(job.payload.get("tail_silence_ms")),
         timeout_seconds=_optional_float(job.payload.get("timeout_seconds")),
+        reference_audio_path=(
+            Path(str(job.payload["reference_audio_path"]))
+            if job.payload.get("reference_audio_path")
+            else None
+        ),
+        exaggeration=_optional_float(job.payload.get("exaggeration")),
+        cfg_weight=_optional_float(job.payload.get("cfg_weight")),
     )
     return {
         "asset_id": asset.id,

@@ -14,6 +14,11 @@ Default pronunciation rules expand `AI`, `API`, and `FFmpeg`; CLI overrides use
 pause settings are persisted in the fingerprint and Piper applies its natural punctuation pacing;
 lead and tail silence are added deterministically during audio processing.
 
+Chatterbox generation also fingerprints the local V3 model bundle, speaker-reference WAV,
+language, exaggeration, and CFG weight. The isolated worker loads only local files in offline mode.
+Reference paths are not persisted or displayed; their hashes are retained for reproducibility and
+rights review.
+
 Generated WAV files must be non-empty 16-bit PCM mono at the configured sample rate. Verification
 records duration, peak and RMS dBFS, leading/trailing silence, clipped-sample count, channels, sample
 rate, and size. Entirely silent, corrupt, wrong-rate, wrong-channel, zero-duration, or oversized

@@ -22,3 +22,4 @@ filenames to avoid rewriting merged history. New decisions continue with the nex
 | 0013 | Optional local LLM through Ollama |
 | 0014 | Optional local image generation through ComfyUI |
 | 0015 | Piper as the first local TTS provider |
+| 0017 | Optional isolated Chatterbox Multilingual voice provider (0016 reserved) |

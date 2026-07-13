@@ -35,6 +35,9 @@ class VoiceGenerationRequest:
     normalize_audio: bool = True
     target_loudness_dbfs: float = -16.0
     timeout_seconds: float = 180.0
+    reference_audio_path: str | None = None
+    exaggeration: float | None = None
+    cfg_weight: float | None = None
 
 
 @dataclass(frozen=True)
