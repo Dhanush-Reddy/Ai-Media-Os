@@ -137,6 +137,7 @@ def project_detail(
     context["scene_plan"] = queries.scene_plan_view(project)
     context["assets"] = queries.asset_view(project)
     context["renders"] = queries.render_view(project)
+    context["timeline"] = queries.timeline_view(project)
     context["metadata"] = queries.metadata_view(project)
     context["thumbnail"] = queries.thumbnail_view(project)
     context["safety"] = queries.safety_view(project)
@@ -214,6 +215,24 @@ def project_assets(
     context["project"] = project
     context["assets"] = queries.asset_view(project)
     return templates.TemplateResponse(request, "dashboard/assets.html", context)
+
+
+@router.get("/projects/{project_id}/timeline", response_class=HTMLResponse)
+def project_timeline(
+    request: Request,
+    project_id: str,
+    session: DashboardSession,
+) -> HTMLResponse:
+    project_key = validate_project_id(project_id)
+    settings = request_settings(request)
+    queries = DashboardQueries(session, settings)
+    project = queries.project(project_key)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    context = template_context(request, settings=settings)
+    context["project"] = project
+    context["timeline"] = queries.timeline_view(project)
+    return templates.TemplateResponse(request, "dashboard/timeline.html", context)
 
 
 @router.get("/projects/{project_id}/renders", response_class=HTMLResponse)

@@ -78,6 +78,8 @@ from ai_media_os.infrastructure.database.models import (
     WorkflowInstance,
 )
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
+from ai_media_os.media.production_timeline import validate_production_timeline
+from ai_media_os.schemas.production_timeline import ProductionTimelineDocument
 
 
 class DashboardQueries:
@@ -400,6 +402,62 @@ class DashboardQueries:
             ),
             failed_count=sum(item.status == "Failed" for item in renders),
         )
+
+    def timeline_view(self, project: VideoProject) -> JsonDict:
+        versions = list(project.content_versions)
+        latest = self.latest_version(versions, ContentType.PRODUCTION_TIMELINE)
+        if latest is None:
+            return {
+                "version_id": None,
+                "status": None,
+                "scenes": [],
+                "findings": [],
+                "next_action": "Generate production timeline",
+            }
+        try:
+            document = ProductionTimelineDocument.model_validate_json(latest.content)
+            scenes = [
+                {
+                    "order": scene.order,
+                    "duration": scene.duration_seconds,
+                    "template": scene.template.value,
+                    "layers": len(scene.layers),
+                    "motion": scene.layers[0].motion.value,
+                    "transition": (
+                        scene.transition_out.preset.value if scene.transition_out else "none"
+                    ),
+                    "narration": bool(scene.narration_asset_id),
+                    "subtitles": len(scene.subtitle_cues),
+                }
+                for scene in document.scenes
+            ]
+            findings = [finding.__dict__ for finding in validate_production_timeline(document)]
+            duration = sum(scene.duration_seconds for scene in document.scenes)
+        except (ValueError, TypeError):
+            scenes = []
+            findings = [
+                {
+                    "status": "BLOCK",
+                    "code": "invalid_document",
+                    "message": "Stored timeline document is invalid.",
+                }
+            ]
+            duration = 0.0
+        if latest.status.value == "approved":
+            next_action = "Render approved timeline"
+        elif latest.status.value == "pending_approval":
+            next_action = "Review timeline approval"
+        else:
+            next_action = "Validate and request timeline approval"
+        return {
+            "version_id": latest.id,
+            "version_number": latest.version_number,
+            "status": latest.status.value.replace("_", " ").title(),
+            "duration": duration,
+            "scenes": scenes,
+            "findings": findings,
+            "next_action": next_action,
+        }
 
     def render_item(self, render: Render) -> RenderItem:
         has_file = False

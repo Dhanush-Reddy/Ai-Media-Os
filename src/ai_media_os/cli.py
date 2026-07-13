@@ -36,6 +36,7 @@ from ai_media_os.application.safety import ContentSafetyService
 from ai_media_os.application.safety_summaries import SafetySummaryService
 from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
+from ai_media_os.application.timelines import TimelineService
 from ai_media_os.domain.enums import (
     ApprovalType,
     AssetReviewStatus,
@@ -53,9 +54,16 @@ from ai_media_os.domain.enums import (
     SourceType,
     VerificationStatus,
 )
-from ai_media_os.infrastructure.database.models import Asset, Job
+from ai_media_os.infrastructure.database.models import Asset, ContentVersion, Job
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
+from ai_media_os.media.production_timeline import (
+    MOTION_PARAMETERS,
+    TRANSITION_PARAMETERS,
+    render_ass,
+    render_srt,
+    write_subtitles_atomic,
+)
 from ai_media_os.providers.comfyui import ComfyUIImageGenerationProvider
 from ai_media_os.providers.image_provider_factory import build_image_provider
 from ai_media_os.providers.ollama import OllamaTextGenerationProvider
@@ -67,12 +75,14 @@ from ai_media_os.providers.text_provider_factory import (
     build_thumbnail_concept_provider,
 )
 from ai_media_os.providers.voice_provider_factory import build_voice_provider
+from ai_media_os.schemas.production_timeline import SceneTemplate
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.packaging_handlers import packaging_job_handlers
 from ai_media_os.workers.render_handlers import render_job_handlers
 from ai_media_os.workers.research_handlers import research_job_handlers
 from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
+from ai_media_os.workers.timeline_handlers import timeline_job_handlers
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -291,6 +301,8 @@ def build_parser() -> argparse.ArgumentParser:
     generate_image.add_argument("--seed", type=int, default=1)
     generate_image.add_argument("--provider", choices=["fake", "comfyui"])
     generate_image.add_argument("--model")
+    generate_image.add_argument("--prompt")
+    generate_image.add_argument("--negative-prompt")
     generate_image.add_argument("--workflow-path")
     generate_image.add_argument("--steps", type=int)
     generate_image.add_argument("--cfg", type=float)
@@ -432,6 +444,36 @@ def build_parser() -> argparse.ArgumentParser:
             RenderStatus.CHANGES_REQUESTED.value,
         ],
     )
+
+    generate_timeline = subcommands.add_parser("generate-timeline")
+    generate_timeline.add_argument("--project-id", required=True)
+    generate_timeline.add_argument("--scene-plan-version-id")
+    generate_timeline.add_argument("--width", type=int, default=1920)
+    generate_timeline.add_argument("--height", type=int, default=1080)
+    generate_timeline.add_argument("--frame-rate", type=int, default=30)
+
+    show_timeline = subcommands.add_parser("show-timeline")
+    show_timeline.add_argument("--project-id")
+    show_timeline.add_argument("--timeline-version-id")
+
+    validate_timeline = subcommands.add_parser("validate-timeline")
+    validate_timeline.add_argument("--timeline-version-id", required=True)
+
+    approve_timeline = subcommands.add_parser("approve-timeline")
+    approve_timeline.add_argument("--timeline-version-id", required=True)
+
+    render_timeline = subcommands.add_parser("render-timeline")
+    render_timeline.add_argument("--timeline-version-id", required=True)
+    render_timeline.add_argument("--plan-only", action="store_true")
+
+    export_subtitles = subcommands.add_parser("export-timeline-subtitles")
+    export_subtitles.add_argument("--timeline-version-id", required=True)
+    export_subtitles.add_argument("--format", choices=["srt", "ass"], default="ass")
+    export_subtitles.add_argument("--output", required=True)
+
+    subcommands.add_parser("list-scene-templates")
+    subcommands.add_parser("list-motion-presets")
+    subcommands.add_parser("list-transition-presets")
 
     generate_metadata = subcommands.add_parser("generate-metadata")
     generate_metadata.add_argument("--project-id", required=True)
@@ -640,6 +682,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 | asset_job_handlers()
                 | render_job_handlers()
                 | packaging_job_handlers()
+                | timeline_job_handlers()
             )
             worker = JobWorker(session, handlers=handlers, worker_id=args.worker_id)
             worker_result = worker.run_once()
@@ -897,6 +940,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 session, default_service.settings, provider=image_provider
             ).generate_for_scene(
                 args.scene_id,
+                prompt_override=args.prompt,
+                negative_prompt_override=args.negative_prompt,
                 width=args.width,
                 height=args.height,
                 seed=args.seed,
@@ -1101,6 +1146,68 @@ def main(argv: Sequence[str] | None = None) -> int:
                 RenderStatus(args.status),
             )
             print(render.status.value)
+            return 0
+        if args.command == "generate-timeline":
+            timeline_version = TimelineService(session).generate_timeline(
+                args.project_id,
+                scene_plan_version_id=args.scene_plan_version_id,
+                width=args.width,
+                height=args.height,
+                frame_rate=args.frame_rate,
+            )
+            print(timeline_version.id)
+            return 0
+        if args.command == "show-timeline":
+            service = TimelineService(session)
+            selected_timeline_version = (
+                session.get(ContentVersion, args.timeline_version_id)
+                if args.timeline_version_id
+                else service.latest(args.project_id)
+            )
+            if (
+                selected_timeline_version is None
+                or selected_timeline_version.content_type != ContentType.PRODUCTION_TIMELINE
+            ):
+                print("Timeline not found.")
+                return 1
+            print(selected_timeline_version.content)
+            return 0
+        if args.command == "validate-timeline":
+            timeline_findings = TimelineService(session).validate_timeline(args.timeline_version_id)
+            for timeline_finding in timeline_findings:
+                print(
+                    f"{timeline_finding['status']}\t{timeline_finding['code']}\t"
+                    f"{timeline_finding['message']}"
+                )
+            return 1 if any(item["status"] == "BLOCK" for item in timeline_findings) else 0
+        if args.command == "approve-timeline":
+            approval_id = TimelineService(session).request_approval(args.timeline_version_id)
+            print(approval_id)
+            return 0
+        if args.command == "render-timeline":
+            timeline_service = TimelineService(session)
+            production_render = timeline_service.plan_production_render(args.timeline_version_id)
+            if not args.plan_only:
+                production_render = timeline_service.compose_production_render(production_render.id)
+            print(production_render.id)
+            return 0
+        if args.command == "export-timeline-subtitles":
+            document = TimelineService(session).document(args.timeline_version_id)
+            content = render_ass(document) if args.format == "ass" else render_srt(document)
+            write_subtitles_atomic(Path(args.output), content)
+            print(args.output)
+            return 0
+        if args.command == "list-scene-templates":
+            for template in SceneTemplate:
+                print(template.value)
+            return 0
+        if args.command == "list-motion-presets":
+            for motion_preset in MOTION_PARAMETERS:
+                print(motion_preset.value)
+            return 0
+        if args.command == "list-transition-presets":
+            for transition_preset in TRANSITION_PARAMETERS:
+                print(transition_preset.value)
             return 0
         if args.command == "generate-metadata":
             settings = get_settings()

@@ -110,7 +110,7 @@ def test_asset_revision_migration_preserves_history_across_cycle(
             )
         )
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0011_reliability_remediation")
     with engine.connect() as connection:
         assert (
             connection.execute(
@@ -152,6 +152,7 @@ def test_safety_migration_upgrade_downgrade_upgrade(
     database_path = tmp_path / "safety-migration.db"
     monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
     get_settings.cache_clear()
+
     config = Config("alembic.ini")
 
     command.upgrade(config, "head")
@@ -207,6 +208,61 @@ def test_safety_migration_upgrade_downgrade_upgrade(
         )
         assert connection.execute(text("SELECT COUNT(*) FROM publishing_gates")).scalar_one() == 1
 
+    engine.dispose()
+    get_settings.cache_clear()
+
+
+def test_production_timeline_migration_preserves_rows_across_cycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "production-timeline-migration.db"
+    monkeypatch.setenv("AI_MEDIA_OS_DATABASE_URL", f"sqlite:///{database_path}")
+    get_settings.cache_clear()
+    config = Config("alembic.ini")
+    command.upgrade(config, "head")
+    engine = sa.create_engine(f"sqlite:///{database_path}")
+    _insert_scene_planning_row(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO content_versions (
+                    id, video_project_id, content_type, version_number, content,
+                    content_format, input_hashes, status, content_hash, created_at
+                ) VALUES (
+                    'timeline-1', 'project-1', 'production_timeline', 1, '{}',
+                    'json', '[]', 'approved', :content_hash, CURRENT_TIMESTAMP
+                )
+                """
+            ),
+            {"content_hash": "d" * 64},
+        )
+
+    command.downgrade(config, "-1")
+    with engine.connect() as connection:
+        backed_up = connection.execute(
+            text(
+                "SELECT old_version_number FROM migration_backup_0013_production_timeline "
+                "WHERE record_type = 'content' AND record_id = 'timeline-1'"
+            )
+        ).scalar_one()
+        mapped = connection.execute(
+            text("SELECT content_type, version_number FROM content_versions WHERE id='timeline-1'")
+        ).one()
+        assert backed_up == 1
+        assert mapped == ("copyright_report", 1000001)
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        restored = connection.execute(
+            text("SELECT content_type, version_number FROM content_versions WHERE id='timeline-1'")
+        ).one()
+        assert restored == ("production_timeline", 1)
+        assert (
+            "migration_backup_0013_production_timeline" not in inspect(connection).get_table_names()
+        )
+    command.check(config)
     engine.dispose()
     get_settings.cache_clear()
 

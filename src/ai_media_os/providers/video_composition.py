@@ -25,6 +25,11 @@ class VideoSceneInput:
     duration_seconds: float
     image_hash: str
     audio_hash: str
+    motion_preset: str = "static"
+    transition_preset: str = "cut"
+    transition_duration_seconds: float = 0
+    subtitle_path: Path | None = None
+    subtitle_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,11 +102,7 @@ class LocalFFmpegVideoComposer:
                         "-i",
                         str(scene.audio_path),
                         "-vf",
-                        (
-                            f"scale={request.width}:{request.height}:force_original_aspect_ratio=decrease,"
-                            f"pad={request.width}:{request.height}:(ow-iw)/2:(oh-ih)/2:"
-                            f"color={request.background_color},fps={request.fps},format=yuv420p"
-                        ),
+                        self._video_filter(request, scene),
                         "-shortest",
                         "-c:v",
                         "libx264",
@@ -201,6 +202,47 @@ class LocalFFmpegVideoComposer:
     def _concat_path(self, path: Path) -> str:
         escaped = str(path).replace("'", r"'\''")
         return f"'{escaped}'"
+
+    def _video_filter(self, request: VideoCompositionRequest, scene: VideoSceneInput) -> str:
+        base = (
+            f"scale={request.width}:{request.height}:force_original_aspect_ratio=increase,"
+            f"crop={request.width}:{request.height},fps={request.fps}"
+        )
+        frames = max(1, round(scene.duration_seconds * request.fps))
+        motion = {
+            "static": "",
+            "slow_zoom_in": (
+                f",zoompan=z='min(zoom+0.0005,1.08)':d={frames}:"
+                f"s={request.width}x{request.height}:fps={request.fps}"
+            ),
+            "slow_zoom_out": (
+                f",zoompan=z='max(1.08-on/{frames}*0.08,1.0)':d={frames}:"
+                f"s={request.width}x{request.height}:fps={request.fps}"
+            ),
+            "pan_left": (
+                f",zoompan=z=1.08:x='(iw-iw/zoom)*(1-on/{frames})':d={frames}:"
+                f"s={request.width}x{request.height}:fps={request.fps}"
+            ),
+            "pan_right": (
+                f",zoompan=z=1.08:x='(iw-iw/zoom)*on/{frames}':d={frames}:"
+                f"s={request.width}x{request.height}:fps={request.fps}"
+            ),
+        }.get(scene.motion_preset, "")
+        filters = base + motion
+        if scene.transition_preset != "cut" and scene.transition_duration_seconds > 0:
+            fade_out_start = max(0, scene.duration_seconds - scene.transition_duration_seconds)
+            filters += (
+                f",fade=t=in:st=0:d={scene.transition_duration_seconds:.3f},"
+                f"fade=t=out:st={fade_out_start:.3f}:d={scene.transition_duration_seconds:.3f}"
+            )
+        if scene.subtitle_path is not None:
+            subtitle_path = self._filter_path(scene.subtitle_path)
+            filters += f",subtitles=filename='{subtitle_path}'"
+        return filters + ",format=yuv420p"
+
+    @staticmethod
+    def _filter_path(path: Path) -> str:
+        return str(path.resolve()).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
 
     def _run(self, args: list[str]) -> None:
         completed = subprocess.run(  # noqa: S603

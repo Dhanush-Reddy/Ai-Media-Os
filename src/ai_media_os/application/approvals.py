@@ -258,4 +258,5 @@ APPROVAL_CONTENT_TYPE_MAP = {
     ApprovalType.SCENE_PLAN: ContentType.SCENE_PLAN,
     ApprovalType.METADATA: ContentType.METADATA,
     ApprovalType.THUMBNAIL: ContentType.THUMBNAIL_CONCEPT,
+    ApprovalType.PRODUCTION_TIMELINE: ContentType.PRODUCTION_TIMELINE,
 }

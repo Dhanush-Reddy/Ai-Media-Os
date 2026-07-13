@@ -31,6 +31,7 @@ class ContentType(StringEnum):
     THUMBNAIL_CONCEPT = "thumbnail_concept"
     SOURCE_REPORT = "source_report"
     COPYRIGHT_REPORT = "copyright_report"
+    PRODUCTION_TIMELINE = "production_timeline"
 
 
 class ContentFormat(StringEnum):
@@ -58,6 +59,7 @@ class ApprovalType(StringEnum):
     THUMBNAIL = "thumbnail"
     FINAL_VIDEO = "final_video"
     PUBLISHING = "publishing"
+    PRODUCTION_TIMELINE = "production_timeline"
 
 
 class ApprovalStatus(StringEnum):

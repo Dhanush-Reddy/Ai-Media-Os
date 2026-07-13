@@ -11,6 +11,7 @@
       <a class="button" href="/projects/{{ project.id }}/script">Script</a>
       <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
       <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
+      <a class="button" href="/projects/{{ project.id }}/timeline">Timeline</a>
       <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
       <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
       <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
@@ -62,6 +63,16 @@
   </section>
 
   <section class="grid three">
+    <article class="panel">
+      <h2>Production Timeline</h2>
+      {% if timeline.version_id %}
+        <p>Timeline v{{ timeline.version_number }} is {{ timeline.status }}.</p>
+        <p>{{ timeline.scenes|length }} scenes, {{ "%.1f"|format(timeline.duration) }} seconds.</p>
+        <p><a href="/projects/{{ project.id }}/timeline">Open timeline</a></p>
+      {% else %}
+        <p class="empty">No production timeline has been generated yet.</p>
+      {% endif %}
+    </article>
     <article class="panel">
       <h2>Latest Render</h2>
       {% if renders.latest %}

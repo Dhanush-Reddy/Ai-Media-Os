@@ -49,6 +49,8 @@ The first success metric is:
 
 > Can the system repeatedly produce content that real viewers voluntarily watch?
 
+Current production work uses a versioned motion-graphics timeline between approved scene assets and the final FFmpeg render. It remains local-first and approval-gated.
+
 ---
 
 ## 3. Current Constraints

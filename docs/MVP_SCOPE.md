@@ -28,6 +28,7 @@ The MVP does not need to be fully autonomous.
 
 Human review is expected.
 Content safety and rights checks should run before publishing approval.
+Production timelines add validated motion presets, styled subtitles, transitions, and versioned production render planning. Timeline and production-render approvals remain human decisions.
 
 ---
 

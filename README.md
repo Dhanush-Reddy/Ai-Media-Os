@@ -285,6 +285,20 @@ The command updates provenance fields only. It does not alter approved media byt
 
 Scene image and narration assets are revisioned. Regenerating an approved or blocked active asset creates a new row and versioned file, marks the prior row inactive, and preserves its review and provenance history. Render planning and publishing-gate rights evaluation use only the active scene asset revision. Migration downgrade backs up revision state and temporarily detaches inactive rows; re-upgrade restores and verifies the complete lineage.
 
+## Production timelines
+
+Milestone 9D adds immutable production timeline documents, validated layer/motion/transition presets, styled SRT/ASS subtitle export, production-quality checks, timeline approvals, and deterministic FFmpeg production render plans.
+
+```powershell
+python -m ai_media_os.cli generate-timeline --project-id <id>
+python -m ai_media_os.cli validate-timeline --timeline-version-id <id>
+python -m ai_media_os.cli approve-timeline --timeline-version-id <id>
+python -m ai_media_os.cli export-timeline-subtitles --timeline-version-id <id> --format ass --output timeline.ass
+python -m ai_media_os.cli render-timeline --timeline-version-id <approved-id>
+```
+
+Timeline approval requests still require an explicit human approval decision through the existing approval CLI or dashboard. Production rendering accepts only active approved assets whose hashes still match.
+
 ## Verification
 
 ```bash

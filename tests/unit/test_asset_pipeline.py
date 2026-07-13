@@ -583,6 +583,32 @@ def test_asset_review_status_changes(
         AssetReviewService(session, settings).review_asset(reviewed.id, AssetReviewStatus.REJECTED)
 
 
+def test_changes_requested_asset_is_preserved_as_a_revision(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    original = ImageAssetService(session, settings).generate_for_scene(scene_id, seed=10)
+    AssetReviewService(session, settings).review_asset(
+        original.id, AssetReviewStatus.CHANGES_REQUESTED
+    )
+
+    replacement = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        seed=11,
+        prompt_override="A sharper reviewed scene with precise editorial composition",
+    )
+    session.refresh(original)
+
+    assert original.is_active is False
+    assert original.review_status == AssetReviewStatus.CHANGES_REQUESTED
+    assert replacement.id != original.id
+    assert replacement.supersedes_asset_id == original.id
+    assert replacement.revision_number == 2
+    assert replacement.is_active is True
+    assert replacement.prompt == "A sharper reviewed scene with precise editorial composition"
+
+
 def test_record_asset_provenance_preserves_approved_asset(
     session: Session,
     settings: AppSettings,

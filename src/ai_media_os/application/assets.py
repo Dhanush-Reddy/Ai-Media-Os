@@ -229,6 +229,8 @@ class ImageAssetService:
         self,
         scene_id: str,
         *,
+        prompt_override: str | None = None,
+        negative_prompt_override: str | None = None,
         width: int | None = None,
         height: int | None = None,
         seed: int = 1,
@@ -242,8 +244,16 @@ class ImageAssetService:
     ) -> Asset:
         scene = self._scene(scene_id)
         asset = self._writable_asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
-        prompt = asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
-        negative_prompt = asset.negative_prompt or scene.negative_prompt
+        prompt = (
+            prompt_override.strip()
+            if prompt_override and prompt_override.strip()
+            else asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
+        )
+        negative_prompt = (
+            negative_prompt_override.strip()
+            if negative_prompt_override and negative_prompt_override.strip()
+            else asset.negative_prompt or scene.negative_prompt
+        )
         provider_is_comfyui = self.provider.provider_name == "comfyui"
         resolved_width = width or (
             self.settings.comfyui_default_width
@@ -457,7 +467,12 @@ class ImageAssetService:
     def _writable_asset(self, scene: Scene, role: AssetRole, asset_type: AssetType) -> Asset:
         asset = self._asset(scene, role, asset_type)
         immutable = (
-            asset.review_status == AssetReviewStatus.APPROVED
+            asset.review_status
+            in {
+                AssetReviewStatus.APPROVED,
+                AssetReviewStatus.REJECTED,
+                AssetReviewStatus.CHANGES_REQUESTED,
+            }
             or asset.generation_status == AssetGenerationStatus.APPROVED
             or asset.license_status == LicenseStatus.BLOCKED
         )

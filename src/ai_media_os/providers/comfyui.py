@@ -21,13 +21,25 @@ from ai_media_os.utils.hashing import hash_json
 JsonDict = dict[str, Any]
 WORKFLOW_VERSION = "text-to-image-v001"
 MAX_WORKFLOW_BYTES = 1_000_000
-REQUIRED_NODES = {
+CHECKPOINT_REQUIRED_NODES = {
     "3": "KSampler",
     "4": "CheckpointLoaderSimple",
     "5": "EmptyLatentImage",
     "6": "CLIPTextEncode",
     "7": "CLIPTextEncode",
     "9": "SaveImage",
+}
+Z_IMAGE_REQUIRED_NODES = {
+    "3": "KSampler",
+    "4": "UNETLoader",
+    "5": "EmptySD3LatentImage",
+    "6": "CLIPTextEncode",
+    "7": "ConditioningZeroOut",
+    "8": "VAEDecode",
+    "9": "SaveImage",
+    "10": "CLIPLoader",
+    "11": "VAELoader",
+    "12": "ModelSamplingAuraFlow",
 }
 
 
@@ -316,15 +328,16 @@ class ComfyUIImageGenerationProvider:
                 payload=None,
                 timeout_seconds=min(10.0, self.request_timeout_seconds),
             )
+            loader_type = _workflow_loader_type(self.workflow_path)
             object_info = self.transport.request_json(
                 "GET",
-                f"{self.base_url}/object_info/CheckpointLoaderSimple",
+                f"{self.base_url}/object_info/{loader_type}",
                 payload=None,
                 timeout_seconds=min(10.0, self.request_timeout_seconds),
             )
         except ComfyUIError as exc:
             return ComfyUIHealthResult(False, True, False, str(exc))
-        models = _checkpoint_names(object_info)
+        models = _model_names(object_info, loader_type)
         available = bool(self.checkpoint) and self.checkpoint in models
         return ComfyUIHealthResult(
             True,
@@ -376,7 +389,13 @@ def load_workflow_template(path: Path) -> tuple[JsonDict, str]:
         raise ComfyUIWorkflowError("ComfyUI workflow JSON is invalid.") from exc
     if not isinstance(workflow, dict):
         raise ComfyUIWorkflowError("ComfyUI workflow must be a JSON object.")
-    for node_id, class_type in REQUIRED_NODES.items():
+    loader_type = _loader_type(workflow)
+    required_nodes = (
+        CHECKPOINT_REQUIRED_NODES
+        if loader_type == "CheckpointLoaderSimple"
+        else Z_IMAGE_REQUIRED_NODES
+    )
+    for node_id, class_type in required_nodes.items():
         node = workflow.get(node_id)
         if not isinstance(node, dict) or node.get("class_type") != class_type:
             raise ComfyUIWorkflowError(f"ComfyUI workflow node {node_id} is missing or invalid.")
@@ -390,10 +409,12 @@ def inject_workflow(
     **values: object,
 ) -> JsonDict:
     result = copy.deepcopy(workflow)
+    loader_type = _loader_type(result)
     mapping = {
         ("6", "text"): values["prompt"],
-        ("7", "text"): values["negative_prompt"],
-        ("4", "ckpt_name"): values["checkpoint"],
+        ("4", "ckpt_name" if loader_type == "CheckpointLoaderSimple" else "unet_name"): values[
+            "checkpoint"
+        ],
         ("3", "seed"): values["seed"],
         ("5", "width"): values["width"],
         ("5", "height"): values["height"],
@@ -403,6 +424,8 @@ def inject_workflow(
         ("3", "scheduler"): values["scheduler"],
         ("9", "filename_prefix"): values["output_prefix"],
     }
+    if loader_type == "CheckpointLoaderSimple":
+        mapping[("7", "text")] = values["negative_prompt"]
     for (node_id, field), value in mapping.items():
         inputs = result[node_id]["inputs"]
         if field not in inputs:
@@ -486,13 +509,29 @@ def _validate_generation_settings(
         raise ValueError("ComfyUI sampler and scheduler are required.")
 
 
-def _checkpoint_names(payload: JsonDict) -> set[str]:
-    node = payload.get("CheckpointLoaderSimple", payload)
+def _model_names(payload: JsonDict, loader_type: str) -> set[str]:
+    node = payload.get(loader_type, payload)
+    field = "ckpt_name" if loader_type == "CheckpointLoaderSimple" else "unet_name"
     try:
-        values = node["input"]["required"]["ckpt_name"][0]
+        values = node["input"]["required"][field][0]
     except (KeyError, TypeError, IndexError):
         return set()
     return {str(value) for value in values} if isinstance(values, list) else set()
+
+
+def _loader_type(workflow: JsonDict) -> str:
+    node = workflow.get("4")
+    if not isinstance(node, dict):
+        raise ComfyUIWorkflowError("ComfyUI workflow loader node is missing.")
+    class_type = node.get("class_type")
+    if class_type not in {"CheckpointLoaderSimple", "UNETLoader"}:
+        raise ComfyUIWorkflowError("ComfyUI workflow loader type is not supported.")
+    return str(class_type)
+
+
+def _workflow_loader_type(path: Path) -> str:
+    workflow, _ = load_workflow_template(path)
+    return _loader_type(workflow)
 
 
 def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
