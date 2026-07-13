@@ -28,6 +28,7 @@ from ai_media_os.domain.enums import (
     ContentType,
     JobStatus,
     LicenseStatus,
+    ResourceClass,
     RightsStatus,
     VersionStatus,
     VisualType,
@@ -60,6 +61,7 @@ from ai_media_os.workers.asset_handlers import (
     JOB_PLAN_SCENE_ASSETS,
     JOB_REVIEW_ASSET,
     asset_job_handlers,
+    generate_scene_voice_handler,
 )
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workflows.models import WorkflowEvent, WorkflowEventType, WorkflowStage
@@ -793,6 +795,23 @@ def test_asset_queue_handlers_execute(
     session.refresh(review_job)
     assert review_job.result is not None
     assert review_job.result["review_status"] == AssetReviewStatus.APPROVED.value
+
+
+def test_chatterbox_queue_job_requires_gpu_heavy_resource(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, scene_id, _scene_plan_id = create_project_with_scene(session)
+    queue = QueueService(session, settings)
+    job = queue.create_job(
+        video_project_id=project_id,
+        job_type=JOB_GENERATE_SCENE_VOICE,
+        payload={"scene_id": scene_id, "provider": "chatterbox"},
+        resource_class=ResourceClass.CPU_LIGHT,
+    )
+
+    with pytest.raises(ValueError, match="GPU_HEAVY"):
+        generate_scene_voice_handler(job, queue)
 
 
 def test_simple_workflow_accepts_asset_stage_events(

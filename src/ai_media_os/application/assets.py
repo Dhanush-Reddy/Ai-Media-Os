@@ -583,17 +583,22 @@ class VoiceAssetService:
         tail_silence_ms: int | None = None,
         normalize_audio: bool | None = None,
         timeout_seconds: float | None = None,
+        reference_audio_path: Path | None = None,
+        exaggeration: float | None = None,
+        cfg_weight: float | None = None,
     ) -> Asset:
         scene = self._scene(scene_id)
         image_service = ImageAssetService(self.session, self.settings, self.storage)
         asset = image_service._writable_asset(scene, AssetRole.SCENE_NARRATION, AssetType.AUDIO)
-        provider_is_piper = self.provider.provider_name == "piper"
+        provider_is_local_tts = self.provider.provider_name in {"piper", "chatterbox"}
         resolved_voice = voice_name or (
-            self.settings.tts_voice_id if provider_is_piper else self.settings.voice_default_name
+            self.settings.tts_voice_id
+            if provider_is_local_tts
+            else self.settings.voice_default_name
         )
         resolved_language = language or (
             self.settings.tts_language
-            if provider_is_piper
+            if provider_is_local_tts
             else self.settings.voice_default_language
         )
         resolved_rate = (
@@ -618,6 +623,24 @@ class VoiceAssetService:
         resolved_normalize = (
             normalize_audio if normalize_audio is not None else self.settings.tts_normalize_audio
         )
+        resolved_exaggeration = (
+            exaggeration
+            if exaggeration is not None
+            else (
+                self.settings.chatterbox_exaggeration
+                if self.provider.provider_name == "chatterbox"
+                else None
+            )
+        )
+        resolved_cfg_weight = (
+            cfg_weight
+            if cfg_weight is not None
+            else (
+                self.settings.chatterbox_cfg_weight
+                if self.provider.provider_name == "chatterbox"
+                else None
+            )
+        )
         prepared = prepare_narration(
             scene.narration,
             overrides=pronunciation_overrides,
@@ -640,6 +663,9 @@ class VoiceAssetService:
             lead_silence_ms=resolved_lead_silence,
             tail_silence_ms=resolved_tail_silence,
             normalize_audio=resolved_normalize,
+            reference_audio_path=reference_audio_path,
+            exaggeration=resolved_exaggeration,
+            cfg_weight=resolved_cfg_weight,
         )
         destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         cache_key = self.cache.build_cache_key(request)
@@ -675,11 +701,12 @@ class VoiceAssetService:
                     output_format=self.settings.tts_output_format,
                     normalize_audio=resolved_normalize,
                     target_loudness_dbfs=self.settings.tts_target_loudness_dbfs,
-                    timeout_seconds=(
-                        timeout_seconds
-                        if timeout_seconds is not None
-                        else self.settings.tts_request_timeout_seconds
+                    timeout_seconds=self._resolved_timeout(timeout_seconds),
+                    reference_audio_path=(
+                        str(reference_audio_path) if reference_audio_path is not None else None
                     ),
+                    exaggeration=resolved_exaggeration,
+                    cfg_weight=resolved_cfg_weight,
                 )
             )
             try:
@@ -733,7 +760,9 @@ class VoiceAssetService:
         asset.generation_status = AssetGenerationStatus.GENERATED
         asset.review_status = AssetReviewStatus.PENDING_REVIEW
         asset.license_status = (
-            LicenseStatus.UNKNOWN if self.provider.provider_name == "piper" else LicenseStatus.SAFE
+            LicenseStatus.UNKNOWN
+            if self.provider.provider_name in {"piper", "chatterbox"}
+            else LicenseStatus.SAFE
         )
         asset.generation_metadata = metadata | {
             "cache_key": cache_key,
@@ -754,6 +783,9 @@ class VoiceAssetService:
             "sample_rate": int(metadata.get("sample_rate", 0)) or None,
             "channels": 1,
             "synthetic": True,
+            "reference_audio_hash": metadata.get("reference_audio_hash"),
+            "exaggeration": metadata.get("exaggeration"),
+            "cfg_weight": metadata.get("cfg_weight"),
             "segment_number": scene.scene_number,
             "segment_start_seconds": scene.start_seconds,
             "segment_end_seconds": (
@@ -774,6 +806,9 @@ class VoiceAssetService:
         speaking_rate: float | None = None,
         seed: int = 1,
         pronunciation_overrides: dict[str, str] | None = None,
+        reference_audio_path: Path | None = None,
+        exaggeration: float | None = None,
+        cfg_weight: float | None = None,
     ) -> list[Asset]:
         scene_plan = ContentVersionService(self.session).approved_version(
             video_project_id, ContentType.SCENE_PLAN
@@ -797,6 +832,9 @@ class VoiceAssetService:
                 speaking_rate=speaking_rate,
                 seed=seed,
                 pronunciation_overrides=pronunciation_overrides,
+                reference_audio_path=reference_audio_path,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight,
             )
             for scene in scenes
         ]
@@ -853,6 +891,9 @@ class VoiceAssetService:
         lead_silence_ms: int,
         tail_silence_ms: int,
         normalize_audio: bool,
+        reference_audio_path: Path | None,
+        exaggeration: float | None,
+        cfg_weight: float | None,
     ) -> CacheKeyRequest:
         return CacheKeyRequest(
             operation="generate_scene_voice",
@@ -881,6 +922,13 @@ class VoiceAssetService:
                 "target_loudness_dbfs": self.settings.tts_target_loudness_dbfs,
                 "model_hash": getattr(self.provider, "model_hash", None),
                 "config_hash": getattr(self.provider, "config_hash", None),
+                "reference_audio_hash": (
+                    hash_file(reference_audio_path)
+                    if reference_audio_path is not None and reference_audio_path.is_file()
+                    else getattr(self.provider, "config_hash", None)
+                ),
+                "exaggeration": exaggeration,
+                "cfg_weight": cfg_weight,
                 "schema_version": "narration-v1",
             },
             seed=seed,
@@ -892,6 +940,13 @@ class VoiceAssetService:
         if scene is None:
             raise AssetError(f"Scene not found: {scene_id}")
         return scene
+
+    def _resolved_timeout(self, timeout_seconds: float | None) -> float:
+        if timeout_seconds is not None:
+            return timeout_seconds
+        if self.provider.provider_name == "chatterbox":
+            return self.settings.chatterbox_request_timeout_seconds
+        return self.settings.tts_request_timeout_seconds
 
     def _asset(self, scene: Scene, role: AssetRole, asset_type: AssetType) -> Asset:
         return ImageAssetService(self.session, self.settings, self.storage)._asset(

@@ -23,3 +23,4 @@ filenames to avoid rewriting merged history. New decisions continue with the nex
 | 0014 | Optional local image generation through ComfyUI |
 | 0015 | Piper as the first local TTS provider |
 | 0016 | Versioned motion graphics timeline engine |
+| 0017 | Optional isolated Chatterbox Multilingual voice provider |

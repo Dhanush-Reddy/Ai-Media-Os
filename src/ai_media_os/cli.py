@@ -64,6 +64,7 @@ from ai_media_os.media.production_timeline import (
     render_srt,
     write_subtitles_atomic,
 )
+from ai_media_os.providers.chatterbox import ChatterboxVoiceGenerationProvider
 from ai_media_os.providers.comfyui import ComfyUIImageGenerationProvider
 from ai_media_os.providers.image_provider_factory import build_image_provider
 from ai_media_os.providers.ollama import OllamaTextGenerationProvider
@@ -324,14 +325,20 @@ def build_parser() -> argparse.ArgumentParser:
     generate_voice.add_argument("--language")
     generate_voice.add_argument("--speaking-rate", type=float, default=1.0)
     generate_voice.add_argument("--seed", type=int, default=1)
-    generate_voice.add_argument("--provider", choices=["fake", "piper"])
+    generate_voice.add_argument("--provider", choices=["fake", "piper", "chatterbox"])
     generate_voice.add_argument("--model-path")
+    generate_voice.add_argument("--reference-audio")
+    generate_voice.add_argument("--exaggeration", type=float)
+    generate_voice.add_argument("--cfg-weight", type=float)
     generate_voice.add_argument("--pronunciation", action="append", default=[])
 
     generate_narration = subcommands.add_parser("generate-scene-narration")
     generate_narration.add_argument("--scene-id", required=True)
-    generate_narration.add_argument("--provider", choices=["fake", "piper"])
+    generate_narration.add_argument("--provider", choices=["fake", "piper", "chatterbox"])
     generate_narration.add_argument("--model-path")
+    generate_narration.add_argument("--reference-audio")
+    generate_narration.add_argument("--exaggeration", type=float)
+    generate_narration.add_argument("--cfg-weight", type=float)
     generate_narration.add_argument("--voice")
     generate_narration.add_argument("--language")
     generate_narration.add_argument("--speaking-rate", type=float)
@@ -340,8 +347,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     generate_project_narration = subcommands.add_parser("generate-project-narration")
     generate_project_narration.add_argument("--project-id", required=True)
-    generate_project_narration.add_argument("--provider", choices=["fake", "piper"])
+    generate_project_narration.add_argument("--provider", choices=["fake", "piper", "chatterbox"])
     generate_project_narration.add_argument("--model-path")
+    generate_project_narration.add_argument("--reference-audio")
+    generate_project_narration.add_argument("--exaggeration", type=float)
+    generate_project_narration.add_argument("--cfg-weight", type=float)
     generate_project_narration.add_argument("--voice")
     generate_project_narration.add_argument("--language")
     generate_project_narration.add_argument("--speaking-rate", type=float)
@@ -349,9 +359,12 @@ def build_parser() -> argparse.ArgumentParser:
     generate_project_narration.add_argument("--pronunciation", action="append", default=[])
 
     check_voice_provider = subcommands.add_parser("check-voice-provider")
-    check_voice_provider.add_argument("--provider", choices=["fake", "piper"], default="fake")
+    check_voice_provider.add_argument(
+        "--provider", choices=["fake", "piper", "chatterbox"], default="fake"
+    )
     check_voice_provider.add_argument("--model-path")
     check_voice_provider.add_argument("--voice")
+    check_voice_provider.add_argument("--reference-audio")
 
     list_narration = subcommands.add_parser("list-narration-assets")
     list_narration.add_argument("--project-id", required=True)
@@ -986,6 +999,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.provider,
                 args.model_path,
                 selected_voice,
+                args.reference_audio,
             )
             asset = VoiceAssetService(
                 session, default_voice_service.settings, provider=voice_provider
@@ -996,6 +1010,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 speaking_rate=args.speaking_rate,
                 seed=args.seed,
                 pronunciation_overrides=_parse_pronunciations(args.pronunciation),
+                reference_audio_path=(Path(args.reference_audio) if args.reference_audio else None),
+                exaggeration=args.exaggeration,
+                cfg_weight=args.cfg_weight,
             )
             print(asset.id)
             return 0
@@ -1006,6 +1023,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.provider,
                 args.model_path,
                 args.voice,
+                args.reference_audio,
             )
             assets = VoiceAssetService(
                 session, default_voice_service.settings, provider=voice_provider
@@ -1016,21 +1034,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 speaking_rate=args.speaking_rate,
                 seed=args.seed,
                 pronunciation_overrides=_parse_pronunciations(args.pronunciation),
+                reference_audio_path=(Path(args.reference_audio) if args.reference_audio else None),
+                exaggeration=args.exaggeration,
+                cfg_weight=args.cfg_weight,
             )
             for asset in assets:
                 print(asset.id)
             return 0
         if args.command == "check-voice-provider":
             voice_provider = build_voice_provider(
-                get_settings(), args.provider, args.model_path, args.voice
+                get_settings(),
+                args.provider,
+                args.model_path,
+                args.voice,
+                args.reference_audio,
             )
-            if not isinstance(voice_provider, PiperVoiceGenerationProvider):
+            if not isinstance(
+                voice_provider,
+                PiperVoiceGenerationProvider | ChatterboxVoiceGenerationProvider,
+            ):
                 print("READY\tfake_voice\tlocal deterministic provider")
                 return 0
             voice_health = voice_provider.check_health()
             print(
                 f"{'READY' if voice_health.available else 'NOT_READY'}\t"
-                f"piper\t{voice_health.message}"
+                f"{voice_provider.provider_name}\t{voice_health.message}"
             )
             return 0 if voice_health.available else 1
         if args.command == "import-scene-audio":

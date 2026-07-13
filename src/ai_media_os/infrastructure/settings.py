@@ -104,6 +104,14 @@ class AppSettings(BaseSettings):
     piper_executable_path: str = "piper"
     piper_model_path: Path = Path("")
     piper_config_path: Path | None = None
+    chatterbox_python_path: str = "python"
+    chatterbox_model_path: Path = Path("")
+    chatterbox_reference_audio_path: Path | None = None
+    chatterbox_device: Literal["cuda", "cpu"] = "cuda"
+    chatterbox_request_timeout_seconds: float = 600.0
+    chatterbox_exaggeration: float = 0.5
+    chatterbox_cfg_weight: float = 0.5
+    chatterbox_expected_runtime_version: str = "0.1.7"
     asset_max_file_bytes: int = 20_000_000
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
@@ -145,7 +153,7 @@ class AppSettings(BaseSettings):
             for key, limit in value.items()
         }
 
-    @field_validator("piper_config_path", mode="before")
+    @field_validator("piper_config_path", "chatterbox_reference_audio_path", mode="before")
     @classmethod
     def normalize_optional_piper_config(cls, value: object) -> object:
         return None if value in {None, ""} else value
@@ -218,8 +226,8 @@ class AppSettings(BaseSettings):
         if not self.voice_allowed_extensions:
             msg = "At least one voice extension must be allowed."
             raise ValueError(msg)
-        if self.local_tts_provider != "piper":
-            raise ValueError("Local TTS provider must be piper.")
+        if self.local_tts_provider not in {"piper", "chatterbox"}:
+            raise ValueError("Local TTS provider must be piper or chatterbox.")
         if not self.tts_voice_id.strip() or not self.tts_language.strip():
             raise ValueError("TTS voice and language are required.")
         if self.tts_sample_rate is not None and self.tts_sample_rate <= 0:
@@ -242,6 +250,16 @@ class AppSettings(BaseSettings):
             raise ValueError("TTS pause settings cannot be negative.")
         if not self.piper_executable_path.strip():
             raise ValueError("Piper executable path cannot be empty.")
+        if not self.chatterbox_python_path.strip():
+            raise ValueError("Chatterbox Python path cannot be empty.")
+        if self.chatterbox_request_timeout_seconds <= 0:
+            raise ValueError("Chatterbox timeout must be positive.")
+        if not 0 <= self.chatterbox_exaggeration <= 2:
+            raise ValueError("Chatterbox exaggeration must be between 0 and 2.")
+        if not 0 <= self.chatterbox_cfg_weight <= 1:
+            raise ValueError("Chatterbox CFG weight must be between 0 and 1.")
+        if not self.chatterbox_expected_runtime_version.strip():
+            raise ValueError("Chatterbox runtime version cannot be empty.")
         if self.render_default_width <= 0 or self.render_default_height <= 0:
             msg = "Render dimensions must be positive."
             raise ValueError(msg)
