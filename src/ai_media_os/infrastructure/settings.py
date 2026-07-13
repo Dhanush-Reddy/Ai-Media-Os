@@ -112,6 +112,7 @@ class AppSettings(BaseSettings):
     chatterbox_exaggeration: float = 0.5
     chatterbox_cfg_weight: float = 0.5
     chatterbox_expected_runtime_version: str = "0.1.7"
+    chatterbox_source_revision: str = "65b18437192794391a0308a8f705b1e33e633948"
     asset_max_file_bytes: int = 20_000_000
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
@@ -260,6 +261,11 @@ class AppSettings(BaseSettings):
             raise ValueError("Chatterbox CFG weight must be between 0 and 1.")
         if not self.chatterbox_expected_runtime_version.strip():
             raise ValueError("Chatterbox runtime version cannot be empty.")
+        source_revision = self.chatterbox_source_revision.casefold().strip()
+        if len(source_revision) != 40 or any(
+            character not in "0123456789abcdef" for character in source_revision
+        ):
+            raise ValueError("Chatterbox source revision must be a 40-character Git commit.")
         if self.render_default_width <= 0 or self.render_default_height <= 0:
             msg = "Render dimensions must be positive."
             raise ValueError(msg)

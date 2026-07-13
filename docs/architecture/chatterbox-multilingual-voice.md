@@ -18,8 +18,17 @@ model weights automatically.
 $CHATTERBOX_ROOT = "C:\AI-Models\Chatterbox"
 py -3.12 -m venv "$CHATTERBOX_ROOT\.venv"
 & "$CHATTERBOX_ROOT\.venv\Scripts\python.exe" -m pip install --upgrade pip
-& "$CHATTERBOX_ROOT\.venv\Scripts\python.exe" -m pip install chatterbox-tts==0.1.7
+& "$CHATTERBOX_ROOT\.venv\Scripts\python.exe" -m pip install `
+  "git+https://github.com/resemble-ai/chatterbox.git@65b18437192794391a0308a8f705b1e33e633948"
+
+& "$CHATTERBOX_ROOT\.venv\Scripts\python.exe" -m pip install --force-reinstall `
+  torch==2.6.0 torchaudio==2.6.0 `
+  --index-url https://download.pytorch.org/whl/cu124
 ```
+
+The second command selects the CUDA build used by the RTX 4050 target. Verify
+`torch.cuda.is_available()` before downloading weights; the default PyPI Torch wheel may be
+CPU-only on Windows.
 
 Use an explicitly initiated Hugging Face download to create a local V3 model directory. Pin and
 record the exact model revision used for production.
@@ -42,6 +51,7 @@ AI_MEDIA_OS_CHATTERBOX_REQUEST_TIMEOUT_SECONDS=600
 AI_MEDIA_OS_CHATTERBOX_EXAGGERATION=0.5
 AI_MEDIA_OS_CHATTERBOX_CFG_WEIGHT=0.5
 AI_MEDIA_OS_CHATTERBOX_EXPECTED_RUNTIME_VERSION=0.1.7
+AI_MEDIA_OS_CHATTERBOX_SOURCE_REVISION=65b18437192794391a0308a8f705b1e33e633948
 ```
 
 The configured model directory must contain `ve.pt`, `t3_mtl23ls_v3.safetensors`, `s3gen.pt`, and
