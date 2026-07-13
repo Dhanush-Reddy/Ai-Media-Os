@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, TemporaryFile
 from typing import Protocol
 
 from ai_media_os.media.audio_processing import AudioProcessingError, inspect_wav_bytes
@@ -86,22 +86,28 @@ class ChatterboxRunner(Protocol):
 class SubprocessChatterboxRunner:
     def run(self, command: list[str], *, timeout_seconds: float) -> ChatterboxProcessResult:
         try:
-            completed = subprocess.run(  # noqa: S603
-                command,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                timeout=timeout_seconds,
-                check=False,
-                shell=False,
-            )
+            with TemporaryFile() as stdout_file, TemporaryFile() as stderr_file:
+                completed = subprocess.run(  # noqa: S603
+                    command,
+                    stdin=subprocess.DEVNULL,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    timeout=timeout_seconds,
+                    check=False,
+                    shell=False,
+                )
+                stdout_file.seek(0)
+                stderr_file.seek(0)
+                stdout = stdout_file.read().decode(errors="replace")
+                stderr = stderr_file.read().decode(errors="replace")
         except subprocess.TimeoutExpired as exc:
             raise ChatterboxTimeoutError("Chatterbox synthesis timed out.") from exc
         except OSError as exc:
             raise ChatterboxUnavailableError("Chatterbox runtime could not be started.") from exc
         return ChatterboxProcessResult(
             returncode=completed.returncode,
-            stdout=completed.stdout.decode(errors="replace"),
-            stderr=completed.stderr.decode(errors="replace"),
+            stdout=stdout,
+            stderr=stderr,
         )
 
 
@@ -134,6 +140,7 @@ class ChatterboxVoiceGenerationProvider:
         exaggeration: float = 0.5,
         cfg_weight: float = 0.5,
         expected_runtime_version: str = "0.1.7",
+        expected_source_revision: str = "65b18437192794391a0308a8f705b1e33e633948",
         worker_path: Path | None = None,
         runner: ChatterboxRunner | None = None,
     ) -> None:
@@ -147,7 +154,11 @@ class ChatterboxVoiceGenerationProvider:
         self.exaggeration = exaggeration
         self.cfg_weight = cfg_weight
         self.expected_runtime_version = expected_runtime_version.strip()
-        self.model_version = f"multilingual-v3-runtime-{self.expected_runtime_version}"
+        self.expected_source_revision = expected_source_revision.casefold().strip()
+        self.model_version = (
+            f"multilingual-v3-runtime-{self.expected_runtime_version}"
+            f"-source-{self.expected_source_revision[:12]}"
+        )
         self.worker_path = worker_path or Path(__file__).with_name("chatterbox_worker.py")
         self.runner = runner or SubprocessChatterboxRunner()
         self.model_name = model_path.name or "unconfigured-model"
@@ -161,7 +172,7 @@ class ChatterboxVoiceGenerationProvider:
         try:
             result = self.runner.run(
                 [python, str(self.worker_path.resolve()), "--health"],
-                timeout_seconds=min(30.0, self.request_timeout_seconds),
+                timeout_seconds=min(120.0, self.request_timeout_seconds),
             )
         except ChatterboxError:
             return ChatterboxHealthResult(
@@ -185,6 +196,8 @@ class ChatterboxVoiceGenerationProvider:
             runtime = json.loads(result.stdout)
             runtime_version = str(runtime["chatterbox_version"])
             cuda_available = bool(runtime["cuda_available"])
+            source_revision = str(runtime["source_revision"]).casefold()
+            v3_api_available = bool(runtime["v3_api_available"])
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             return ChatterboxHealthResult(
                 False,
@@ -202,6 +215,15 @@ class ChatterboxVoiceGenerationProvider:
                 True,
                 static.reference_audio_available,
                 "Chatterbox runtime version does not match configured provenance.",
+            )
+        if source_revision != self.expected_source_revision or not v3_api_available:
+            return ChatterboxHealthResult(
+                False,
+                True,
+                True,
+                True,
+                static.reference_audio_available,
+                "Chatterbox runtime source does not match the supported V3 revision.",
             )
         if self.device == "cuda" and not cuda_available:
             return ChatterboxHealthResult(
@@ -336,6 +358,12 @@ class ChatterboxVoiceGenerationProvider:
             raise ChatterboxConfigurationError("Chatterbox segment limit must be positive.")
         if not self.expected_runtime_version:
             raise ChatterboxConfigurationError("Chatterbox runtime version cannot be empty.")
+        if len(self.expected_source_revision) != 40 or any(
+            character not in "0123456789abcdef" for character in self.expected_source_revision
+        ):
+            raise ChatterboxConfigurationError(
+                "Chatterbox source revision must be a 40-character Git commit."
+            )
         _validate_generation_controls(self.exaggeration, self.cfg_weight)
 
     def _validate_request(self, request: VoiceGenerationRequest, language: str) -> None:

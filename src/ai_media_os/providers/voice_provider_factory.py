@@ -50,5 +50,6 @@ def build_voice_provider(
             exaggeration=settings.chatterbox_exaggeration,
             cfg_weight=settings.chatterbox_cfg_weight,
             expected_runtime_version=settings.chatterbox_expected_runtime_version,
+            expected_source_revision=settings.chatterbox_source_revision,
         )
     raise ValueError(f"Unsupported voice provider: {selected}")
