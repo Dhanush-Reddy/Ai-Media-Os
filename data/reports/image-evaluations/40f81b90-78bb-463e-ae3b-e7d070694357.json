@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2514470,
+    "content_hash": "b334a370fa45f5cf8a750a7d63ca3217e47bd9c54cee329bfc8aa0d4a0588a73",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 92,
+    "perceived_sharpness_score": 98,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Strong visual metaphor for brittle tooling",
+      "Clear focal subject (robotic hand and cracked device)",
+      "High contrast between mechanical elements and digital interface",
+      "Precise composition with balanced framing"
+    ],
+    "issues": [],
+    "recommendation": "Use as-is; no visible defects or issues detected."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "d06fb2e7ee9fc5fad737699d6520f4399b3194319a7be88142a177710ea1a617"
+}

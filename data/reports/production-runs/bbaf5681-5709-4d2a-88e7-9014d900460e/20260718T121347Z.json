@@ -1,0 +1,40 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T121347Z",
+    "project_id":  "bbaf5681-5709-4d2a-88e7-9014d900460e",
+    "new_project":  false,
+    "working_title":  null,
+    "seed":  1784376830,
+    "started_at_utc":  "2026-07-18T12:13:50.7595113Z",
+    "completed_at_utc":  "2026-07-18T12:49:55.3402566Z",
+    "status":  "completed",
+    "narration_asset_ids":  [
+                                "2a4113dd-2922-4215-9919-b47721ebb236",
+                                "77681ce7-4646-46fc-be1a-67d8c2bce80c",
+                                "605d7b6a-35d6-4d6f-a61e-3d6888f6a3aa",
+                                "bbad2796-bb7c-4da1-a24d-0c3b3f1e42b3",
+                                "afc8f352-d744-4644-97db-70d3f618871f",
+                                "6a2325d8-367f-416c-82a0-cfb340eea30f",
+                                "602ebe8b-4279-4744-b104-5f11869d182b"
+                            ],
+    "alignment_version_ids":  [
+                                  "df84cf7f-d6d6-4c64-a819-b33020be2e67",
+                                  "932f723e-6d56-4155-b994-c8f66c280389",
+                                  "91c18c4c-ac6d-427b-8792-70062f16bba3",
+                                  "e455ab5f-44d9-46e4-a45a-316e3b81d52e",
+                                  "43f24e0a-9672-4e20-bbcf-b681d9573fcf",
+                                  "703c9530-a05a-4a2c-889b-6572089709ac",
+                                  "3b759220-60da-4c53-8ff6-39d127a515c0"
+                              ],
+    "render_id":  "f3818605-4b9d-4cda-b5ff-d27c1f374143",
+    "metadata_version_id":  "803f69ad-fe2d-4c0a-bb24-efe185bccf57",
+    "thumbnail_concept_version_id":  "a4a2a513-da35-4858-8aea-96d58efe8260",
+    "thumbnail_asset_id":  "4f33dcd2-2bcf-4c9a-ba46-ceb07c747fd5",
+    "publishing_gate_status":  "NEEDS_REVIEW",
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\bbaf5681-5709-4d2a-88e7-9014d900460e\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  null
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2558620,
+    "content_hash": "55899dfbf66e87e9febd915d651cc529613e89fa8b44b1b105cf9fd01cf6ecf3",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Clear technical diagram with glowing AI core",
+      "Well-arranged modules (tool, memory, permission, retry) around central model",
+      "Dark neutral background enhances focus on subject",
+      "No logos or text present as required"
+    ],
+    "issues": [],
+    "recommendation": "Use as-is for vertical short video; meets all production requirements"
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "2fae36f4e084c0ec7474b2c649088c5cf4715d969b84f2c1872b8f54c39f1d5f"
+}

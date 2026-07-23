@@ -24,6 +24,7 @@ from ai_media_os.domain.enums import (
     AssetGenerationStatus,
     AssetReviewStatus,
     AssetRole,
+    AssetType,
     ContentFormat,
     ContentType,
     JobStatus,
@@ -139,6 +140,51 @@ def create_project_with_scene(session: Session) -> tuple[str, str, str]:
     session.add_all([scene, approval])
     session.commit()
     return project.id, scene.id, scene_plan.id
+
+
+def test_latest_reference_asset_prefers_most_recent_approved_project_image(
+    session: Session,
+) -> None:
+    project_id, scene_id, _ = create_project_with_scene(session)
+    earlier = Asset(
+        video_project_id=project_id,
+        scene_id=scene_id,
+        asset_type=AssetType.IMAGE,
+        asset_role=AssetRole.SCENE_VISUAL,
+        file_path="data/projects/project/images/scene_001/reference_v001.png",
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+        license_status=LicenseStatus.SAFE,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    later = Asset(
+        video_project_id=project_id,
+        scene_id=scene_id,
+        asset_type=AssetType.IMAGE,
+        asset_role=AssetRole.REFERENCE,
+        file_path="data/projects/project/images/scene_001/reference_v002.png",
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+        license_status=LicenseStatus.SAFE,
+        created_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    ignored = Asset(
+        video_project_id=project_id,
+        scene_id=scene_id,
+        asset_type=AssetType.AUDIO,
+        asset_role=AssetRole.SCENE_NARRATION,
+        file_path="data/projects/project/audio/scene_001/narration_v001.wav",
+        generation_status=AssetGenerationStatus.APPROVED,
+        review_status=AssetReviewStatus.APPROVED,
+        license_status=LicenseStatus.SAFE,
+    )
+    session.add_all([earlier, later, ignored])
+    session.commit()
+
+    reference = AssetReviewService(session, None).latest_reference_asset(project_id)
+
+    assert reference is not None
+    assert reference.id == later.id
 
 
 def test_fake_image_and_voice_providers_are_deterministic() -> None:
@@ -357,6 +403,165 @@ def test_comfyui_asset_provenance_and_cache_replay(
     assert second.generation_metadata["synthetic"] is True
     assert second.generation_metadata["workflow_version"] == "text-to-image-v001"
 
+    AssetReviewService(session, settings).review_asset(second.id, AssetReviewStatus.APPROVED)
+    approved_replay = service.generate_for_scene(scene_id, width=16, height=9, seed=8)
+
+    assert approved_replay.id == second.id
+    assert provider.calls == 1
+
+    reused_with_changed_settings = service.generate_for_scene(
+        scene_id,
+        width=32,
+        height=18,
+        seed=999,
+        reuse_existing=True,
+    )
+
+    assert reused_with_changed_settings.id == second.id
+    assert provider.calls == 1
+    assert service.last_generation_resolution == "reused_active"
+
+
+def test_text_free_image_policy_separates_display_copy(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    scene = session.get(Scene, scene_id)
+    assert scene is not None
+    scene.image_prompt = "Clean AI diagram; headline: THE SYSTEM MATTERS. No logos."
+    session.commit()
+
+    asset = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        text_free=True,
+    )
+
+    assert "THE SYSTEM MATTERS" not in str(asset.prompt)
+    assert "typography" in str(asset.prompt)
+    assert asset.prompt_version == "image-prompt-text-free-v1"
+    assert asset.generation_metadata["embedded_text_policy"] == "forbid"
+
+
+def test_faceless_editorial_style_builds_original_consistent_subject_prompt(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    scene = session.get(Scene, scene_id)
+    assert scene is not None
+    scene.image_prompt = "AI agent workflow; headline: BUILD A RELIABLE LOOP."
+    session.commit()
+
+    asset = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        visual_style="faceless_editorial",
+    )
+
+    assert "BUILD A RELIABLE LOOP" not in str(asset.prompt)
+    assert "Original recurring faceless AI analyst character" in str(asset.prompt)
+    assert "software process nodes workflow" in str(asset.prompt)
+    assert "porcelain-white featureless helmet" in str(asset.prompt)
+    assert "60 to 70 percent of the frame" in str(asset.prompt)
+    assert "superhero" in str(asset.negative_prompt)
+    assert asset.prompt_version == "image-prompt-faceless-editorial-v1"
+    assert asset.generation_metadata["embedded_text_policy"] == "forbid"
+    assert asset.generation_metadata["visual_style"] == "faceless_editorial"
+
+
+def test_faceless_editorial_abstract_scene_uses_object_only_insert(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    scene = session.get(Scene, scene_id)
+    assert scene is not None
+    scene.scene_number = 2
+    scene.image_prompt = "AI model surrounded by agents, users, and tools"
+    session.commit()
+
+    asset = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        visual_style="faceless_editorial",
+    )
+
+    assert "Object-only technical insert" in str(asset.prompt)
+    assert "glowing processor core" in str(asset.prompt)
+    assert "AI model" not in str(asset.prompt)
+    assert "agents" not in str(asset.prompt)
+
+
+def test_faceless_editorial_uses_topic_specific_automotive_presenter(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    scene = session.get(Scene, scene_id)
+    assert scene is not None
+    project = session.get(VideoProject, scene.video_project_id)
+    assert project is not None
+    project.topic = "Why car engines overheat"
+    project.working_title = "Car cooling explained"
+    scene.image_prompt = "A mechanic explains why this car model overheats on long climbs"
+    session.commit()
+
+    asset = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        visual_style="faceless_editorial",
+    )
+
+    assert "faceless automotive presenter" in str(asset.prompt)
+    assert "charcoal workshop coveralls" in str(asset.prompt)
+    assert "burnt-orange shoulder panel" in str(asset.prompt)
+    assert "AI analyst" not in str(asset.prompt)
+    assert "car model" in str(asset.prompt)
+    assert "processor core" not in str(asset.prompt)
+    assert "Topic family: automotive" in str(asset.prompt)
+
+
+def test_faceless_editorial_semantics_override_character_shot_cycle(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    scene = session.get(Scene, scene_id)
+    assert scene is not None
+    scene.scene_number = 4
+    scene.image_prompt = (
+        "Minimal data visualization with space for large kinetic typography and human review"
+    )
+    session.commit()
+
+    asset = ImageAssetService(session, settings).generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        visual_style="faceless_editorial",
+    )
+
+    assert "Strictly inanimate mechanical still life" in str(asset.prompt)
+    assert "Original recurring faceless AI analyst character" not in str(asset.prompt)
+    assert "recurring guide's visual world" not in str(asset.prompt)
+    assert "character or key object" not in str(asset.prompt)
+    assert "Use only inanimate geometric or mechanical forms" in str(asset.prompt)
+    assert "human" not in str(asset.prompt).casefold()
+    assert "hand" not in str(asset.prompt).casefold()
+    assert (
+        "typography"
+        not in str(asset.prompt)
+        .split("Scene content:", maxsplit=1)[1]
+        .split("Imagery only", maxsplit=1)[0]
+    )
+    assert "human review" not in str(asset.prompt)
+
 
 def test_narration_preparation_normalization_and_cache_replay(
     session: Session,
@@ -427,6 +632,93 @@ def test_project_narration_uses_scene_order(
     assert len(assets) == 1
     assert assets[0].scene is not None
     assert assets[0].scene.scene_number == 1
+
+
+def test_project_narration_reuses_verified_approved_asset(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, _scene_id, _scene_plan_id = create_project_with_scene(session)
+    service = VoiceAssetService(session, settings)
+    first = service.generate_for_project(project_id)[0]
+    AssetReviewService(session, settings).review_asset(first.id, AssetReviewStatus.APPROVED)
+
+    replay = service.generate_for_project(project_id, reuse_existing=True)[0]
+
+    assert replay.id == first.id
+    assert replay.review_status == AssetReviewStatus.APPROVED
+
+
+def test_narration_staging_promotes_approved_and_deletes_rejected_files(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    voice = VoiceAssetService(session, settings)
+    review = AssetReviewService(session, settings)
+    first = voice.generate_for_scene(scene_id, seed=31, stage_for_review=True)
+    first_staged_path = settings.data_dir / first.file_path
+
+    assert ".pending" in first_staged_path.parts
+    assert first_staged_path.exists()
+    approved = review.review_asset(first.id, AssetReviewStatus.APPROVED)
+    approved_path = settings.data_dir / approved.file_path
+    assert ".pending" not in approved_path.parts
+    assert approved_path.exists()
+    assert not first_staged_path.exists()
+
+    second = voice.generate_for_scene(scene_id, seed=32, stage_for_review=True)
+    second_staged_path = settings.data_dir / second.file_path
+    assert second.revision_number == approved.revision_number + 1
+    assert second_staged_path.exists()
+
+    rejected = review.review_asset(second.id, AssetReviewStatus.REJECTED)
+    assert not second_staged_path.exists()
+    assert rejected.generation_metadata["rejected_file_deleted"] is True
+
+
+def test_project_image_generation_uses_approved_scene_plan_sequentially(
+    session: Session,
+    settings: AppSettings,
+) -> None:
+    project_id, _scene_id, scene_plan_id = create_project_with_scene(session)
+    AssetPlanningService(session, settings).plan_scene_assets(
+        project_id, scene_plan_version_id=scene_plan_id
+    )
+
+    progress: list[tuple[int, int, int, str]] = []
+    assets = ImageAssetService(session, settings).generate_for_project(
+        project_id,
+        width=32,
+        height=18,
+        seed=42,
+        text_free=True,
+        visual_style="faceless_editorial",
+        stage_for_review=True,
+        progress_callback=lambda current, total, scene, asset: progress.append(
+            (current, total, scene.scene_number, asset.id)
+        ),
+    )
+
+    assert len(assets) == 1
+    assert assets[0].scene is not None
+    assert assets[0].scene.scene_number == 1
+    assert assets[0].seed == 42
+    assert assets[0].generation_metadata["visual_style"] == "faceless_editorial"
+    assert progress == [(1, 1, 1, assets[0].id)]
+    staged_path = settings.data_dir / assets[0].file_path
+    assert ".pending" in staged_path.parts
+    assert staged_path.exists()
+
+    approved = AssetReviewService(session, settings).review_asset(
+        assets[0].id,
+        AssetReviewStatus.APPROVED,
+    )
+
+    assert ".pending" not in Path(approved.file_path).parts
+    assert (settings.data_dir / approved.file_path).exists()
+    assert staged_path.exists() is False
+    assert approved.generation_metadata["promoted_from_staging"] is True
 
 
 def test_invalid_generated_narration_does_not_finalize_asset(
@@ -583,6 +875,145 @@ def test_asset_review_status_changes(
     assert (settings.data_dir / revision.file_path).exists()
     with pytest.raises(AssetError, match="cannot be changed"):
         AssetReviewService(session, settings).review_asset(reviewed.id, AssetReviewStatus.REJECTED)
+
+
+def test_rejected_image_file_is_deleted_and_cache_is_invalidated(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    service = ImageAssetService(session, settings)
+    asset = service.generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        seed=71,
+        stage_for_review=True,
+    )
+    image_path = settings.data_dir / asset.file_path
+    cache_key = str(asset.generation_metadata["cache_key"])
+
+    rejected = AssetReviewService(session, settings).review_asset(
+        asset.id,
+        AssetReviewStatus.REJECTED,
+    )
+
+    assert rejected.review_status == AssetReviewStatus.REJECTED
+    assert rejected.generation_status == AssetGenerationStatus.REJECTED
+    assert rejected.generation_metadata["rejected_file_deleted"] is True
+    assert image_path.exists() is False
+    assert service.cache.lookup(cache_key).hit is False
+
+
+def test_rejected_image_feedback_creates_a_staged_prompt_revision(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    service = ImageAssetService(session, settings)
+    original = service.generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        seed=101,
+        visual_style="faceless_editorial",
+        stage_for_review=True,
+    )
+    rejected = AssetReviewService(session, settings).review_asset(
+        original.id,
+        AssetReviewStatus.REJECTED,
+        feedback="Make the workflow nodes larger and reduce background clutter.",
+    )
+
+    revision = service.regenerate_from_feedback(
+        rejected.id,
+        feedback="Make the workflow nodes larger and reduce background clutter.",
+        width=16,
+        height=9,
+        seed=102,
+        visual_style="faceless_editorial",
+        stage_for_review=True,
+    )
+
+    assert rejected.generation_metadata["review_history"][-1]["status"] == "rejected"
+    assert "larger" in rejected.generation_metadata["review_history"][-1]["feedback"]
+    assert revision.id != rejected.id
+    assert revision.supersedes_asset_id == rejected.id
+    assert revision.revision_number == rejected.revision_number + 1
+    assert revision.review_status == AssetReviewStatus.PENDING_REVIEW
+    assert revision.generation_metadata["revision_feedback"].startswith("Make the workflow")
+    assert "Revision requirements from manual review" in str(revision.prompt)
+    assert "larger" in str(revision.prompt)
+    assert (settings.data_dir / revision.file_path).is_file()
+
+
+def test_regenerating_staged_image_does_not_nest_pending_directory(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    service = ImageAssetService(session, settings)
+    first = service.generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        seed=81,
+        stage_for_review=True,
+    )
+    second = service.generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        seed=82,
+        stage_for_review=True,
+    )
+
+    assert second.id == first.id
+    assert Path(second.file_path).parts.count(".pending") == 1
+    final_file_path = str(second.generation_metadata["final_file_path"])
+    assert ".pending" not in Path(final_file_path).parts
+
+
+def test_reusing_existing_image_repairs_nested_pending_directory(
+    session: Session,
+    settings: AppSettings,
+    scene_id: str,
+) -> None:
+    service = ImageAssetService(session, settings)
+    asset = service.generate_for_scene(
+        scene_id,
+        width=16,
+        height=9,
+        seed=91,
+        stage_for_review=True,
+    )
+    source = settings.data_dir / asset.file_path
+    relative = Path(asset.file_path)
+    images_index = relative.parts.index("images")
+    nested_relative = (Path(*relative.parts[: images_index + 1]) / ".pending").joinpath(
+        *relative.parts[images_index + 1 :]
+    )
+    nested = settings.data_dir / nested_relative
+    nested.parent.mkdir(parents=True, exist_ok=True)
+    source.replace(nested)
+    metadata = dict(asset.generation_metadata)
+    metadata["final_file_path"] = asset.file_path
+    asset.file_path = nested_relative.as_posix()
+    asset.generation_metadata = metadata
+    session.commit()
+
+    reused = service.generate_for_scene(
+        scene_id,
+        width=32,
+        height=18,
+        seed=999,
+        stage_for_review=True,
+        reuse_existing=True,
+    )
+
+    assert Path(reused.file_path).parts.count(".pending") == 1
+    assert ".pending" not in Path(str(reused.generation_metadata["final_file_path"])).parts
+    assert service.last_generation_resolution == "reused_active"
 
 
 def test_changes_requested_asset_is_preserved_as_a_revision(
@@ -867,3 +1298,41 @@ def test_cli_parser_exposes_asset_commands() -> None:
     )
     assert provenance.command == "record-asset-provenance"
     assert provenance.commercial_use_allowed is False
+    assert parser.parse_args(["review-asset", "asset"]).status is None
+    assert parser.parse_args(["review-asset", "asset", "--status", "1"]).status == "1"
+    assert parser.parse_args(
+        ["generate-project-narration", "--project-id", "p", "--reuse-existing"]
+    ).reuse_existing
+    layered = parser.parse_args(
+        [
+            "ensure-layered-character-pack",
+            "--project-id",
+            "project",
+            "--pack-root",
+            "pack",
+        ]
+    )
+    assert layered.command == "ensure-layered-character-pack"
+    assert parser.parse_args(
+        ["generate-timeline", "--project-id", "project", "--layered-characters"]
+    ).layered_characters
+
+
+@pytest.mark.parametrize(
+    ("choice", "expected"),
+    [
+        ("1", AssetReviewStatus.APPROVED),
+        ("2", AssetReviewStatus.REJECTED),
+        ("3", AssetReviewStatus.CHANGES_REQUESTED),
+    ],
+)
+def test_cli_asset_review_menu_resolves_numbered_choices(
+    monkeypatch: pytest.MonkeyPatch,
+    choice: str,
+    expected: AssetReviewStatus,
+) -> None:
+    from ai_media_os.cli import _resolve_asset_review_status
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: choice)
+
+    assert _resolve_asset_review_status(None) == expected

@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2986590,
+    "content_hash": "36350faa61a36b0c8c6b6046f6af0acb51c99d239ea9a5abb3253f6f2effb098",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 75,
+    "composition_score": 85,
+    "perceived_sharpness_score": 92,
+    "character_consistency_score": null,
+    "artifact_risk_score": 10,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Clear visual representation of a loop diagram with four connected failure stages",
+      "Modern editorial design with warning colors (blues and oranges)",
+      "Strong focal subject: the central processor chip with glowing square",
+      "Clean, well-organized layout without clutter"
+    ],
+    "issues": [
+      "Vague tool descriptions are not directly visible in the image; relies on interpretation",
+      "The 'failure loop' concept is implied but not explicitly labeled as per scene requirement",
+      "No text or logos present as required by generation prompt"
+    ],
+    "recommendation": "Enhance clarity by adding subtle labels for each stage of the failure loop to meet scene requirements. Ensure the diagram directly communicates the four stages without relying on interpretation."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "e44f8f4cb4130d916d940987fb4f590742b7131d944366358241a2acd387e266"
+}

@@ -1,0 +1,35 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T185303Z",
+    "project_id":  "427a25d0-c6bd-4beb-bcdb-209bf7ae9c11",
+    "new_project":  false,
+    "working_title":  null,
+    "seed":  1784400783,
+    "started_at_utc":  "2026-07-18T18:53:03.1510572Z",
+    "completed_at_utc":  "2026-07-18T19:00:09.3015943Z",
+    "status":  "completed",
+    "narration_asset_ids":  [
+                                "571c61bf-c162-463b-8195-43bfb6fa240c",
+                                "4736eb46-34c7-4070-baf4-7dccfaf8f84a",
+                                "9177d330-abd5-483b-99be-7d3fa72e4f29",
+                                "a4afc7e3-01b6-43b9-8957-6e678634bc96",
+                                "a47e3d3c-50c7-40e1-ad2f-072840239533",
+                                "7772d5c5-e67c-4500-a3ef-167e49291e4d",
+                                "b693c0c5-2c7b-4849-ba4f-06fe3fd8b49d"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  "484c0377-c160-4a82-80be-dd26e9c7c478",
+    "metadata_version_id":  "8a3601d7-4e49-4b08-bedb-5b59f6f16867",
+    "thumbnail_concept_version_id":  "76979b3d-a09b-403b-bd67-5c73c415a9f4",
+    "thumbnail_asset_id":  "803eac03-41e9-4100-8b41-012ac48891d3",
+    "publishing_gate_status":  "NEEDS_REVIEW",
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\427a25d0-c6bd-4beb-bcdb-209bf7ae9c11\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  null
+}

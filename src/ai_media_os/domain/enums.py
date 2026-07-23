@@ -32,6 +32,7 @@ class ContentType(StringEnum):
     SOURCE_REPORT = "source_report"
     COPYRIGHT_REPORT = "copyright_report"
     PRODUCTION_TIMELINE = "production_timeline"
+    NARRATION_ALIGNMENT = "narration_alignment"
 
 
 class ContentFormat(StringEnum):

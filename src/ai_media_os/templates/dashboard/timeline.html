@@ -1,34 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Production Timeline · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block title %}Timeline | {{ project.working_title }} | AI Media OS{% endblock %}
 {% block content %}
-  <section class="section-head">
-    <div><h1>Production Timeline</h1><p>{{ project.working_title }}</p></div>
-    <div class="actions">
-      <a class="button" href="/projects/{{ project.id }}">Project</a>
-      <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
-    </div>
-  </section>
+  <a class="breadcrumb" href="/projects/{{ project.id }}">Project overview</a>
+  <section class="section-head"><div><p class="eyebrow">Step 5 of 9</p><h1>Video timeline</h1><p>The timeline controls scene order, timing, motion, on-screen text, and audio.</p></div></section>
+  {% include "dashboard/fragments/project_nav.html" %}
+  <section class="next-step compact"><div><p class="eyebrow">Next action</p><h2>{{ timeline.next_action }}</h2></div>{% if timeline.status == "pending_approval" %}<a class="button primary" href="/approvals">Review timeline</a>{% else %}<a class="button" href="/projects/{{ project.id }}/renders">Go to video</a>{% endif %}</section>
   <section class="metrics">
-    <article class="metric"><span>Version</span><strong>{{ timeline.version_number or "-" }}</strong></article>
-    <article class="metric"><span>Scenes</span><strong>{{ timeline.scenes|length }}</strong></article>
-    <article class="metric"><span>Duration</span><strong>{{ "%.1f"|format(timeline.duration or 0) }}s</strong></article>
-    <article class="metric"><span>Status</span><strong>{{ timeline.status or "Missing" }}</strong></article>
+    <article class="metric"><span>Version</span><strong>v{{ timeline.version_number or "-" }}</strong></article><article class="metric"><span>Scenes</span><strong>{{ timeline.scenes|length }}</strong></article>
+    <article class="metric"><span>Length</span><strong>{{ "%.1f"|format(timeline.duration or 0) }} sec</strong></article><article class="metric"><span>Review status</span><strong class="status-text">{{ timeline.status|replace("_", " ")|title if timeline.status else "Missing" }}</strong></article>
   </section>
-  <section class="panel">
-    <h2>Scene Plan</h2>
-    {% if timeline.scenes %}
-      <table><thead><tr><th>Scene</th><th>Template</th><th>Duration</th><th>Layers</th><th>Motion</th><th>Transition</th><th>Audio</th></tr></thead>
-      <tbody>{% for scene in timeline.scenes %}<tr>
-        <td>{{ scene.order }}</td><td>{{ scene.template|replace("_", " ")|title }}</td>
-        <td>{{ "%.2f"|format(scene.duration) }}s</td><td>{{ scene.layers }}</td>
-        <td>{{ scene.motion|replace("_", " ")|title }}</td><td>{{ scene.transition|replace("_", " ")|title }}</td>
-        <td>Narration {{ "ready" if scene.narration else "missing" }} · {{ scene.subtitles }} subtitle cues</td>
-      </tr>{% endfor %}</tbody></table>
-    {% else %}<p class="empty">No timeline has been generated.</p>{% endif %}
+  <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Playback order</p><h2>Scene timing</h2></div><span class="muted">{{ timeline.scenes|length }} total</span></div>
+    {% if timeline.scenes %}<div class="table-scroll"><table><thead><tr><th>Scene</th><th>Visual style</th><th>Length</th><th>Movement</th><th>Transition</th><th>Audio</th></tr></thead><tbody>
+    {% for scene in timeline.scenes %}<tr><td><strong>{{ scene.order }}</strong></td><td>{{ scene.template|replace("_", " ")|title }}<br><span class="muted">{{ scene.layers }} visual layers</span></td><td>{{ "%.2f"|format(scene.duration) }} sec</td><td>{{ scene.motion|replace("_", " ")|title }}</td><td>{{ scene.transition|replace("_", " ")|title }}</td><td><span class="badge {{ 'success' if scene.narration else 'error' }}">Narration {{ "ready" if scene.narration else "missing" }}</span><br><span class="muted">{{ scene.subtitles }} subtitle cues</span></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="empty empty-state">No timeline has been generated yet.</p>{% endif %}
   </section>
-  <section class="panel"><h2>Production Validation</h2>
-    {% if timeline.findings %}<ul class="compact-list">{% for finding in timeline.findings %}<li><strong>{{ finding.status }}</strong> · {{ finding.message }}</li>{% endfor %}</ul>
-    {% else %}<p class="empty">No validation result.</p>{% endif %}
-    <p><strong>Next action:</strong> {{ timeline.next_action }}</p>
+  <section class="panel"><div class="panel-heading"><h2>Quality checks</h2><span class="muted">Automatic timeline validation</span></div>
+    {% if timeline.findings %}<ul class="compact-list">{% for finding in timeline.findings %}<li><span class="badge {{ 'success' if finding.status == 'PASSED' else 'warning' }}">{{ finding.status|title }}</span> {{ finding.message }}</li>{% endfor %}</ul>{% else %}<p class="empty">No validation result is available.</p>{% endif %}
   </section>
 {% endblock %}

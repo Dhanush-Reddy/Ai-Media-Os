@@ -1,0 +1,34 @@
+[02.52.40] Run ID: 20260718T212238Z
+[02.52.40] Project: d811ca11-cc3e-40ff-96ff-6b149d8439d0
+[02.52.40] Generation seed: 1784409760
+[02.52.40] STAGE 1/11 - Provider health checks
+[02.52.41] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	comfyui	ComfyUI is ready.
+[02.53.11] STAGE 2/11 - Import and approve the new project script
+3f1b81a2-d76f-43e5-bffa-c094a01f7e95
+00f296bd-ddaf-4bc6-9533-3d2fdb026790
+00f296bd-ddaf-4bc6-9533-3d2fdb026790	script	pending	3f1b81a2-d76f-43e5-bffa-c094a01f7e95
+approved
+[02.53.23] STAGE 3/11 - Generate and approve a new scene plan
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1970, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1281, in main
+    ).generate_scene_plan(
+      ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\scenes.py", line 96, in generate_scene_plan
+    document = self._build_scene_document(video_project_id, script, claims)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\scenes.py", line 254, in _build_scene_document
+    return ScenePlanDocument(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\.venv\Lib\site-packages\pydantic\main.py", line 263, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for ScenePlanDocument
+  Value error, Scenes must not overlap. [type=value_error, input_value={'video_project_id': 'd81...cleared visuals only.']}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error

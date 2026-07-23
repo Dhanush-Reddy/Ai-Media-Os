@@ -1,0 +1,35 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T203741Z",
+    "project_id":  "a65952ea-e3a1-4e95-9c84-424ef2911a05",
+    "new_project":  true,
+    "working_title":  "Why AI Agents Fail",
+    "seed":  1784407063,
+    "started_at_utc":  "2026-07-18T20:37:43.3608757Z",
+    "completed_at_utc":  "2026-07-18T21:01:35.5923350Z",
+    "status":  "completed",
+    "narration_asset_ids":  [
+                                "ffa275a3-e380-4bea-a8f3-1026830ab813",
+                                "953e3c37-2bdf-4adf-8063-1276e36d4c69",
+                                "b6a689e4-bcc7-4eb9-aa32-3a45e3e18522",
+                                "efdcd0b1-1582-4bb3-9131-2dd4bc585c0a",
+                                "70e1bc12-220a-4002-9cc4-509cd64bbb27",
+                                "65289290-dd68-4d8c-9626-8f4e5217e3d5",
+                                "79337c27-e18a-47dd-9a83-279b389ce0ba"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  "d58e9f78-f0fc-4459-80dd-5202c14165d8",
+    "metadata_version_id":  "938e8f1c-d257-4a21-8ad3-6686065910d0",
+    "thumbnail_concept_version_id":  "4408727c-40eb-4f41-8393-9e86d29a2ae7",
+    "thumbnail_asset_id":  "925de4ee-c611-474c-ae54-c186b26eae5c",
+    "publishing_gate_status":  "NEEDS_REVIEW",
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\a65952ea-e3a1-4e95-9c84-424ef2911a05\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  null
+}

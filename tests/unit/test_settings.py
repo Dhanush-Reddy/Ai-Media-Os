@@ -36,6 +36,9 @@ def test_settings_reject_non_sqlite_database_url() -> None:
         {"ollama_temperature": 2.1},
         {"ollama_top_p": 0},
         {"ollama_num_predict": 0},
+        {"ollama_vision_model": " "},
+        {"ollama_vision_timeout_seconds": 0},
+        {"ollama_vision_max_image_bytes": 0},
     ],
 )
 def test_settings_reject_invalid_ollama_configuration(overrides: dict[str, object]) -> None:

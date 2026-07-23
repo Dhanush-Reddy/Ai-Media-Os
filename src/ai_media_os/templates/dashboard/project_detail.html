@@ -1,177 +1,64 @@
 {% extends "base.html" %}
-{% block title %}{{ project.working_title }} · AI Media OS{% endblock %}
+{% block title %}{{ project.working_title }} | AI Media OS{% endblock %}
 {% block content %}
-  <section class="section-head">
-    <div>
-      <h1>{{ project.working_title }}</h1>
-      <p>{{ project.channel.name }} · {{ project.topic }}</p>
-    </div>
-    <div class="actions">
-      <a class="button" href="/projects/{{ project.id }}/research">Research</a>
-      <a class="button" href="/projects/{{ project.id }}/script">Script</a>
-      <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
-      <a class="button" href="/projects/{{ project.id }}/assets">Assets</a>
-      <a class="button" href="/projects/{{ project.id }}/timeline">Timeline</a>
-      <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
-      <a class="button" href="/projects/{{ project.id }}/metadata">Metadata</a>
-      <a class="button" href="/projects/{{ project.id }}/thumbnail">Thumbnail</a>
-      <a class="button" href="/projects/{{ project.id }}/safety">Safety</a>
-      <a class="button" href="/projects">All Projects</a>
-    </div>
+  <a class="breadcrumb" href="/projects">All projects</a>
+  <section class="section-head project-heading">
+    <div><p class="eyebrow">{{ project.channel.name }}</p><h1>{{ project.working_title }}</h1><p>{{ project.topic }}</p></div>
+    <span class="badge">{{ item.status_label }}</span>
   </section>
+  {% include "dashboard/fragments/project_nav.html" %}
 
-  <section class="grid two">
-    <article class="panel">
-      <h2>Progress</h2>
-      <div class="progress-block wide">
-        <label>Research progress</label>
-        <progress value="{{ item.progress.research_progress }}" max="100"></progress>
-        <span>{{ item.progress.research_progress }}%</span>
-      </div>
-      <div class="progress-block wide">
-        <label>Overall media pipeline</label>
-        <progress value="{{ item.progress.overall_progress }}" max="100"></progress>
-        <span>{{ item.progress.overall_progress }}%</span>
-      </div>
-      <p><strong>Current stage:</strong> {{ item.progress.current_stage }}</p>
-      <p><strong>Next action:</strong> {{ item.progress.next_action }}</p>
-    </article>
-
-    <article class="panel">
-      <h2>Research Output</h2>
-      <p><strong>Readiness:</strong> <span class="badge {{ research.readiness_tone }}">{{ research.readiness_status }}</span></p>
-      {% if research.latest_brief_html %}
-        <p>Latest research brief is available.</p>
-      {% else %}
-        <p class="empty">No research brief has been generated yet.</p>
-      {% endif %}
-      {% if research.latest_source_report %}
-        <p>Latest source report is available.</p>
-      {% else %}
-        <p class="empty">No source report has been generated yet.</p>
-      {% endif %}
-    </article>
-  </section>
-
-  <section class="panel">
-    <h2>Assets</h2>
-    {% if assets.assets %}
-      <p>{{ assets.visual_count }} visual assets and {{ assets.narration_count }} narration assets tracked.</p>
+  <section class="next-step" aria-labelledby="next-step-title">
+    <div><p class="eyebrow">Do this next</p><h2 id="next-step-title">{{ item.progress.current_stage }}</h2><p>{{ item.progress.next_action }}</p></div>
+    {% if item.progress.next_action_url == "/approvals" %}
+      <a class="button primary" href="/approvals">Open review queue</a>
     {% else %}
-      <p class="empty">No scene assets have been planned yet.</p>
+      <a class="button primary" href="/projects/{{ project.id }}/{{ item.progress.next_action_url }}">Continue</a>
     {% endif %}
   </section>
 
-  <section class="grid three">
-    <article class="panel">
-      <h2>Production Timeline</h2>
-      {% if timeline.version_id %}
-        <p>Timeline v{{ timeline.version_number }} is {{ timeline.status }}.</p>
-        <p>{{ timeline.scenes|length }} scenes, {{ "%.1f"|format(timeline.duration) }} seconds.</p>
-        <p><a href="/projects/{{ project.id }}/timeline">Open timeline</a></p>
-      {% else %}
-        <p class="empty">No production timeline has been generated yet.</p>
-      {% endif %}
+  <section class="grid overview-grid">
+    <article class="panel progress-panel">
+      <div class="panel-heading"><div><p class="eyebrow">At a glance</p><h2>Video progress</h2></div><strong class="progress-number">{{ item.progress.overall_progress }}%</strong></div>
+      <progress value="{{ item.progress.overall_progress }}" max="100" aria-label="Overall video progress"></progress>
+      <p class="muted">Based on the nine production stages below.</p>
     </article>
     <article class="panel">
-      <h2>Latest Render</h2>
-      {% if renders.latest %}
-        <p>Render v{{ renders.latest.version_number }} is {{ renders.latest.status }}.</p>
-        <p><a href="/projects/{{ project.id }}/renders/{{ renders.latest.id }}">Open render</a></p>
-      {% else %}
-        <p class="empty">No preview render has been planned yet.</p>
-      {% endif %}
+      <p class="eyebrow">Production package</p><h2>{{ assets.visual_count }} images + {{ assets.narration_count }} narrations</h2>
+      <p>{{ scene_plan.scene_count }} scenes{% if timeline.duration %}, {{ "%.0f"|format(timeline.duration) }} seconds planned{% endif %}.</p>
+      <a href="/projects/{{ project.id }}/assets">Review scene media</a>
     </article>
     <article class="panel">
-      <h2>Metadata</h2>
-      {% if metadata.latest_version_id %}
-        <p>{{ metadata.title }}</p>
-        <p>{{ metadata.status }} · <a href="/projects/{{ project.id }}/metadata">Open metadata</a></p>
-      {% else %}
-        <p class="empty">No video metadata has been generated yet.</p>
-      {% endif %}
-    </article>
-    <article class="panel">
-      <h2>Thumbnail</h2>
-      {% if thumbnail.asset and thumbnail.asset.preview_url %}
-        <img class="thumbnail-strip" src="{{ thumbnail.asset.preview_url }}" alt="Thumbnail preview">
-        <p>{{ thumbnail.asset.review_status }} · <a href="/projects/{{ project.id }}/thumbnail">Open thumbnail</a></p>
-      {% else %}
-        <p class="empty">No thumbnail image has been generated yet.</p>
-      {% endif %}
-    </article>
-    <article class="panel">
-      <h2>Safety</h2>
-      {% if safety.gate_status %}
-        <p><strong>Status:</strong> {{ safety.gate_status }}</p>
-        <p><strong>Next action:</strong> {{ safety.next_action }}</p>
-        <p><a href="/projects/{{ project.id }}/safety">Open safety review</a></p>
-      {% else %}
-        <p class="empty">No publishing gate has been run yet.</p>
-      {% endif %}
+      <p class="eyebrow">Human decisions</p><h2>{{ pending_approvals|length }} waiting</h2>
+      <p>{% if pending_approvals %}Your review is needed before the workflow can continue.{% else %}Nothing is waiting for approval.{% endif %}</p>
+      <a href="/approvals">Open review queue</a>
     </article>
   </section>
 
-  <section class="grid two">
-    <article class="panel">
-      <h2>Script</h2>
-      {% if script.latest_script_html %}
-        <p>Script v{{ script.script_version_number }} is {{ script.script_status|replace("_", " ") }}.</p>
-      {% else %}
-        <p class="empty">No script has been generated yet.</p>
-      {% endif %}
-    </article>
-    <article class="panel">
-      <h2>Scene Plan</h2>
-      {% if scene_plan.scene_count %}
-        <p>{{ scene_plan.scene_count }} scenes planned{% if scene_plan.total_duration_seconds %} across {{ "%.0f"|format(scene_plan.total_duration_seconds) }} seconds{% endif %}.</p>
-      {% else %}
-        <p class="empty">No scene plan has been generated yet.</p>
-      {% endif %}
-    </article>
-  </section>
-
-  <section class="panel">
-    <h2>Pipeline</h2>
-    <div class="stage-grid">
+  <section class="panel workflow-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Start to finish</p><h2>Production checklist</h2></div><span class="muted">Complete each stage in order</span></div>
+    <ol class="workflow-list">
       {% for stage in stages %}
-        <div class="stage {{ stage.tone }}">
-          <strong>{{ stage.name }}</strong>
-          <span>{{ stage.status }}</span>
-        </div>
+        <li class="{{ stage.tone }}"><span class="step-number">{{ loop.index }}</span><strong>{{ stage.name }}</strong><span class="stage-status">{{ stage.status }}</span></li>
       {% endfor %}
-    </div>
+    </ol>
   </section>
 
   <section class="grid two">
     <article class="panel">
-      <h2>Pending Approvals</h2>
-      {% if pending_approvals %}
-        <ul class="compact-list">
-          {% for approval in pending_approvals %}
-            <li>{{ approval.approval_type }} · {{ approval.content_type }}</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="empty">No pending approvals for this project.</p>
-      {% endif %}
+      <div class="panel-heading"><h2>Latest outputs</h2><span class="badge">{{ renders.latest.status if renders.latest else "No video" }}</span></div>
+      <dl class="summary-list">
+        <div><dt>Research Sources</dt><dd>{{ item.source_count }}</dd></div>
+        <div><dt>Script</dt><dd>{{ script.script_status|replace("_", " ")|title if script.script_status else "Not created" }}</dd></div>
+        <div><dt>Timeline</dt><dd>{{ timeline.status|replace("_", " ")|title if timeline.status else "Not created" }}</dd></div>
+        <div><dt>Metadata</dt><dd>{{ metadata.status|replace("_", " ")|title if metadata.status else "Not created" }}</dd></div>
+        <div><dt>Thumbnail</dt><dd>{{ thumbnail.asset.review_status if thumbnail.asset else "Not created" }}</dd></div>
+        <div><dt>Safety</dt><dd>{{ safety.gate_status|replace("_", " ")|title if safety.gate_status else "Not checked" }}</dd></div>
+      </dl>
     </article>
     <article class="panel">
-      <h2>Recent Jobs</h2>
-      {% if recent_jobs %}
-        <ul class="compact-list">
-          {% for job in recent_jobs %}
-            <li>{{ job.job_type }} · {{ job.status }}</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="empty">No jobs have been queued for this project.</p>
-      {% endif %}
+      <div class="panel-heading"><h2>Recent activity</h2><a href="/jobs">See system jobs</a></div>
+      {% include "dashboard/fragments/activity.html" %}
     </article>
-  </section>
-
-  <section class="panel">
-    <h2>Activity</h2>
-    {% include "dashboard/fragments/activity.html" %}
   </section>
 {% endblock %}

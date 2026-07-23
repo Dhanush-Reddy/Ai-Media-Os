@@ -31,6 +31,7 @@ class ProgressSummary:
     total_weight: int
     current_stage: str
     next_action: str
+    next_action_url: str
 
 
 @dataclass(frozen=True)

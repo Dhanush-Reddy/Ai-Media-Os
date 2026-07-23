@@ -1,0 +1,7 @@
+﻿[15:03:21] Run ID: 20260718T093321Z
+[15:03:21] Project: e81f19f0-d20e-4e2a-a5db-bff5c4a98f9f
+[15:03:21] Generation seed: 1784367201
+[15:03:21] STAGE 1/10 - Provider health checks
+[15:03:26] Dashboard started: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+NOT_READY	whisperx	WhisperX offline runtime or alignment model is incomplete.

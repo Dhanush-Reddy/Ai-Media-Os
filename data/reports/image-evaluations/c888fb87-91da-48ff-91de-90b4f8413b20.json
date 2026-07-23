@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2520124,
+    "content_hash": "d1a4c38746668ec4fe597e44dae59160ffe6519033c0dd5d2bc55609518e1fa4",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Clear visual contrast between oversized glowing block and precise engineering grid",
+      "Minimalist split-screen technology background as requested",
+      "No visible text or logos, adhering to the prompt",
+      "Strong kinetic contrast implied by the fading out/locking in concept"
+    ],
+    "issues": [],
+    "recommendation": "This image perfectly meets all requirements. No adjustments needed."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "d57a3cec8c3c1df4f47c7ceb8e5570191c74af7820331a64d25ed400613f6b6f"
+}

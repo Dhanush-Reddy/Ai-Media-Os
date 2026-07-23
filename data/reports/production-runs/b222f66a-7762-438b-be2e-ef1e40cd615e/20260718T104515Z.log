@@ -1,0 +1,26 @@
+[16:15:17] Run ID: 20260718T104515Z
+[16:15:17] Project: b222f66a-7762-438b-be2e-ef1e40cd615e
+[16:15:17] Generation seed: 1784371517
+[16:15:17] STAGE 1/10 - Provider health checks
+[16:15:17] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[16:15:36] STAGE 2/10 - Plan scene assets
+14
+[16:15:37] STAGE 3/10 - Reuse pending Chatterbox narration
+02b2c4a6-a9dc-4d93-8997-7f4f03e806bf	2	scene_narration	approved	approved
+034d949f-5345-4b9f-92e4-5f273d68a27e	1	scene_narration	approved	approved
+252bc65d-2854-4ec0-b8e0-42dc82f60c2b	1	scene_visual	planned	pending_review
+4bc53f12-844e-4fa7-b888-fea209ec522d	5	scene_narration	approved	approved
+66708b2a-1478-4b74-9a6b-a0bda9da77f2	3	scene_visual	planned	pending_review
+67f414a5-2ba1-4e1f-9644-88284f9be87a	3	scene_narration	approved	approved
+95f15a2e-7aef-46f9-909a-00e594a35e01	6	scene_visual	planned	pending_review
+b86d38ba-d660-4515-a786-994dcdb37d12	6	scene_narration	approved	approved
+c0f52741-93e7-4036-a756-45183a65c748	2	scene_visual	planned	pending_review
+c7939bed-eec3-462b-b6b9-468b9c4ce807	4	scene_narration	approved	approved
+d01c91d5-b4b7-450d-a5bf-3c764eab9a86	4	scene_visual	planned	pending_review
+df79bc37-08bc-48ca-a925-82805f7f9a0d	5	scene_visual	planned	pending_review
+f7a1ac90-080d-4a2a-b65a-56cc60abd29c	7	scene_narration	approved	approved
+f7ce2306-c72d-4c71-939b-6f612582839e	7	scene_visual	planned	pending_review
+[16:15:39] Reusing 0 pending narration assets.

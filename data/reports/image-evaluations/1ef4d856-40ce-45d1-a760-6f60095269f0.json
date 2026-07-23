@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2566777,
+    "content_hash": "4b3ecfc5202affbf9d9114ca5f965e49970105b0de1b9bcfd0a2b7f1f4122d7c",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 85,
+    "composition_score": 92,
+    "perceived_sharpness_score": 95,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Clear visual metaphor of handoff risks with distinct color-coded blocks",
+      "Minimalist design aligns with editorial dark theme requirement",
+      "Precise focus on the mechanical components without distractions"
+    ],
+    "issues": [
+      "No explicit labels or logos as per generation prompt, which is acceptable for minimal data visualization",
+      "The descending context-retention line is implied through the visual sequence rather than explicitly drawn"
+    ],
+    "recommendation": "This image effectively communicates the concept of handoff risks with a clean, professional aesthetic. It meets all specified requirements and can be used as-is for the vertical short video."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "c5e1b6b702f3135994d40101a8d0fcb5936908691339aa1eae511aca73c47eb3"
+}

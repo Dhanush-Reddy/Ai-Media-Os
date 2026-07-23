@@ -1,0 +1,31 @@
+[15:59:12] Run ID: 20260718T102909Z
+[15:59:12] Project: b222f66a-7762-438b-be2e-ef1e40cd615e
+[15:59:12] Generation seed: 1784370552
+[15:59:12] STAGE 1/12 - Provider health checks
+[15:59:12] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[15:59:25] STAGE 2/12 - Import and approve the new project script
+a48d2f13-d1b3-4279-b224-06e887587263
+4a81eae0-f04e-4631-9536-c70a3742a9ff
+4a81eae0-f04e-4631-9536-c70a3742a9ff	script	pending	a48d2f13-d1b3-4279-b224-06e887587263
+approved
+[15:59:39] STAGE 3/12 - Generate and approve a new scene plan
+12c690b0-f167-41c8-b882-88b661959e03
+[15:59:40] Generating scene plan completed in 1s.
+ac6ba6e9-948c-4525-a350-2c8f052c8290	scene_plan	pending	12c690b0-f167-41c8-b882-88b661959e03
+approved
+[15:59:44] STAGE 4/12 - Plan scene assets
+14
+[15:59:45] STAGE 5/12 - Generate Chatterbox narration revisions
+034d949f-5345-4b9f-92e4-5f273d68a27e
+02b2c4a6-a9dc-4d93-8997-7f4f03e806bf
+67f414a5-2ba1-4e1f-9644-88284f9be87a
+c7939bed-eec3-462b-b6b9-468b9c4ce807
+4bc53f12-844e-4fa7-b888-fea209ec522d
+b86d38ba-d660-4515-a786-994dcdb37d12
+f7a1ac90-080d-4a2a-b65a-56cc60abd29c
+[16:03:55] Generating Chatterbox narration completed in 249s.
+[16:03:55] STAGE 6/12 - Verify and review narration
+OK

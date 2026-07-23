@@ -242,7 +242,7 @@ def test_project_routes_and_research_rendering(
     assert "Scene Breakdown" in scenes.text
     assets = client.get(f"/projects/{project_id}/assets")
     assert assets.status_code == 200
-    assert "Scene Assets" in assets.text
+    assert "Review images and narration" in assets.text
     assert "fake-placeholder-voice" in assets.text
     assert "seconds" in assets.text
     assert "data/projects" not in assets.text
@@ -309,15 +309,37 @@ def test_view_models_progress_activity_and_labels(
         claims=list(project.claims),
         content_versions=list(project.content_versions),
         approvals=list(project.approvals),
+        assets=list(project.assets),
+        renders=list(project.renders),
     )
     assert progress.research_progress >= 90
-    assert progress.overall_progress <= 20
+    assert progress.overall_progress > 20
+    assert progress.next_action_url
     assert queries.project_list_item(project).workflow_stage
     assert queries.activity(project_id=project_id)
     research = queries.research_view(project)
     assert research.source_summary.total == 1
     assert research.claim_summary.verified == 1
     assert research.readiness_status == "Ready with Warnings"
+
+
+def test_dashboard_guides_new_users_through_the_workflow(
+    client: TestClient,
+    project_id: str,
+) -> None:
+    detail = client.get(f"/projects/{project_id}")
+    assert "Do this next" in detail.text
+    assert "Production checklist" in detail.text
+    assert "Images and narration" in detail.text
+    assert "Milestone 5 is not available yet" not in detail.text
+    assert "Create, review, and finish one video at a time" in detail.text
+
+    timeline = client.get(f"/projects/{project_id}/timeline")
+    assert "Step 5 of 9" in timeline.text
+    assert "The timeline controls scene order" in timeline.text
+
+    approvals = client.get("/approvals")
+    assert "These decisions pause the workflow" in approvals.text
 
 
 def test_safe_markdown_removes_unsafe_html() -> None:

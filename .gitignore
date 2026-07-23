@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.codex-test-tmp*/
 .tmp/
 .ruff_cache/
 .mypy_cache/

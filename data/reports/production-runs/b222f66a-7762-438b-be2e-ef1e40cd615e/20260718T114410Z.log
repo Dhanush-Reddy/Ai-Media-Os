@@ -1,0 +1,74 @@
+[17.14.14] Run ID: 20260718T114410Z
+[17.14.14] Project: b222f66a-7762-438b-be2e-ef1e40cd615e
+[17.14.14] Generation seed: 1784375053
+[17.14.14] STAGE 1/10 - Provider health checks
+[17.14.14] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[17.14.37] STAGE 2/10 - Plan scene assets
+14
+[17.14.39] STAGE 3/10 - Reuse existing Chatterbox narration
+02b2c4a6-a9dc-4d93-8997-7f4f03e806bf	2	scene_narration	approved	approved
+034d949f-5345-4b9f-92e4-5f273d68a27e	1	scene_narration	approved	approved
+252bc65d-2854-4ec0-b8e0-42dc82f60c2b	1	scene_visual	rejected	rejected
+4bc53f12-844e-4fa7-b888-fea209ec522d	5	scene_narration	approved	approved
+66708b2a-1478-4b74-9a6b-a0bda9da77f2	3	scene_visual	generated	pending_review
+67f414a5-2ba1-4e1f-9644-88284f9be87a	3	scene_narration	approved	approved
+95f15a2e-7aef-46f9-909a-00e594a35e01	6	scene_visual	generated	pending_review
+b86d38ba-d660-4515-a786-994dcdb37d12	6	scene_narration	approved	approved
+c0f52741-93e7-4036-a756-45183a65c748	2	scene_visual	generated	pending_review
+c7939bed-eec3-462b-b6b9-468b9c4ce807	4	scene_narration	approved	approved
+d01c91d5-b4b7-450d-a5bf-3c764eab9a86	4	scene_visual	generated	pending_review
+df79bc37-08bc-48ca-a925-82805f7f9a0d	5	scene_visual	generated	pending_review
+f7a1ac90-080d-4a2a-b65a-56cc60abd29c	7	scene_narration	approved	approved
+f7ce2306-c72d-4c71-939b-6f612582839e	7	scene_visual	generated	pending_review
+d32ad41f-47a8-4122-bacc-1321e65ba079	1	scene_visual	rejected	rejected
+b9fcf16d-f797-4eb3-8dd3-287a2094556b	1	scene_visual	rejected	rejected
+0896dcf5-db5a-4c86-9af7-3b04994d5847	1	scene_visual	generated	pending_review
+[17.14.41] Reusing 7 existing narration assets.
+[17.14.41] STAGE 4/10 - Verify and review narration
+OK
+[17.14.43] Narration 034d949f-5345-4b9f-92e4-5f273d68a27e is already approved; skipping review.
+OK
+[17.14.45] Narration 02b2c4a6-a9dc-4d93-8997-7f4f03e806bf is already approved; skipping review.
+OK
+[17.14.46] Narration 67f414a5-2ba1-4e1f-9644-88284f9be87a is already approved; skipping review.
+OK
+[17.14.48] Narration c7939bed-eec3-462b-b6b9-468b9c4ce807 is already approved; skipping review.
+OK
+[17.14.50] Narration 4bc53f12-844e-4fa7-b888-fea209ec522d is already approved; skipping review.
+OK
+[17.14.52] Narration b86d38ba-d660-4515-a786-994dcdb37d12 is already approved; skipping review.
+OK
+[17.14.54] Narration f7a1ac90-080d-4a2a-b65a-56cc60abd29c is already approved; skipping review.
+[17.14.54] STAGE 5/10 - WhisperX narration alignment
+c506d666-5cdb-4095-8e38-ffdd1de3a083	pass	auto_usable=true
+[17.15.05] Aligning narration 1 of 7 completed in 10s.
+d8bb4c5b-26e7-462c-bef6-c748af77c639	pass	auto_usable=true
+[17.15.15] Aligning narration 2 of 7 completed in 10s.
+c21c9388-13cb-49d2-b4c4-3aee4a726fc0	pass	auto_usable=true
+[17.15.24] Aligning narration 3 of 7 completed in 10s.
+ba5684a7-d2c6-4725-8c86-df226f6cac8e	pass	auto_usable=true
+[17.15.34] Aligning narration 4 of 7 completed in 10s.
+03c28920-cafc-4d4a-acf2-3e61623784f5	pass	auto_usable=true
+[17.15.44] Aligning narration 5 of 7 completed in 10s.
+6e5213eb-5b09-47cd-bcd5-06e0a5884857	pass	auto_usable=true
+[17.15.54] Aligning narration 6 of 7 completed in 10s.
+776a2d20-7442-40ee-9c5a-4bb445a9bbd0	pass	auto_usable=true
+[17.16.04] Aligning narration 7 of 7 completed in 10s.
+[17.16.04] STAGE 6/10 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Matching verified assets are reused; only missing or changed scenes are generated.
+[1/7] Scene 1 REUSED_ACTIVE: 0896dcf5-db5a-4c86-9af7-3b04994d5847
+[2/7] Scene 2 REUSED_ACTIVE: c0f52741-93e7-4036-a756-45183a65c748
+[3/7] Scene 3 REUSED_ACTIVE: 66708b2a-1478-4b74-9a6b-a0bda9da77f2
+[4/7] Scene 4 REUSED_ACTIVE: d01c91d5-b4b7-450d-a5bf-3c764eab9a86
+[5/7] Scene 5 REUSED_ACTIVE: df79bc37-08bc-48ca-a925-82805f7f9a0d
+[6/7] Scene 6 REUSED_ACTIVE: 95f15a2e-7aef-46f9-909a-00e594a35e01
+[7/7] Scene 7 REUSED_ACTIVE: f7ce2306-c72d-4c71-939b-6f612582839e
+Ollama evaluation skipped for visual 0896dcf5-db5a-4c86-9af7-3b04994d5847. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/0896dcf5-db5a-4c86-9af7-3b04994d5847/preview
+Review visual 0896dcf5-db5a-4c86-9af7-3b04994d5847
+  1. Approve
+  2. Reject

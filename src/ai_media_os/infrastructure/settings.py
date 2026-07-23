@@ -51,6 +51,9 @@ class AppSettings(BaseSettings):
     ollama_top_p: float = 0.9
     ollama_num_predict: int = 2048
     ollama_json_mode_enabled: bool = False
+    ollama_vision_model: str = "qwen3-vl:4b"
+    ollama_vision_timeout_seconds: float = 180.0
+    ollama_vision_max_image_bytes: int = 40_000_000
     research_max_source_bytes: int = 1_000_000
     research_allowed_text_extensions: set[str] = Field(default_factory=lambda: {".txt", ".md"})
     research_duplicate_content_warning_threshold: float = 0.5
@@ -113,6 +116,15 @@ class AppSettings(BaseSettings):
     chatterbox_cfg_weight: float = 0.5
     chatterbox_expected_runtime_version: str = "0.1.7"
     chatterbox_source_revision: str = "65b18437192794391a0308a8f705b1e33e633948"
+    alignment_default_provider: Literal["fake", "whisperx"] = "fake"
+    whisperx_python_path: str = "python"
+    whisperx_model_path: Path = Path("")
+    whisperx_device: Literal["cuda", "cpu"] = "cuda"
+    whisperx_compute_type: str = "float16"
+    whisperx_request_timeout_seconds: float = 600.0
+    whisperx_expected_runtime_version: str = "3.4.2"
+    alignment_minimum_average_confidence: float = 0.75
+    alignment_minimum_trigger_confidence: float = 0.65
     asset_max_file_bytes: int = 20_000_000
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
@@ -185,6 +197,12 @@ class AppSettings(BaseSettings):
             raise ValueError("Ollama top-p must be greater than 0 and at most 1.")
         if self.ollama_num_predict <= 0:
             raise ValueError("Ollama maximum generated tokens must be positive.")
+        if not self.ollama_vision_model.strip():
+            raise ValueError("Ollama vision model cannot be empty.")
+        if self.ollama_vision_timeout_seconds <= 0:
+            raise ValueError("Ollama vision timeout must be positive.")
+        if self.ollama_vision_max_image_bytes <= 0:
+            raise ValueError("Ollama vision image size limit must be positive.")
         if self.comfyui_request_timeout_seconds <= 0 or self.comfyui_poll_interval_seconds <= 0:
             raise ValueError("ComfyUI timeout and poll interval must be positive.")
         if self.comfyui_default_steps <= 0 or self.comfyui_default_cfg <= 0:
@@ -266,6 +284,16 @@ class AppSettings(BaseSettings):
             character not in "0123456789abcdef" for character in source_revision
         ):
             raise ValueError("Chatterbox source revision must be a 40-character Git commit.")
+        if not self.whisperx_python_path.strip() or not self.whisperx_compute_type.strip():
+            raise ValueError("WhisperX Python path and compute type cannot be empty.")
+        if self.whisperx_request_timeout_seconds <= 0:
+            raise ValueError("WhisperX timeout must be positive.")
+        if not self.whisperx_expected_runtime_version.strip():
+            raise ValueError("WhisperX runtime version cannot be empty.")
+        if not 0 <= self.alignment_minimum_average_confidence <= 1:
+            raise ValueError("Alignment average confidence must be between 0 and 1.")
+        if not 0 <= self.alignment_minimum_trigger_confidence <= 1:
+            raise ValueError("Alignment trigger confidence must be between 0 and 1.")
         if self.render_default_width <= 0 or self.render_default_height <= 0:
             msg = "Render dimensions must be positive."
             raise ValueError(msg)

@@ -1,0 +1,636 @@
+[04.02.31] Run ID: 20260718T223231Z
+[04.02.31] Project: d811ca11-cc3e-40ff-96ff-6b149d8439d0
+[04.02.31] Generation seed: 1784413951
+[04.02.31] STAGE 1/9 - Provider health checks
+[04.02.32] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	comfyui	ComfyUI is ready.
+fa936450-0e75-4235-998f-d6c6fbfc7dea	v1	approved
+[04.02.56] STAGE 2/9 - Plan scene assets
+24
+[04.02.58] STAGE 3/9 - Complete missing Chatterbox narration
+b809d26f-e21d-4e37-b0bb-76597fa1b303
+23177f99-d370-4b0c-97dd-4bc071eada6a
+cb75419e-9eea-47e4-90e8-b314ad30f780
+b5f4ea69-e0a4-4e36-9003-21f0627ec115
+f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f
+f8cf7f53-cdc4-4919-9531-720196944006
+b31d587c-798d-4e73-88bc-0ee5f0fc4192
+2cd9bda6-a6f6-4733-ba7c-43ff769791d2
+f0975503-a666-4dd7-a3cf-34b1683c7111
+8c2de968-8b52-4fc6-a259-127ccfbefc94
+967c8312-df2f-44e9-bad5-7b11fc5a5635
+2e647f15-4654-4182-8f80-6f4ba5fb0bf9
+[04.10.55] Generating Chatterbox narration completed in 477s.
+04b1290d-3585-40b7-9299-4bb5b75705a9	1	scene_visual	approved	approved
+b809d26f-e21d-4e37-b0bb-76597fa1b303	1	scene_narration	approved	approved
+9d02600c-5eb6-4348-872b-f282b4ebfa51	2	scene_visual	approved	approved
+23177f99-d370-4b0c-97dd-4bc071eada6a	2	scene_narration	approved	approved
+80f14f53-8582-4f6b-a571-90a7957b91bb	3	scene_visual	approved	approved
+cb75419e-9eea-47e4-90e8-b314ad30f780	3	scene_narration	approved	approved
+01501340-bbd5-4007-9a7a-c182c3c90d3b	4	scene_visual	approved	approved
+b5f4ea69-e0a4-4e36-9003-21f0627ec115	4	scene_narration	approved	approved
+7187c777-80cf-4021-839f-e71b09f00a4e	5	scene_visual	approved	approved
+f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f	5	scene_narration	approved	approved
+3e5b112b-bb43-4e93-8741-27409a0dd874	6	scene_visual	approved	approved
+f8cf7f53-cdc4-4919-9531-720196944006	6	scene_narration	approved	approved
+37e0de48-28b6-4421-bc52-1fe266079e36	7	scene_visual	approved	approved
+b31d587c-798d-4e73-88bc-0ee5f0fc4192	7	scene_narration	approved	approved
+c82aae4e-c639-4476-87ed-391e39ecbd7a	8	scene_visual	approved	approved
+2cd9bda6-a6f6-4733-ba7c-43ff769791d2	8	scene_narration	approved	approved
+76645959-9fbb-4fbd-b6f4-670c6253f139	9	scene_visual	approved	approved
+f0975503-a666-4dd7-a3cf-34b1683c7111	9	scene_narration	approved	approved
+592ed01a-352c-4cea-aed6-b1b6cb331588	10	scene_visual	approved	approved
+8c2de968-8b52-4fc6-a259-127ccfbefc94	10	scene_narration	approved	approved
+db3268f6-b9ff-4fa7-ab24-20b9205e8adb	11	scene_visual	approved	approved
+967c8312-df2f-44e9-bad5-7b11fc5a5635	11	scene_narration	generated	pending_review
+daca81a9-ec6e-4f02-a859-5603fba1cc07	12	scene_visual	approved	approved
+2e647f15-4654-4182-8f80-6f4ba5fb0bf9	12	scene_narration	generated	pending_review
+[04.10.58] STAGE 4/9 - Verify and review narration
+OK
+[04.11.00] Narration b809d26f-e21d-4e37-b0bb-76597fa1b303 is already approved; skipping review.
+OK
+[04.11.02] Narration 23177f99-d370-4b0c-97dd-4bc071eada6a is already approved; skipping review.
+OK
+[04.11.04] Narration cb75419e-9eea-47e4-90e8-b314ad30f780 is already approved; skipping review.
+OK
+[04.11.05] Narration b5f4ea69-e0a4-4e36-9003-21f0627ec115 is already approved; skipping review.
+OK
+[04.11.07] Narration f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f is already approved; skipping review.
+OK
+[04.11.09] Narration f8cf7f53-cdc4-4919-9531-720196944006 is already approved; skipping review.
+OK
+[04.11.10] Narration b31d587c-798d-4e73-88bc-0ee5f0fc4192 is already approved; skipping review.
+OK
+[04.11.12] Narration 2cd9bda6-a6f6-4733-ba7c-43ff769791d2 is already approved; skipping review.
+OK
+[04.11.14] Narration f0975503-a666-4dd7-a3cf-34b1683c7111 is already approved; skipping review.
+OK
+[04.11.16] Narration 8c2de968-8b52-4fc6-a259-127ccfbefc94 is already approved; skipping review.
+OK
+approved
+OK
+approved
+[04.12.22] WhisperX skipped. Using narration duration for captions and visual beats.
+[04.12.22] STAGE 5/9 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Matching verified assets are reused; only missing or changed scenes are generated.
+[1/12] Scene 1 REUSED_ACTIVE: 04b1290d-3585-40b7-9299-4bb5b75705a9
+[2/12] Scene 2 REUSED_ACTIVE: 9d02600c-5eb6-4348-872b-f282b4ebfa51
+[3/12] Scene 3 REUSED_ACTIVE: 80f14f53-8582-4f6b-a571-90a7957b91bb
+[4/12] Scene 4 REUSED_ACTIVE: 01501340-bbd5-4007-9a7a-c182c3c90d3b
+[5/12] Scene 5 REUSED_ACTIVE: 7187c777-80cf-4021-839f-e71b09f00a4e
+[6/12] Scene 6 REUSED_ACTIVE: 3e5b112b-bb43-4e93-8741-27409a0dd874
+[7/12] Scene 7 REUSED_ACTIVE: 37e0de48-28b6-4421-bc52-1fe266079e36
+[8/12] Scene 8 REUSED_ACTIVE: c82aae4e-c639-4476-87ed-391e39ecbd7a
+[9/12] Scene 9 REUSED_ACTIVE: 76645959-9fbb-4fbd-b6f4-670c6253f139
+[10/12] Scene 10 REUSED_ACTIVE: 592ed01a-352c-4cea-aed6-b1b6cb331588
+[11/12] Scene 11 REUSED_ACTIVE: db3268f6-b9ff-4fa7-ab24-20b9205e8adb
+[12/12] Scene 12 REUSED_ACTIVE: daca81a9-ec6e-4f02-a859-5603fba1cc07
+[1/12] Visual 04b1290d-3585-40b7-9299-4bb5b75705a9 is already approved; skipping review.
+[2/12] Visual 9d02600c-5eb6-4348-872b-f282b4ebfa51 is already approved; skipping review.
+[3/12] Visual 80f14f53-8582-4f6b-a571-90a7957b91bb is already approved; skipping review.
+[4/12] Visual 01501340-bbd5-4007-9a7a-c182c3c90d3b is already approved; skipping review.
+[5/12] Visual 7187c777-80cf-4021-839f-e71b09f00a4e is already approved; skipping review.
+[6/12] Visual 3e5b112b-bb43-4e93-8741-27409a0dd874 is already approved; skipping review.
+[7/12] Visual 37e0de48-28b6-4421-bc52-1fe266079e36 is already approved; skipping review.
+[8/12] Visual c82aae4e-c639-4476-87ed-391e39ecbd7a is already approved; skipping review.
+[9/12] Visual 76645959-9fbb-4fbd-b6f4-670c6253f139 is already approved; skipping review.
+[10/12] Visual 592ed01a-352c-4cea-aed6-b1b6cb331588 is already approved; skipping review.
+[11/12] Visual db3268f6-b9ff-4fa7-ab24-20b9205e8adb is already approved; skipping review.
+[12/12] Visual daca81a9-ec6e-4f02-a859-5603fba1cc07 is already approved; skipping review.
+Generating the 1080x1920 short production timeline...
+Registering the approved layered host, support character, and story effect...
+SKIPPED	The bundled technology cast does not match this project topic.
+Using topic-aware scene art without the incompatible technology cast.
+WARN	slow_visual_beats	Short-form scene 1 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 2 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 3 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 4 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 5 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 6 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 7 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 8 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 9 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 10 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 11 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 12 has a visual beat longer than 1.75 seconds.
+WARN	reference_profile_layer_gap	The timeline follows reference timing but has no executable character or icon layers; pose swaps and icon pops are not rendered yet.
+Review timeline 4058b0d4-7fa9-4a56-b286-5f6f1e5bf7a7
+  1. Approve
+  2. Reject
+approved
+Rendering the approved short timeline...
+OK
+Render URL: http://127.0.0.1:8000/renders/94da5225-cf9c-4825-af22-d476a7d5254f/preview
+Review render 94da5225-cf9c-4825-af22-d476a7d5254f
+  1. Approve
+  2. Reject
+approved
+Production complete. Render ID: 94da5225-cf9c-4825-af22-d476a7d5254f
+94da5225-cf9c-4825-af22-d476a7d5254f	v1	approved	projects/d811ca11-cc3e-40ff-96ff-6b149d8439d0/renders/production_v001.mp4	a0bf8f0db0652cfbc2e5f4e9b6bb4a36821d3bc592ca623901325ccf1c78e2c8
+[04.13.42] STAGE 6/9 - Generate and approve metadata
+4cc0edca-8687-4f8b-9b21-ebe36cc82a38
+[04.13.44] Generating video metadata completed in 2s.
+4cc0edca-8687-4f8b-9b21-ebe36cc82a38
+953249d6-dd4a-4ca2-b3a4-466d0df193fa	metadata	pending	4cc0edca-8687-4f8b-9b21-ebe36cc82a38
+approved
+[04.13.52] STAGE 7/9 - Generate and approve thumbnail concept
+f6d40fcd-e8e0-481a-bbf4-5c3833d318cb
+[04.13.54] Generating thumbnail concept completed in 2s.
+bd3ea54b-7d27-4455-9416-77fe205cfd3a
+bd3ea54b-7d27-4455-9416-77fe205cfd3a	thumbnail	pending	f6d40fcd-e8e0-481a-bbf4-5c3833d318cb
+approved
+[04.14.01] STAGE 8/9 - Generate, verify, and review thumbnail
+eb9675ce-acbf-4d99-9794-9b2342d3614b
+OK
+approved
+[04.14.08] STAGE 9/9 - Safety checks and publishing gate
+25
+0
+1
+1
+1
+1
+{'required': True, 'reasons': ['Generated script, metadata, or report versions are present.', 'Generated image, audio, or thumbnail assets are present.', 'Asset metadata indicates synthetic generation.'], 'suggested_text': 'This video includes AI-assisted scripting and synthetic/generated visuals or audio.'}
+NEEDS_REVIEW
+{
+  "schema_version": "1.0",
+  "project_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+  "render_id": "94da5225-cf9c-4825-af22-d476a7d5254f",
+  "metadata_version_id": "4cc0edca-8687-4f8b-9b21-ebe36cc82a38",
+  "thumbnail_asset_id": "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+  "gate": {
+    "schema_version": "1.0",
+    "project_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+    "render_id": "94da5225-cf9c-4825-af22-d476a7d5254f",
+    "metadata_version_id": "4cc0edca-8687-4f8b-9b21-ebe36cc82a38",
+    "thumbnail_asset_id": "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+    "status": "NEEDS_REVIEW",
+    "summary": "Publishing gate needs human review.",
+    "blocking_reasons": [],
+    "warnings": [
+      "Thumbnail requires AI disclosure.",
+      "AI disclosure is required.",
+      "Review required for asset 04b1290d-3585-40b7-9299-4bb5b75705a9.",
+      "Review required for asset b809d26f-e21d-4e37-b0bb-76597fa1b303.",
+      "Review required for asset 9d02600c-5eb6-4348-872b-f282b4ebfa51.",
+      "Review required for asset 23177f99-d370-4b0c-97dd-4bc071eada6a.",
+      "Review required for asset 80f14f53-8582-4f6b-a571-90a7957b91bb.",
+      "Review required for asset cb75419e-9eea-47e4-90e8-b314ad30f780.",
+      "Review required for asset 01501340-bbd5-4007-9a7a-c182c3c90d3b.",
+      "Review required for asset b5f4ea69-e0a4-4e36-9003-21f0627ec115.",
+      "Review required for asset 7187c777-80cf-4021-839f-e71b09f00a4e.",
+      "Review required for asset f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f.",
+      "Review required for asset 3e5b112b-bb43-4e93-8741-27409a0dd874.",
+      "Review required for asset f8cf7f53-cdc4-4919-9531-720196944006.",
+      "Review required for asset 37e0de48-28b6-4421-bc52-1fe266079e36.",
+      "Review required for asset b31d587c-798d-4e73-88bc-0ee5f0fc4192.",
+      "Review required for asset c82aae4e-c639-4476-87ed-391e39ecbd7a.",
+      "Review required for asset 2cd9bda6-a6f6-4733-ba7c-43ff769791d2.",
+      "Review required for asset 76645959-9fbb-4fbd-b6f4-670c6253f139.",
+      "Review required for asset f0975503-a666-4dd7-a3cf-34b1683c7111.",
+      "Review required for asset 592ed01a-352c-4cea-aed6-b1b6cb331588.",
+      "Review required for asset 8c2de968-8b52-4fc6-a259-127ccfbefc94.",
+      "Review required for asset db3268f6-b9ff-4fa7-ab24-20b9205e8adb.",
+      "Review required for asset 967c8312-df2f-44e9-bad5-7b11fc5a5635.",
+      "Review required for asset daca81a9-ec6e-4f02-a859-5603fba1cc07.",
+      "Review required for asset 2e647f15-4654-4182-8f80-6f4ba5fb0bf9."
+    ],
+    "ai_disclosure_required": true,
+    "ai_disclosure_reasons": [
+      "Generated script, metadata, or report versions are present.",
+      "Generated image, audio, or thumbnail assets are present.",
+      "Asset metadata indicates synthetic generation."
+    ],
+    "ai_disclosure_text": "This video includes AI-assisted scripting and synthetic/generated visuals or audio.",
+    "human_review_required": true,
+    "findings": [
+      {
+        "check_type": "script_safety",
+        "target_type": "content_version",
+        "target_id": "3f1b81a2-d76f-43e5-bffa-c094a01f7e95",
+        "status": "PASSED",
+        "severity": "INFO",
+        "message": "Script safety check passed.",
+        "evidence": [
+          "script:3f1b81a2-d76f-43e5-bffa-c094a01f7e95",
+          "hash:0a419df509d15a4c17ba0e434faf9528fbfcaf94649388d9b8d3227d3d72f294"
+        ],
+        "recommendation": null
+      },
+      {
+        "check_type": "metadata_safety",
+        "target_type": "content_version",
+        "target_id": "4cc0edca-8687-4f8b-9b21-ebe36cc82a38",
+        "status": "PASSED",
+        "severity": "INFO",
+        "message": "Metadata safety check passed.",
+        "evidence": [
+          "metadata:4cc0edca-8687-4f8b-9b21-ebe36cc82a38"
+        ],
+        "recommendation": null
+      },
+      {
+        "check_type": "thumbnail_safety",
+        "target_type": "asset",
+        "target_id": "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+        "status": "WARNING",
+        "severity": "LOW",
+        "message": "Thumbnail requires AI disclosure.",
+        "evidence": [
+          "thumbnail:eb9675ce-acbf-4d99-9794-9b2342d3614b",
+          "hash:ddc1607fe814333075e6e2c762507f1dcf4a3692c7f91f145a8c5bb94f5d03c2"
+        ],
+        "recommendation": "Fix the thumbnail file and review the displayed text before publishing."
+      },
+      {
+        "check_type": "reused_content",
+        "target_type": "project",
+        "target_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+        "status": "PASSED",
+        "severity": "INFO",
+        "message": "No strong reused-content risk detected.",
+        "evidence": [],
+        "recommendation": null
+      },
+      {
+        "check_type": "ai_disclosure",
+        "target_type": "project",
+        "target_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+        "status": "WARNING",
+        "severity": "MEDIUM",
+        "message": "AI disclosure is required.",
+        "evidence": [
+          "Generated script, metadata, or report versions are present.",
+          "Generated image, audio, or thumbnail assets are present.",
+          "Asset metadata indicates synthetic generation."
+        ],
+        "recommendation": "This video includes AI-assisted scripting and synthetic/generated visuals or audio."
+      }
+    ],
+    "rights_status_summary": {
+      "UNKNOWN": 24,
+      "SAFE": 1
+    },
+    "check_status_summary": {
+      "PASSED": 3,
+      "WARNING": 2
+    },
+    "next_action": "Review the safety findings.",
+    "rule_version": "safety-v1"
+  },
+  "findings": [
+    {
+      "check_type": "script_safety",
+      "target_type": "content_version",
+      "target_id": "3f1b81a2-d76f-43e5-bffa-c094a01f7e95",
+      "status": "PASSED",
+      "severity": "INFO",
+      "message": "Script safety check passed.",
+      "evidence": [
+        "script:3f1b81a2-d76f-43e5-bffa-c094a01f7e95",
+        "hash:0a419df509d15a4c17ba0e434faf9528fbfcaf94649388d9b8d3227d3d72f294"
+      ],
+      "recommendation": null
+    },
+    {
+      "check_type": "metadata_safety",
+      "target_type": "content_version",
+      "target_id": "4cc0edca-8687-4f8b-9b21-ebe36cc82a38",
+      "status": "PASSED",
+      "severity": "INFO",
+      "message": "Metadata safety check passed.",
+      "evidence": [
+        "metadata:4cc0edca-8687-4f8b-9b21-ebe36cc82a38"
+      ],
+      "recommendation": null
+    },
+    {
+      "check_type": "thumbnail_safety",
+      "target_type": "asset",
+      "target_id": "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+      "status": "WARNING",
+      "severity": "LOW",
+      "message": "Thumbnail requires AI disclosure.",
+      "evidence": [
+        "thumbnail:eb9675ce-acbf-4d99-9794-9b2342d3614b",
+        "hash:ddc1607fe814333075e6e2c762507f1dcf4a3692c7f91f145a8c5bb94f5d03c2"
+      ],
+      "recommendation": "Fix the thumbnail file and review the displayed text before publishing."
+    },
+    {
+      "check_type": "reused_content",
+      "target_type": "project",
+      "target_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+      "status": "PASSED",
+      "severity": "INFO",
+      "message": "No strong reused-content risk detected.",
+      "evidence": [],
+      "recommendation": null
+    },
+    {
+      "check_type": "ai_disclosure",
+      "target_type": "project",
+      "target_id": "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+      "status": "WARNING",
+      "severity": "MEDIUM",
+      "message": "AI disclosure is required.",
+      "evidence": [
+        "Generated script, metadata, or report versions are present.",
+        "Generated image, audio, or thumbnail assets are present.",
+        "Asset metadata indicates synthetic generation."
+      ],
+      "recommendation": "This video includes AI-assisted scripting and synthetic/generated visuals or audio."
+    }
+  ],
+  "rights_records": [
+    {
+      "asset_id": "04b1290d-3585-40b7-9299-4bb5b75705a9",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "b809d26f-e21d-4e37-b0bb-76597fa1b303",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "9d02600c-5eb6-4348-872b-f282b4ebfa51",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "23177f99-d370-4b0c-97dd-4bc071eada6a",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "80f14f53-8582-4f6b-a571-90a7957b91bb",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "cb75419e-9eea-47e4-90e8-b314ad30f780",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "01501340-bbd5-4007-9a7a-c182c3c90d3b",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "b5f4ea69-e0a4-4e36-9003-21f0627ec115",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "7187c777-80cf-4021-839f-e71b09f00a4e",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "3e5b112b-bb43-4e93-8741-27409a0dd874",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "f8cf7f53-cdc4-4919-9531-720196944006",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "37e0de48-28b6-4421-bc52-1fe266079e36",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "b31d587c-798d-4e73-88bc-0ee5f0fc4192",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "c82aae4e-c639-4476-87ed-391e39ecbd7a",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "2cd9bda6-a6f6-4733-ba7c-43ff769791d2",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "76645959-9fbb-4fbd-b6f4-670c6253f139",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "f0975503-a666-4dd7-a3cf-34b1683c7111",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "592ed01a-352c-4cea-aed6-b1b6cb331588",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "8c2de968-8b52-4fc6-a259-127ccfbefc94",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "db3268f6-b9ff-4fa7-ab24-20b9205e8adb",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "967c8312-df2f-44e9-bad5-7b11fc5a5635",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "daca81a9-ec6e-4f02-a859-5603fba1cc07",
+      "source_type": "scene_visual",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "2e647f15-4654-4182-8f80-6f4ba5fb0bf9",
+      "source_type": "scene_narration",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "UNKNOWN",
+      "attribution_text": null,
+      "review_notes": null
+    },
+    {
+      "asset_id": "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+      "source_type": "synthetic_provider",
+      "source_url": null,
+      "license_name": null,
+      "license_url": null,
+      "rights_status": "SAFE",
+      "attribution_text": "AI-generated asset created with a local rules-based provider.",
+      "review_notes": "Synthetic asset requires AI disclosure."
+    }
+  ],
+  "ai_disclosure_required": true,
+  "ai_disclosure_reasons": [
+    "Generated script, metadata, or report versions are present.",
+    "Generated image, audio, or thumbnail assets are present.",
+    "Asset metadata indicates synthetic generation."
+  ],
+  "ai_disclosure_text": "This video includes AI-assisted scripting and synthetic/generated visuals or audio.",
+  "blocking_reasons": [],
+  "warnings": [
+    "Thumbnail requires AI disclosure.",
+    "AI disclosure is required.",
+    "Review required for asset 04b1290d-3585-40b7-9299-4bb5b75705a9.",
+    "Review required for asset b809d26f-e21d-4e37-b0bb-76597fa1b303.",
+    "Review required for asset 9d02600c-5eb6-4348-872b-f282b4ebfa51.",
+    "Review required for asset 23177f99-d370-4b0c-97dd-4bc071eada6a.",
+    "Review required for asset 80f14f53-8582-4f6b-a571-90a7957b91bb.",
+    "Review required for asset cb75419e-9eea-47e4-90e8-b314ad30f780.",
+    "Review required for asset 01501340-bbd5-4007-9a7a-c182c3c90d3b.",
+    "Review required for asset b5f4ea69-e0a4-4e36-9003-21f0627ec115.",
+    "Review required for asset 7187c777-80cf-4021-839f-e71b09f00a4e.",
+    "Review required for asset f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f.",
+    "Review required for asset 3e5b112b-bb43-4e93-8741-27409a0dd874.",
+    "Review required for asset f8cf7f53-cdc4-4919-9531-720196944006.",
+    "Review required for asset 37e0de48-28b6-4421-bc52-1fe266079e36.",
+    "Review required for asset b31d587c-798d-4e73-88bc-0ee5f0fc4192.",
+    "Review required for asset c82aae4e-c639-4476-87ed-391e39ecbd7a.",
+    "Review required for asset 2cd9bda6-a6f6-4733-ba7c-43ff769791d2.",
+    "Review required for asset 76645959-9fbb-4fbd-b6f4-670c6253f139.",
+    "Review required for asset f0975503-a666-4dd7-a3cf-34b1683c7111.",
+    "Review required for asset 592ed01a-352c-4cea-aed6-b1b6cb331588.",
+    "Review required for asset 8c2de968-8b52-4fc6-a259-127ccfbefc94.",
+    "Review required for asset db3268f6-b9ff-4fa7-ab24-20b9205e8adb.",
+    "Review required for asset 967c8312-df2f-44e9-bad5-7b11fc5a5635.",
+    "Review required for asset daca81a9-ec6e-4f02-a859-5603fba1cc07.",
+    "Review required for asset 2e647f15-4654-4182-8f80-6f4ba5fb0bf9."
+  ],
+  "rule_version": "safety-v1"
+}

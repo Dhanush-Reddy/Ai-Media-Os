@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2440813,
+    "content_hash": "ac27da25a16ac63ad10b8d559656975de71f0501c81bcf5cbd529da163fa11cf",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Clear visual representation of four pillars supporting a workflow",
+      "Professional cinematic style with clean lines and precise details",
+      "Observability signals (orange accents, circular indicators) are visible and relevant to the theme",
+      "No text or logos present as required"
+    ],
+    "issues": [],
+    "recommendation": "This image meets all requirements for a vertical short video. It effectively communicates the concept of 'BUILD FOR VISIBILITY' with strong visual clarity and no artifacts."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "8071e1fcf80fb53b42b2f4796817d8209543a8806e1ab32acf3e1062a92c49c2"
+}

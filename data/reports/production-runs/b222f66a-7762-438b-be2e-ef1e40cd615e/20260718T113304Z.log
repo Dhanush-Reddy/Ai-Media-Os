@@ -1,0 +1,101 @@
+[17.03.08] Run ID: 20260718T113304Z
+[17.03.08] Project: b222f66a-7762-438b-be2e-ef1e40cd615e
+[17.03.08] Generation seed: 1784374388
+[17.03.08] STAGE 1/10 - Provider health checks
+[17.03.08] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[17.03.36] STAGE 2/10 - Plan scene assets
+14
+[17.03.38] STAGE 3/10 - Reuse existing Chatterbox narration
+02b2c4a6-a9dc-4d93-8997-7f4f03e806bf	2	scene_narration	approved	approved
+034d949f-5345-4b9f-92e4-5f273d68a27e	1	scene_narration	approved	approved
+252bc65d-2854-4ec0-b8e0-42dc82f60c2b	1	scene_visual	rejected	rejected
+4bc53f12-844e-4fa7-b888-fea209ec522d	5	scene_narration	approved	approved
+66708b2a-1478-4b74-9a6b-a0bda9da77f2	3	scene_visual	generated	pending_review
+67f414a5-2ba1-4e1f-9644-88284f9be87a	3	scene_narration	approved	approved
+95f15a2e-7aef-46f9-909a-00e594a35e01	6	scene_visual	generated	pending_review
+b86d38ba-d660-4515-a786-994dcdb37d12	6	scene_narration	approved	approved
+c0f52741-93e7-4036-a756-45183a65c748	2	scene_visual	generated	pending_review
+c7939bed-eec3-462b-b6b9-468b9c4ce807	4	scene_narration	approved	approved
+d01c91d5-b4b7-450d-a5bf-3c764eab9a86	4	scene_visual	generated	pending_review
+df79bc37-08bc-48ca-a925-82805f7f9a0d	5	scene_visual	generated	pending_review
+f7a1ac90-080d-4a2a-b65a-56cc60abd29c	7	scene_narration	approved	approved
+f7ce2306-c72d-4c71-939b-6f612582839e	7	scene_visual	generated	pending_review
+[17.03.40] Reusing 7 existing narration assets.
+[17.03.40] STAGE 4/10 - Verify and review narration
+OK
+[17.03.42] Narration 034d949f-5345-4b9f-92e4-5f273d68a27e is already approved; skipping review.
+OK
+[17.03.44] Narration 02b2c4a6-a9dc-4d93-8997-7f4f03e806bf is already approved; skipping review.
+OK
+[17.03.47] Narration 67f414a5-2ba1-4e1f-9644-88284f9be87a is already approved; skipping review.
+OK
+[17.03.49] Narration c7939bed-eec3-462b-b6b9-468b9c4ce807 is already approved; skipping review.
+OK
+[17.03.51] Narration 4bc53f12-844e-4fa7-b888-fea209ec522d is already approved; skipping review.
+OK
+[17.03.54] Narration b86d38ba-d660-4515-a786-994dcdb37d12 is already approved; skipping review.
+OK
+[17.03.56] Narration f7a1ac90-080d-4a2a-b65a-56cc60abd29c is already approved; skipping review.
+[17.03.56] STAGE 5/10 - WhisperX narration alignment
+c506d666-5cdb-4095-8e38-ffdd1de3a083	pass	auto_usable=true
+[17.04.08] Aligning narration 1 of 7 completed in 12s.
+d8bb4c5b-26e7-462c-bef6-c748af77c639	pass	auto_usable=true
+[17.04.21] Aligning narration 2 of 7 completed in 13s.
+c21c9388-13cb-49d2-b4c4-3aee4a726fc0	pass	auto_usable=true
+[17.04.33] Aligning narration 3 of 7 completed in 13s.
+ba5684a7-d2c6-4725-8c86-df226f6cac8e	pass	auto_usable=true
+[17.04.45] Aligning narration 4 of 7 completed in 11s.
+03c28920-cafc-4d4a-acf2-3e61623784f5	pass	auto_usable=true
+[17.04.55] Aligning narration 5 of 7 completed in 10s.
+6e5213eb-5b09-47cd-bcd5-06e0a5884857	pass	auto_usable=true
+[17.05.08] Aligning narration 6 of 7 completed in 13s.
+776a2d20-7442-40ee-9c5a-4bb445a9bbd0	pass	auto_usable=true
+[17.05.18] Aligning narration 7 of 7 completed in 10s.
+[17.05.18] STAGE 6/10 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Matching verified assets are reused; only missing or changed scenes are generated.
+[1/7] Scene 1 GENERATED: d32ad41f-47a8-4122-bacc-1321e65ba079
+[2/7] Scene 2 REUSED_ACTIVE: c0f52741-93e7-4036-a756-45183a65c748
+[3/7] Scene 3 REUSED_ACTIVE: 66708b2a-1478-4b74-9a6b-a0bda9da77f2
+[4/7] Scene 4 REUSED_ACTIVE: d01c91d5-b4b7-450d-a5bf-3c764eab9a86
+[5/7] Scene 5 REUSED_ACTIVE: df79bc37-08bc-48ca-a925-82805f7f9a0d
+[6/7] Scene 6 REUSED_ACTIVE: 95f15a2e-7aef-46f9-909a-00e594a35e01
+[7/7] Scene 7 REUSED_ACTIVE: f7ce2306-c72d-4c71-939b-6f612582839e
+Ollama evaluation skipped for visual d32ad41f-47a8-4122-bacc-1321e65ba079. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/d32ad41f-47a8-4122-bacc-1321e65ba079/preview
+Review visual d32ad41f-47a8-4122-bacc-1321e65ba079
+  1. Approve
+  2. Reject
+rejected
+Regenerating only this scene from feedback with seed 1784384388...
+Created revised visual: b9fcf16d-f797-4eb3-8dd3-287a2094556b
+Ollama evaluation skipped for visual b9fcf16d-f797-4eb3-8dd3-287a2094556b. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/b9fcf16d-f797-4eb3-8dd3-287a2094556b/preview
+Review visual b9fcf16d-f797-4eb3-8dd3-287a2094556b
+  1. Approve
+  2. Reject
+Enter 1 or 2.
+rejected
+Regenerating only this scene from feedback with seed 1784394388...
+Created revised visual: 0896dcf5-db5a-4c86-9af7-3b04994d5847
+Ollama evaluation skipped for visual 0896dcf5-db5a-4c86-9af7-3b04994d5847. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/0896dcf5-db5a-4c86-9af7-3b04994d5847/preview
+Review visual 0896dcf5-db5a-4c86-9af7-3b04994d5847
+  1. Approve
+  2. Reject
+usage: ai-media-os [-h]
+                   {create-channel,list-channels,create-project,list-projects,create-job,list-jobs,run-worker,recover-stale-jobs,cancel-job,pause-job,resume-job,create-content-version,list-content-versions,request-approval,list-approvals,review-approval,approve,reject,request-changes,create-prompt-version,activate-prompt,cache-put-text,cache-get,cache-verify,cache-invalidate,import-source,list-sources,review-source,add-research-note,list-research-notes,create-claim,link-claim-source,verify-claim,generate-research-brief,generate-source-report,evaluate-research,generate-script,generate-fact-check,evaluate-script,generate-scene-plan,import-scene-plan,list-scenes,plan-scene-assets,generate-scene-image,regenerate-image-revision,generate-project-images,check-image-provider,import-scene-image,generate-scene-voice,generate-scene-narration,generate-project-narration,check-voice-provider,check-alignment-provider,align-narration,show-narration-alignment,list-narration-alignments,list-narration-assets,verify-audio-asset,preview-narration,import-scene-audio,list-assets,review-asset,record-asset-provenance,verify-asset-file,plan-render,compose-video,verify-render,list-renders,review-render,generate-timeline,show-timeline,validate-timeline,approve-timeline,render-timeline,export-timeline-subtitles,list-scene-templates,list-motion-presets,list-transition-presets,generate-metadata,import-metadata,revise-metadata,list-metadata,review-metadata,generate-thumbnail-concept,generate-thumbnail,import-thumbnail,list-thumbnails,review-thumbnail,check-asset-rights,check-claims,check-script-safety,check-metadata-safety,check-thumbnail-safety,check-reused-content,decide-ai-disclosure,run-publishing-gate,show-safety-report,list-safety-findings,summarize-safety-report,verify-thumbnail-file,check-llm-provider,test-llm-generate,check-image-evaluator,evaluate-image,dashboard}
+                   ...
+ai-media-os: error: unrecognized arguments: i want something that looks like this
+AI Media OS command failed (2): review-asset 0896dcf5-db5a-4c86-9af7-3b04994d5847 --status rejected --feedback use this image as refernce 
+""C:\Users\gspra\Downloads\ai_media_os_12f2fa3f-1cb_00001_.png" i want something that looks like this
+At C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\scripts\run-short-production.ps1:60 char:9
++         throw "AI Media OS command failed ($LASTEXITCODE): $($Argumen ...
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (AI Media OS com...looks like this:String) [], RuntimeException
+    + FullyQualifiedErrorId : AI Media OS command failed (2): review-asset 0896dcf5-db5a-4c86-9af7-3b04994d5847 --status rejected --feedback use 
+    this image as refernce ""C:\Users\gspra\Downloads\ai_media_os_12f2fa3f-1cb_00001_.png" i want something that looks like this
+ 

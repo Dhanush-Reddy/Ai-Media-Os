@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2573724,
+    "content_hash": "f6c7900de451e0ad2753e2f265243638ffe5e2a1ee9c02becdf989eb883e42b7",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 92,
+    "perceived_sharpness_score": 98,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Glossy trophy with clear reflection",
+      "Cinematic lighting highlights the trophy's texture",
+      "Empty testing dashboard emphasizes 'FAILURE 3' concept",
+      "Warning barrier adds context to software testing failure"
+    ],
+    "issues": [
+      "No visible text on trophy or dashboard (as per prompt)",
+      "Minimalist background avoids distractions"
+    ],
+    "recommendation": "Use as-is for vertical short video; focus on trophy and dashboard interaction"
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "12d6bce94eeb14cb05218ff5dfd203095b08467a304a49b2b16f5bd7672560ba"
+}

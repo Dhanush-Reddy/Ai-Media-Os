@@ -1,0 +1,28 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T101830Z",
+    "project_id":  "f386e988-a200-49d5-b73e-83b33d95001b",
+    "new_project":  true,
+    "working_title":  "Why Ai Fail",
+    "seed":  1784369912,
+    "started_at_utc":  "2026-07-18T10:18:32.8023737Z",
+    "completed_at_utc":  "2026-07-18T10:18:53.2054367Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\f386e988-a200-49d5-b73e-83b33d95001b\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  "Stream was not readable."
+}

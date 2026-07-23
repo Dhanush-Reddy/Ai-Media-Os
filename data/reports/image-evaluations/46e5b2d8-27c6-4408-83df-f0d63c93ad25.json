@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2886989,
+    "content_hash": "1a1d8a250db8a252e8810f80f788f106d56a0e5ed15a5cf48eafe8e596e09d58",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 85,
+    "composition_score": 92,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Highly detailed mechanical illustration with clear focus on engineering components",
+      "Balanced composition with symmetrical elements and clean margins",
+      "Sharp rendering of gears, cylinders, and metallic textures"
+    ],
+    "issues": [],
+    "recommendation": "Use as-is for vertical short video; maintains editorial tone without distracting elements"
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "d19c008a0658f80fc38930ced705d3692356c79d975a2f576c25be6912e0bb24"
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 1949125,
+    "content_hash": "3f0704b5ec8d7dba391fcdbe049e4721015017fa8d72661a60c8543f8eb185e5",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 85,
+    "composition_score": 92,
+    "perceived_sharpness_score": 95,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Neutral research desk setting with clear focus on source documents",
+      "Professional lighting and clean composition",
+      "No company logos or distracting elements"
+    ],
+    "issues": [
+      "Character consistency not evaluated as per instructions",
+      "Generic engineering documents lack specific details for verification marks"
+    ],
+    "recommendation": "Focus on maintaining neutral research environment without character inconsistencies; ensure document details align with official engineering materials."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "570720d81d5f40bb668c7e62fed3b93fc5e5b82a5db8295d5ef4fa0f4dceaf78"
+}

@@ -1,99 +1,37 @@
 {% extends "base.html" %}
-{% block title %}Assets · {{ project.working_title }} · AI Media OS{% endblock %}
+{% block title %}Scene media | {{ project.working_title }} | AI Media OS{% endblock %}
 {% block content %}
-  <section class="section-head">
-    <div>
-      <h1>Assets</h1>
-      <p>{{ project.working_title }}</p>
-    </div>
-    <div class="actions">
-      <a class="button" href="/projects/{{ project.id }}">Project</a>
-      <a class="button" href="/projects/{{ project.id }}/scenes">Scenes</a>
-      <a class="button" href="/projects/{{ project.id }}/renders">Renders</a>
-    </div>
-  </section>
-
+  <a class="breadcrumb" href="/projects/{{ project.id }}">Project overview</a>
+  <section class="section-head"><div><p class="eyebrow">Step 4 of 9</p><h1>Review images and narration</h1><p>Look at every image and listen to every narration. Approve only media you would use in the final video.</p></div></section>
+  {% include "dashboard/fragments/project_nav.html" %}
   <section class="metrics">
-    <article class="metric"><span>Visuals</span><strong>{{ assets.visual_count }}</strong></article>
-    <article class="metric"><span>Narration</span><strong>{{ assets.narration_count }}</strong></article>
-    <article class="metric warning"><span>Pending Review</span><strong>{{ assets.pending_review_count }}</strong></article>
-    <article class="metric error"><span>Missing Files</span><strong>{{ assets.missing_count }}</strong></article>
+    <article class="metric"><span>Images</span><strong>{{ assets.visual_count }}</strong></article><article class="metric"><span>Narrations</span><strong>{{ assets.narration_count }}</strong></article>
+    <article class="metric warning"><span>Need your review</span><strong>{{ assets.pending_review_count }}</strong></article><article class="metric error"><span>Missing files</span><strong>{{ assets.missing_count }}</strong></article>
   </section>
-
-  <section class="panel">
-    <h2>Scene Assets</h2>
-    {% if assets.assets %}
-      <table>
-        <thead>
-          <tr>
-            <th>Scene</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Media</th>
-            <th>Provider</th>
-            <th>Review</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for asset in assets.assets %}
-            <tr>
-              <td>{{ asset.scene_number or "" }}</td>
-              <td>{{ asset.asset_role }}<br><span class="muted">{{ asset.asset_type }}</span></td>
-              <td>
-                {{ asset.generation_status }}<br>
-                {% if asset.file_warning %}<span class="badge warning">{{ asset.file_warning }}</span>{% endif %}
-              </td>
-              <td>
-                {% if asset.preview_url %}
-                  {% if asset.asset_type == "Audio" %}
-                    <audio controls preload="none" src="{{ asset.preview_url }}"></audio>
-                  {% else %}
-                    <img class="asset-preview" src="{{ asset.preview_url }}" alt="Scene {{ asset.scene_number }} visual preview">
-                  {% endif %}
-                {% endif %}
-                {% if asset.duration_seconds %}
-                  <p>{{ "%.2f"|format(asset.duration_seconds) }} seconds · {{ asset.mime_type or "" }}</p>
-                {% endif %}
-                {% if asset.width and asset.height %}
-                  <p>{{ asset.width }}×{{ asset.height }}</p>
-                {% endif %}
-                {% if asset.content_hash %}
-                  <code>{{ asset.content_hash[:12] }}</code>
-                {% endif %}
-              </td>
-              <td>
-                {% if asset.workflow_version %}<span class="muted">Workflow {{ asset.workflow_version }}</span><br>{% endif %}
-                <span class="muted">{{ asset.verification_status }}</span><br>
-                {% if asset.generation_error %}<span class="badge error">{{ asset.generation_error }}</span><br>{% endif %}
-                {{ asset.provider or "Not generated" }}<br>
-                {% if asset.voice_name %}<span class="muted">Voice {{ asset.voice_name }} / {{ asset.language or "" }}</span><br>{% endif %}
-                {% if asset.sample_rate %}<span class="muted">{{ asset.sample_rate }} Hz{% if asset.loudness_dbfs is not none %} / {{ asset.loudness_dbfs }} dBFS RMS{% endif %}</span><br>{% endif %}
-                {% if asset.effective_text %}<p>{{ asset.effective_text }}</p>{% endif %}
-                {% for warning in asset.quality_warnings %}<span class="badge warning">{{ warning }}</span>{% endfor %}
-                <span class="muted">{{ asset.model or "" }}{% if asset.seed is not none %} · seed {{ asset.seed }}{% endif %}</span>
-              </td>
-              <td>
-                <strong>{{ asset.review_status }}</strong>
-                <p>{{ asset.next_action }}</p>
-                <form method="post" action="/assets/{{ asset.id }}/approve">
-                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
-                  <button type="submit">Approve</button>
-                </form>
-                <form method="post" action="/assets/{{ asset.id }}/request-changes">
-                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
-                  <button type="submit">Request Changes</button>
-                </form>
-                <form method="post" action="/assets/{{ asset.id }}/reject">
-                  <input type="hidden" name="csrf" value="{{ csrf_token }}">
-                  <button class="danger" type="submit">Reject</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="empty">No assets have been planned yet.</p>
-    {% endif %}
-  </section>
+  {% if assets.pending_review_count %}<section class="next-step compact"><div><p class="eyebrow">Do this now</p><h2>Review {{ assets.pending_review_count }} media files</h2><p>Check visual quality, narration wording, pronunciation, pacing, and emotional tone.</p></div></section>{% endif %}
+  {% if assets.assets %}
+    <section class="asset-list" aria-label="Scene media">
+      {% for asset in assets.assets %}
+        <article class="asset-card">
+          <header><div><p class="eyebrow">Scene {{ asset.scene_number or "Project" }}</p><h2>{{ asset.asset_role }}</h2></div><span class="badge {{ 'success' if asset.review_status == 'Approved' else 'warning' }}">{{ asset.review_status }}</span></header>
+          <div class="asset-media">
+            {% if asset.preview_url %}{% if asset.asset_type == "Audio" %}<audio controls preload="none" src="{{ asset.preview_url }}"></audio>{% else %}<img class="asset-preview" src="{{ asset.preview_url }}" alt="Scene {{ asset.scene_number }} visual preview">{% endif %}{% else %}<p class="empty">Preview unavailable</p>{% endif %}
+          </div>
+          <div class="asset-info">
+            {% if asset.effective_text %}<div><h3>Narration text</h3><p>{{ asset.effective_text }}</p></div>{% endif %}
+            {% if asset.file_warning %}<p class="notice warning">{{ asset.file_warning }}</p>{% endif %}
+            {% for warning in asset.quality_warnings %}<p class="notice warning">{{ warning }}</p>{% endfor %}
+            <p class="muted">{{ asset.duration_seconds|round(2) if asset.duration_seconds else "" }}{% if asset.duration_seconds %} seconds | {% endif %}{{ asset.width ~ " x " ~ asset.height if asset.width and asset.height else asset.mime_type or "" }}</p>
+            <details><summary>Technical details</summary><dl class="summary-list"><div><dt>Provider</dt><dd>{{ asset.provider or "Not generated" }}</dd></div><div><dt>Model</dt><dd>{{ asset.model or "Not recorded" }}</dd></div><div><dt>File verification</dt><dd>{{ asset.verification_status }}</dd></div><div><dt>Hash</dt><dd><code>{{ asset.content_hash[:12] if asset.content_hash else "Missing" }}</code></dd></div>{% if asset.sample_rate %}<div><dt>Audio quality</dt><dd>{{ asset.sample_rate }} Hz{% if asset.loudness_dbfs is not none %} | {{ asset.loudness_dbfs }} dBFS RMS{% endif %}</dd></div>{% endif %}</dl></details>
+          </div>
+          <div class="review-actions">
+            {% if asset.review_status != "Approved" %}
+              <form method="post" action="/assets/{{ asset.id }}/approve"><input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="primary" type="submit">Approve</button></form>
+              <details><summary>Needs changes or should not be used?</summary><div class="actions"><form method="post" action="/assets/{{ asset.id }}/request-changes"><input type="hidden" name="csrf" value="{{ csrf_token }}"><button type="submit">Request changes</button></form><form method="post" action="/assets/{{ asset.id }}/reject" data-confirm="Reject this media file?"><input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="danger" type="submit">Reject</button></form></div></details>
+            {% else %}<p class="approved-message">Approved for this project</p>{% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}<p class="empty empty-state">No scene media has been generated yet.</p>{% endif %}
 {% endblock %}

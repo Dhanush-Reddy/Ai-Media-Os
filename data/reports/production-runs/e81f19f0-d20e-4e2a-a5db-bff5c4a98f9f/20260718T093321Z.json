@@ -1,0 +1,23 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T093321Z",
+    "project_id":  "e81f19f0-d20e-4e2a-a5db-bff5c4a98f9f",
+    "seed":  1784367201,
+    "started_at_utc":  "2026-07-18T09:33:21.8445190Z",
+    "completed_at_utc":  "2026-07-18T09:34:13.9616175Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  39568,
+    "error":  "AI Media OS command failed (1): check-alignment-provider --provider whisperx"
+}

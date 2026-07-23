@@ -1,0 +1,40 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T223231Z",
+    "project_id":  "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+    "new_project":  false,
+    "working_title":  null,
+    "seed":  1784413951,
+    "started_at_utc":  "2026-07-18T22:32:31.7052242Z",
+    "completed_at_utc":  "2026-07-18T22:44:26.9352842Z",
+    "status":  "completed",
+    "narration_asset_ids":  [
+                                "b809d26f-e21d-4e37-b0bb-76597fa1b303",
+                                "23177f99-d370-4b0c-97dd-4bc071eada6a",
+                                "cb75419e-9eea-47e4-90e8-b314ad30f780",
+                                "b5f4ea69-e0a4-4e36-9003-21f0627ec115",
+                                "f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f",
+                                "f8cf7f53-cdc4-4919-9531-720196944006",
+                                "b31d587c-798d-4e73-88bc-0ee5f0fc4192",
+                                "2cd9bda6-a6f6-4733-ba7c-43ff769791d2",
+                                "f0975503-a666-4dd7-a3cf-34b1683c7111",
+                                "8c2de968-8b52-4fc6-a259-127ccfbefc94",
+                                "967c8312-df2f-44e9-bad5-7b11fc5a5635",
+                                "2e647f15-4654-4182-8f80-6f4ba5fb0bf9"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  "94da5225-cf9c-4825-af22-d476a7d5254f",
+    "metadata_version_id":  "4cc0edca-8687-4f8b-9b21-ebe36cc82a38",
+    "thumbnail_concept_version_id":  "f6d40fcd-e8e0-481a-bbf4-5c3833d318cb",
+    "thumbnail_asset_id":  "eb9675ce-acbf-4d99-9794-9b2342d3614b",
+    "publishing_gate_status":  "NEEDS_REVIEW",
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\d811ca11-cc3e-40ff-96ff-6b149d8439d0\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  null
+}

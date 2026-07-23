@@ -1,0 +1,14 @@
+[03.02.35] Run ID: 20260718T213235Z
+[03.02.35] Project: d811ca11-cc3e-40ff-96ff-6b149d8439d0
+[03.02.35] Generation seed: 1784410355
+[03.02.35] STAGE 1/9 - Provider health checks
+[03.02.35] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	comfyui	ComfyUI is ready.
+fa936450-0e75-4235-998f-d6c6fbfc7dea	v1	pending_approval
+[03.03.09] STAGE 2/9 - Review the pending scene plan
+d52baa99-ec7f-4fd2-b8ce-5c594e45ab6f	scene_plan	pending	fa936450-0e75-4235-998f-d6c6fbfc7dea
+approved
+[03.03.14] STAGE 3/9 - Plan scene assets
+24
+[03.03.16] STAGE 4/9 - Generate Chatterbox narration revisions

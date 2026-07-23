@@ -1,0 +1,35 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T173511Z",
+    "project_id":  "427a25d0-c6bd-4beb-bcdb-209bf7ae9c11",
+    "new_project":  true,
+    "working_title":  "Ai data center",
+    "seed":  1784396114,
+    "started_at_utc":  "2026-07-18T17:35:14.5055359Z",
+    "completed_at_utc":  "2026-07-18T18:34:57.6882105Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+                                "571c61bf-c162-463b-8195-43bfb6fa240c",
+                                "4736eb46-34c7-4070-baf4-7dccfaf8f84a",
+                                "9177d330-abd5-483b-99be-7d3fa72e4f29",
+                                "a4afc7e3-01b6-43b9-8957-6e678634bc96",
+                                "a47e3d3c-50c7-40e1-ad2f-072840239533",
+                                "7772d5c5-e67c-4500-a3ef-167e49291e4d",
+                                "b693c0c5-2c7b-4849-ba4f-06fe3fd8b49d"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  22700,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\427a25d0-c6bd-4beb-bcdb-209bf7ae9c11\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  "Short image/timeline/render runner failed (1)."
+}

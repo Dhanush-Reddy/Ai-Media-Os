@@ -21,7 +21,13 @@ from ai_media_os.domain.enums import (
     VersionStatus,
     VisualType,
 )
-from ai_media_os.infrastructure.database.models import Approval, Claim, ContentVersion, Scene
+from ai_media_os.infrastructure.database.models import (
+    Approval,
+    Claim,
+    ContentVersion,
+    Scene,
+    VideoProject,
+)
 from ai_media_os.providers.text_generation import (
     LocalRuleBasedTextProvider,
     TextGenerationProvider,
@@ -206,11 +212,23 @@ class ScenePlanService:
         ]
         if not paragraphs:
             raise ScenePlanningError("Script has no plannable narration blocks.")
-        selected = paragraphs[:12]
-        duration = max(6.0, min(40.0, 480.0 / len(selected)))
+        selected = [
+            segment
+            for paragraph in paragraphs
+            for segment in _split_visual_narration_segments(paragraph)
+        ][:16]
+        project = self.session.get(VideoProject, video_project_id)
+        project_context = (
+            f"{project.topic} {project.working_title}" if project is not None else "editorial"
+        )
         scenes: list[ScenePlanItem] = []
         start = 0.0
         for index, paragraph in enumerate(selected, start=1):
+            duration = round(
+                max(2.5, min(7.0, len(paragraph.split()) / 2.65 + 0.35)),
+                2,
+            )
+            scene_start = round(start, 2)
             visual_type = self._visual_type_for(paragraph, index)
             claim_ids = [
                 claim.id for claim in claims if _shares_keyword(paragraph, claim.claim_text)
@@ -218,13 +236,13 @@ class ScenePlanService:
             scenes.append(
                 ScenePlanItem(
                     scene_number=index,
-                    start_seconds=round(start, 2),
-                    duration_seconds=round(duration, 2),
+                    start_seconds=scene_start,
+                    duration_seconds=duration,
                     narration=paragraph,
                     visual_type=visual_type,
                     visual_description=self._visual_description(paragraph, visual_type),
                     image_prompt=(
-                        self._image_prompt(paragraph)
+                        self._image_prompt(paragraph, project_context)
                         if visual_type in {VisualType.GENERATED_IMAGE, VisualType.DIAGRAM}
                         else None
                     ),
@@ -236,7 +254,7 @@ class ScenePlanService:
                     source_claim_ids=claim_ids,
                 )
             )
-            start += duration
+            start = round(scene_start + duration, 2)
         return ScenePlanDocument(
             video_project_id=video_project_id,
             script_content_version_id=script.id,
@@ -360,11 +378,12 @@ class ScenePlanService:
         summary = paragraph.replace("\n", " ")[:180]
         return f"{visual_type.value.replace('_', ' ')} visual for: {summary}"
 
-    def _image_prompt(self, paragraph: str) -> str:
+    def _image_prompt(self, paragraph: str, project_context: str) -> str:
         clean = paragraph.replace("\n", " ")[:240]
         return (
-            "Original editorial illustration for an AI & Future YouTube video, "
-            f"high clarity, no brands, no copyrighted characters, concept: {clean}"
+            f"Original editorial illustration for a video about {project_context}, "
+            f"high clarity, one clear visual idea, no brands, no copyrighted characters, "
+            f"concept: {clean}"
         )
 
 
@@ -377,3 +396,22 @@ def _shares_keyword(left: str, right: str) -> bool:
     left_tokens = {token for token in re.findall(r"[A-Za-z0-9]+", left.lower()) if len(token) > 4}
     right_tokens = {token for token in re.findall(r"[A-Za-z0-9]+", right.lower()) if len(token) > 4}
     return bool(left_tokens & right_tokens)
+
+
+def _split_visual_narration_segments(paragraph: str) -> list[str]:
+    """Split prose into short units that each justify a distinct visual."""
+    sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+", paragraph.strip())
+        if sentence.strip()
+    ]
+    segments: list[str] = []
+    for sentence in sentences:
+        if len(sentence.split()) <= 20:
+            segments.append(sentence)
+            continue
+        clauses = [
+            clause.strip() for clause in re.split(r"(?<=[,;:])\s+", sentence) if clause.strip()
+        ]
+        segments.extend(clauses if len(clauses) > 1 else [sentence])
+    return segments

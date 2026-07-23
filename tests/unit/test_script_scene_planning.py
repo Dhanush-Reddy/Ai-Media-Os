@@ -10,13 +10,18 @@ from sqlalchemy.orm import Session, sessionmaker
 from ai_media_os.application.approvals import ApprovalService
 from ai_media_os.application.job_queue import QueueService
 from ai_media_os.application.research import ClaimService, SourceService
-from ai_media_os.application.scenes import ScenePlanningError, ScenePlanService
+from ai_media_os.application.scenes import (
+    ScenePlanningError,
+    ScenePlanService,
+    _split_visual_narration_segments,
+)
 from ai_media_os.application.scripts import ScriptGenerationService, ScriptPlanningError
 from ai_media_os.domain.enums import (
     ApprovalStatus,
     ApprovalType,
     ClaimImportance,
     ClaimSupportType,
+    ContentFormat,
     ContentType,
     JobStatus,
     SourceStatus,
@@ -391,3 +396,40 @@ def test_script_scene_worker_handlers(
     scene_version = session.get(ContentVersion, scene_job.result["content_version_id"])
     assert scene_version is not None
     assert scene_version.content_type == ContentType.SCENE_PLAN
+
+
+def test_visual_narration_segments_create_distinct_short_shots() -> None:
+    segments = _split_visual_narration_segments(
+        "Coolant can be full, but it still needs to circulate. "
+        "A blocked radiator traps heat inside the engine."
+    )
+
+    assert segments == [
+        "Coolant can be full, but it still needs to circulate.",
+        "A blocked radiator traps heat inside the engine.",
+    ]
+
+
+def test_rule_based_scene_timing_has_no_rounding_overlap(session: Session, project_id: str) -> None:
+    script = ContentVersion(
+        video_project_id=project_id,
+        content_type=ContentType.SCRIPT,
+        version_number=99,
+        content=(
+            "A full coolant tank does not guarantee a cool engine. "
+            "The liquid must keep moving and release its heat.\n\n"
+            "If this small valve stays shut, hot coolant remains trapped inside the engine."
+        ),
+        content_format=ContentFormat.MARKDOWN,
+        status=VersionStatus.APPROVED,
+        content_hash="a" * 64,
+    )
+    session.add(script)
+    session.flush()
+
+    document = ScenePlanService(session)._build_scene_document(project_id, script, [])
+
+    assert all(
+        following.start_seconds >= round(current.start_seconds + current.duration_seconds, 2)
+        for current, following in zip(document.scenes, document.scenes[1:], strict=False)
+    )

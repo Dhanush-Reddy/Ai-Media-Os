@@ -1,0 +1,29 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T214326Z",
+    "project_id":  "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+    "new_project":  false,
+    "working_title":  null,
+    "seed":  1784411006,
+    "started_at_utc":  "2026-07-18T21:43:26.5423412Z",
+    "completed_at_utc":  "2026-07-18T21:44:01.6739275Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  12228,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\d811ca11-cc3e-40ff-96ff-6b149d8439d0\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  "AI Media OS command failed (1): check-image-provider --provider comfyui --model z_image_turbo_bf16.safetensors"
+}

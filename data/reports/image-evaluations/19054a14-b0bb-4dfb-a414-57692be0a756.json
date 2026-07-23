@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 1710876,
+    "content_hash": "4788ef3bdd10c5138ed69c4cbddd0d26e6de5e06e88f2ecf34735c2ee66d2703",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Clear visual representation of layered defenses with three luminous rings",
+      "Clean editorial composition without distracting elements",
+      "Strong focal subject (agent core and defensive rings)",
+      "Technical diagram style aligns with the narration theme"
+    ],
+    "issues": [],
+    "recommendation": "Use as-is for vertical short video; no adjustments needed."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "c09e4a800ca39459b4b058e173f09a2d4b582c38778f0e984217f4535e9b6b16"
+}

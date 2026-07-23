@@ -1,0 +1,7 @@
+[04.01.14] Run ID: 20260718T223114Z
+[04.01.14] Project: d811ca11-cc3e-40ff-96ff-6b149d8439d0
+[04.01.14] Generation seed: 1784413874
+[04.01.14] STAGE 1/9 - Provider health checks
+[04.01.14] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+NOT_READY	comfyui	Could not connect to the local ComfyUI server.

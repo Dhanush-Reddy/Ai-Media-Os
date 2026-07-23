@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ai_media_os.schemas.narration_alignment import WordTrigger
+
 
 class TimelineLayerType(StrEnum):
     BACKGROUND = "background"
@@ -33,6 +35,24 @@ class MotionPreset(StrEnum):
     KEN_BURNS_RIGHT_TO_LEFT = "ken_burns_right_to_left"
     SUBTLE_FLOAT = "subtle_float"
     PARALLAX_PUSH = "parallax_push"
+    BEAT_PUNCH = "beat_punch"
+    BACKGROUND_DRIFT = "background_drift"
+    CHARACTER_BOB = "character_bob"
+    CHARACTER_BOB_ALTERNATE = "character_bob_alternate"
+    REACTION_POP = "reaction_pop"
+
+
+class VideoFormat(StrEnum):
+    LONG_HORIZONTAL = "long_horizontal"
+    SHORT_VERTICAL = "short_vertical"
+
+
+class VisualBeatType(StrEnum):
+    ESTABLISH = "establish"
+    CAPTION_CHANGE = "caption_change"
+    EMPHASIS = "emphasis"
+    REVEAL = "reveal"
+    CALL_TO_ACTION = "call_to_action"
 
 
 class EntrancePreset(StrEnum):
@@ -170,6 +190,7 @@ class SubtitleStyle(BaseModel):
     bottom_margin: int = Field(default=90, ge=48, le=300)
     max_lines: Literal[1, 2] = 2
     max_characters_per_line: int = Field(default=42, ge=20, le=60)
+    max_words_per_cue: int | None = Field(default=None, ge=2, le=12)
     highlighted_keywords: list[str] = Field(default_factory=list, max_length=12)
 
 
@@ -214,6 +235,22 @@ class SoundEffectCue(BaseModel):
     role: Literal["whoosh", "pop", "click", "impact", "success", "error", "transition"]
 
 
+class TimelineVisualBeat(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    start_seconds: float = Field(ge=0)
+    end_seconds: float = Field(gt=0)
+    beat_type: VisualBeatType
+    target_layer_z_index: int = Field(default=0, ge=0, le=100)
+    caption_cue_index: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_timing(self) -> "TimelineVisualBeat":
+        if self.end_seconds <= self.start_seconds:
+            raise ValueError("Visual beat end must follow its start.")
+        return self
+
+
 class TimelineScene(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -225,12 +262,20 @@ class TimelineScene(BaseModel):
     layers: list[TimelineLayer] = Field(min_length=1, max_length=24)
     narration_asset_id: str
     narration_hash: str
+    narration_alignment_version_id: str | None = None
+    narration_alignment_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    word_triggers: list[WordTrigger] = Field(default_factory=list, max_length=100)
     subtitle_cues: list[SubtitleCue] = Field(default_factory=list)
+    visual_beats: list[TimelineVisualBeat] = Field(default_factory=list, max_length=120)
     transition_in: TimelineTransition | None = None
     transition_out: TimelineTransition | None = None
 
     @model_validator(mode="after")
     def validate_children(self) -> "TimelineScene":
+        if bool(self.narration_alignment_version_id) != bool(self.narration_alignment_hash):
+            raise ValueError("Narration alignment ID and hash must be provided together.")
+        if self.word_triggers and self.narration_alignment_version_id is None:
+            raise ValueError("Word triggers require a verified narration alignment.")
         if len({layer.z_index for layer in self.layers}) != len(self.layers):
             raise ValueError("Layer z-index values must be unique within a scene.")
         for layer in self.layers:
@@ -239,6 +284,19 @@ class TimelineScene(BaseModel):
         for cue in self.subtitle_cues:
             if cue.end_seconds > self.duration_seconds:
                 raise ValueError("Subtitle timing exceeds scene duration.")
+        previous_beat_end = 0.0
+        for beat in self.visual_beats:
+            if beat.end_seconds > self.duration_seconds:
+                raise ValueError("Visual beat timing exceeds scene duration.")
+            if beat.start_seconds < previous_beat_end - 0.001:
+                raise ValueError("Visual beats must be ordered and non-overlapping.")
+            if beat.target_layer_z_index not in {layer.z_index for layer in self.layers}:
+                raise ValueError("Visual beat references an unknown layer z-index.")
+            if beat.caption_cue_index is not None and beat.caption_cue_index >= len(
+                self.subtitle_cues
+            ):
+                raise ValueError("Visual beat references an unknown subtitle cue.")
+            previous_beat_end = beat.end_seconds
         return self
 
 
@@ -250,6 +308,7 @@ class ProductionTimelineDocument(BaseModel):
     script_version_id: str
     scene_plan_version_id: str
     timeline_version: int = Field(gt=0)
+    video_format: VideoFormat = VideoFormat.LONG_HORIZONTAL
     width: int = Field(default=1920, ge=640, le=7680)
     height: int = Field(default=1080, ge=360, le=4320)
     frame_rate: int = Field(default=30, ge=24, le=60)
@@ -262,6 +321,9 @@ class ProductionTimelineDocument(BaseModel):
 
     @model_validator(mode="after")
     def validate_timeline(self) -> "ProductionTimelineDocument":
+        expected_ratio = 16 / 9 if self.video_format == VideoFormat.LONG_HORIZONTAL else 9 / 16
+        if abs(self.width / self.height - expected_ratio) > 0.01:
+            raise ValueError(f"{self.video_format.value} requires its native aspect ratio.")
         previous_end = 0.0
         scene_ids: set[str] = set()
         for expected_order, scene in enumerate(self.scenes, start=1):

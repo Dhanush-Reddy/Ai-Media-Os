@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2433996,
+    "content_hash": "5e1f293d8691f3a94bba981cc07a8b6804b17b8e3ea198bb74ba792cb04ff18d",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Minimalist technology checklist background with four glowing slots",
+      "Dark neutral palette and space for typography",
+      "Clear focus on hands holding a key",
+      "No text or logos present"
+    ],
+    "issues": [],
+    "recommendation": "Use as is; no modifications needed."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "4a4b1774eb32a27d35d77cb53d5ef91b75f5543fe0bdde2120c8bb6181137f3e"
+}

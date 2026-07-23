@@ -1,0 +1,72 @@
+[16.38.38] Run ID: 20260718T110835Z
+[16.38.38] Project: b222f66a-7762-438b-be2e-ef1e40cd615e
+[16.38.38] Generation seed: 1784372918
+[16.38.38] STAGE 1/10 - Provider health checks
+[16.38.39] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[16.39.18] STAGE 2/10 - Plan scene assets
+14
+[16.39.20] STAGE 3/10 - Reuse existing Chatterbox narration
+02b2c4a6-a9dc-4d93-8997-7f4f03e806bf	2	scene_narration	approved	approved
+034d949f-5345-4b9f-92e4-5f273d68a27e	1	scene_narration	approved	approved
+252bc65d-2854-4ec0-b8e0-42dc82f60c2b	1	scene_visual	planned	pending_review
+4bc53f12-844e-4fa7-b888-fea209ec522d	5	scene_narration	approved	approved
+66708b2a-1478-4b74-9a6b-a0bda9da77f2	3	scene_visual	planned	pending_review
+67f414a5-2ba1-4e1f-9644-88284f9be87a	3	scene_narration	approved	approved
+95f15a2e-7aef-46f9-909a-00e594a35e01	6	scene_visual	planned	pending_review
+b86d38ba-d660-4515-a786-994dcdb37d12	6	scene_narration	approved	approved
+c0f52741-93e7-4036-a756-45183a65c748	2	scene_visual	planned	pending_review
+c7939bed-eec3-462b-b6b9-468b9c4ce807	4	scene_narration	approved	approved
+d01c91d5-b4b7-450d-a5bf-3c764eab9a86	4	scene_visual	planned	pending_review
+df79bc37-08bc-48ca-a925-82805f7f9a0d	5	scene_visual	planned	pending_review
+f7a1ac90-080d-4a2a-b65a-56cc60abd29c	7	scene_narration	approved	approved
+f7ce2306-c72d-4c71-939b-6f612582839e	7	scene_visual	planned	pending_review
+[16.39.22] Reusing 7 existing narration assets.
+[16.39.22] STAGE 4/10 - Verify and review narration
+OK
+[16.39.23] Narration 034d949f-5345-4b9f-92e4-5f273d68a27e is already approved; skipping review.
+OK
+[16.39.25] Narration 02b2c4a6-a9dc-4d93-8997-7f4f03e806bf is already approved; skipping review.
+OK
+[16.39.27] Narration 67f414a5-2ba1-4e1f-9644-88284f9be87a is already approved; skipping review.
+OK
+[16.39.29] Narration c7939bed-eec3-462b-b6b9-468b9c4ce807 is already approved; skipping review.
+OK
+[16.39.30] Narration 4bc53f12-844e-4fa7-b888-fea209ec522d is already approved; skipping review.
+OK
+[16.39.32] Narration b86d38ba-d660-4515-a786-994dcdb37d12 is already approved; skipping review.
+OK
+[16.39.34] Narration f7a1ac90-080d-4a2a-b65a-56cc60abd29c is already approved; skipping review.
+[16.39.34] STAGE 5/10 - WhisperX narration alignment
+c506d666-5cdb-4095-8e38-ffdd1de3a083	pass	auto_usable=true
+[16.39.42] Aligning narration 1 of 7 completed in 8s.
+d8bb4c5b-26e7-462c-bef6-c748af77c639	pass	auto_usable=true
+[16.40.28] Aligning narration 2 of 7 completed in 46s.
+c21c9388-13cb-49d2-b4c4-3aee4a726fc0	pass	auto_usable=true
+[16.41.05] Aligning narration 3 of 7 completed in 37s.
+ba5684a7-d2c6-4725-8c86-df226f6cac8e	pass	auto_usable=true
+[16.41.41] Aligning narration 4 of 7 completed in 37s.
+03c28920-cafc-4d4a-acf2-3e61623784f5	pass	auto_usable=true
+[16.42.17] Aligning narration 5 of 7 completed in 36s.
+6e5213eb-5b09-47cd-bcd5-06e0a5884857	pass	auto_usable=true
+[16.42.44] Aligning narration 6 of 7 completed in 27s.
+776a2d20-7442-40ee-9c5a-4bb445a9bbd0	pass	auto_usable=true
+[16.43.14] Aligning narration 7 of 7 completed in 30s.
+[16.43.14] STAGE 6/10 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Creating new image revisions with seed 1784372918; approved history is preserved.
+[1/7] Scene 1 GENERATED: 252bc65d-2854-4ec0-b8e0-42dc82f60c2b
+[2/7] Scene 2 GENERATED: c0f52741-93e7-4036-a756-45183a65c748
+[3/7] Scene 3 GENERATED: 66708b2a-1478-4b74-9a6b-a0bda9da77f2
+[4/7] Scene 4 GENERATED: d01c91d5-b4b7-450d-a5bf-3c764eab9a86
+[5/7] Scene 5 GENERATED: df79bc37-08bc-48ca-a925-82805f7f9a0d
+[6/7] Scene 6 GENERATED: 95f15a2e-7aef-46f9-909a-00e594a35e01
+[7/7] Scene 7 GENERATED: f7ce2306-c72d-4c71-939b-6f612582839e
+Ollama evaluation skipped for visual 252bc65d-2854-4ec0-b8e0-42dc82f60c2b. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/252bc65d-2854-4ec0-b8e0-42dc82f60c2b/preview
+Review visual 252bc65d-2854-4ec0-b8e0-42dc82f60c2b
+  1. Approve
+  2. Reject
+rejected

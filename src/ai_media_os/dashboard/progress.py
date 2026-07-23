@@ -1,8 +1,25 @@
 """Deterministic dashboard progress calculations."""
 
+from dataclasses import dataclass
+
 from ai_media_os.dashboard.view_models import ProgressSummary
-from ai_media_os.domain.enums import ApprovalStatus, ContentType, VerificationStatus
-from ai_media_os.infrastructure.database.models import Approval, Claim, ContentVersion, Source
+from ai_media_os.domain.enums import (
+    ApprovalStatus,
+    AssetReviewStatus,
+    AssetRole,
+    ContentType,
+    RenderStatus,
+    VerificationStatus,
+    VersionStatus,
+)
+from ai_media_os.infrastructure.database.models import (
+    Approval,
+    Asset,
+    Claim,
+    ContentVersion,
+    Render,
+    Source,
+)
 
 RESEARCH_STAGE_WEIGHTS = {
     "project_created": 10,
@@ -14,7 +31,13 @@ RESEARCH_STAGE_WEIGHTS = {
     "research_approved": 5,
 }
 
-OVERALL_PIPELINE_WEIGHT = 20
+
+@dataclass(frozen=True)
+class _PipelineStage:
+    name: str
+    complete: bool
+    started: bool
+    needs_review: bool = False
 
 
 def calculate_progress(
@@ -23,27 +46,21 @@ def calculate_progress(
     claims: list[Claim],
     content_versions: list[ContentVersion],
     approvals: list[Approval],
+    assets: list[Asset] | None = None,
+    renders: list[Render] | None = None,
 ) -> ProgressSummary:
+    assets = assets or []
+    renders = renders or []
     completed_weight = RESEARCH_STAGE_WEIGHTS["project_created"]
-    brief_exists = any(
-        version.content_type == ContentType.RESEARCH_BRIEF for version in content_versions
-    )
-    source_report_exists = any(
-        version.content_type == ContentType.SOURCE_REPORT for version in content_versions
-    )
-    readiness_evaluated = brief_exists or source_report_exists
-    research_approved = any(
-        approval.approval_type.value == "research" and approval.status == ApprovalStatus.APPROVED
-        for approval in approvals
-    )
+    brief_exists = _has_version(content_versions, ContentType.RESEARCH_BRIEF)
+    source_report_exists = _has_version(content_versions, ContentType.SOURCE_REPORT)
+    research_approved = _approval_complete(approvals, "research")
 
     if sources:
         completed_weight += RESEARCH_STAGE_WEIGHTS["sources_imported"]
     if claims:
-        verified_or_reviewed = [
-            claim
-            for claim in claims
-            if claim.verification_status
+        reviewed = any(
+            claim.verification_status
             in {
                 VerificationStatus.VERIFIED,
                 VerificationStatus.PARTIALLY_VERIFIED,
@@ -51,88 +68,47 @@ def calculate_progress(
                 VerificationStatus.DISPUTED,
                 VerificationStatus.REJECTED,
             }
-        ]
-        if verified_or_reviewed:
-            completed_weight += RESEARCH_STAGE_WEIGHTS["claims_added"]
-        else:
-            completed_weight += RESEARCH_STAGE_WEIGHTS["claims_added"] // 2
+            for claim in claims
+        )
+        completed_weight += (
+            RESEARCH_STAGE_WEIGHTS["claims_added"]
+            if reviewed
+            else RESEARCH_STAGE_WEIGHTS["claims_added"] // 2
+        )
     if brief_exists:
         completed_weight += RESEARCH_STAGE_WEIGHTS["research_brief_generated"]
     if source_report_exists:
         completed_weight += RESEARCH_STAGE_WEIGHTS["source_report_generated"]
-    if readiness_evaluated:
+    if brief_exists or source_report_exists:
         completed_weight += RESEARCH_STAGE_WEIGHTS["readiness_evaluated"]
     if research_approved:
         completed_weight += RESEARCH_STAGE_WEIGHTS["research_approved"]
 
     total_weight = sum(RESEARCH_STAGE_WEIGHTS.values())
     research_progress = round((completed_weight / total_weight) * 100)
-    overall_progress = round(research_progress * (OVERALL_PIPELINE_WEIGHT / 100))
-    current_stage = calculate_current_stage(
+    stages = _pipeline_stages(
         sources=sources,
         claims=claims,
-        brief_exists=brief_exists,
-        source_report_exists=source_report_exists,
-        research_approved=research_approved,
+        versions=content_versions,
+        approvals=approvals,
+        assets=assets,
+        renders=renders,
     )
+    completed_stages = sum(stage.complete for stage in stages)
+    active_stage = next((stage for stage in stages if not stage.complete), stages[-1])
+    pending = any(approval.status == ApprovalStatus.PENDING for approval in approvals)
+    next_action, next_action_url = _next_action(active_stage, pending)
     return ProgressSummary(
         research_progress=research_progress,
-        overall_progress=overall_progress,
+        overall_progress=round((completed_stages / len(stages)) * 100),
         completed_weight=completed_weight,
         total_weight=total_weight,
-        current_stage=current_stage,
-        next_action=calculate_next_action(
-            sources=sources,
-            claims=claims,
-            brief_exists=brief_exists,
-            source_report_exists=source_report_exists,
-            approvals=approvals,
-            research_approved=research_approved,
-        ),
+        current_stage=active_stage.name
+        if not all(stage.complete for stage in stages)
+        else "Complete",
+        next_action="Review the pending approval." if pending else next_action,
+        next_action_url="/approvals" if pending else next_action_url,
     )
-
-
-def calculate_current_stage(
-    *,
-    sources: list[Source],
-    claims: list[Claim],
-    brief_exists: bool,
-    source_report_exists: bool,
-    research_approved: bool,
-) -> str:
-    if research_approved:
-        return "Research approved"
-    if brief_exists and source_report_exists:
-        return "Research ready for review"
-    if claims:
-        return "Checking claims"
-    if sources:
-        return "Collecting research"
-    return "Topic setup"
-
-
-def calculate_next_action(
-    *,
-    sources: list[Source],
-    claims: list[Claim],
-    brief_exists: bool,
-    source_report_exists: bool,
-    approvals: list[Approval],
-    research_approved: bool,
-) -> str:
-    if research_approved:
-        return "Milestone 5 is not available yet."
-    if any(approval.status == ApprovalStatus.PENDING for approval in approvals):
-        return "Review the pending approval."
-    if not sources:
-        return "Import research sources."
-    if not claims:
-        return "Create and link claims."
-    if not brief_exists:
-        return "Generate a research brief."
-    if not source_report_exists:
-        return "Generate a source report."
-    return "Request or complete research approval."
 
 
 def stage_statuses(
@@ -141,54 +117,148 @@ def stage_statuses(
     claims: list[Claim],
     content_versions: list[ContentVersion],
     approvals: list[Approval],
+    assets: list[Asset] | None = None,
+    renders: list[Render] | None = None,
 ) -> list[tuple[str, str, str]]:
-    brief_exists = any(
-        version.content_type == ContentType.RESEARCH_BRIEF for version in content_versions
+    stages = _pipeline_stages(
+        sources=sources,
+        claims=claims,
+        versions=content_versions,
+        approvals=approvals,
+        assets=assets or [],
+        renders=renders or [],
     )
-    research_approved = any(
-        approval.approval_type.value == "research" and approval.status == ApprovalStatus.APPROVED
-        for approval in approvals
+    result: list[tuple[str, str, str]] = []
+    for stage in stages:
+        if stage.complete:
+            result.append((stage.name, "Complete", "success"))
+        elif stage.needs_review:
+            result.append((stage.name, "Needs your review", "warning"))
+        elif stage.started:
+            result.append((stage.name, "In progress", "progress"))
+        else:
+            result.append((stage.name, "Not started", "muted"))
+    return result
+
+
+def _pipeline_stages(
+    *,
+    sources: list[Source],
+    claims: list[Claim],
+    versions: list[ContentVersion],
+    approvals: list[Approval],
+    assets: list[Asset],
+    renders: list[Render],
+) -> list[_PipelineStage]:
+    visuals = [asset for asset in assets if asset.asset_role == AssetRole.SCENE_VISUAL]
+    narrations = [asset for asset in assets if asset.asset_role == AssetRole.SCENE_NARRATION]
+    thumbnails = [asset for asset in assets if asset.asset_role == AssetRole.THUMBNAIL]
+    research_started = bool(sources or claims or _has_version(versions, ContentType.RESEARCH_BRIEF))
+    research_complete = _approval_complete(approvals, "research") or _approved_version(
+        versions, ContentType.SCRIPT
     )
-    pending_research_approval = any(
-        approval.approval_type.value == "research" and approval.status == ApprovalStatus.PENDING
-        for approval in approvals
-    )
-    claim_status = (
-        "Finished" if claims and all(claim.source_links for claim in claims) else "Started"
-    )
-    if not claims:
-        claim_status = "Not started"
-    research_approval = "Needs approval" if pending_research_approval else "Not requested"
-    if research_approved:
-        research_approval = "Finished"
     return [
-        ("Topic", "Finished", "success"),
-        (
-            "Research Sources",
-            "Finished" if sources else "Not started",
-            "success" if sources else "muted",
+        _PipelineStage(
+            "Research", research_complete, research_started, _pending(approvals, "research")
         ),
-        (
-            "Claim Verification",
-            claim_status,
-            "success" if claim_status == "Finished" else "warning",
+        _version_stage("Script", ContentType.SCRIPT, versions, approvals, "script"),
+        _version_stage("Scene plan", ContentType.SCENE_PLAN, versions, approvals, "scene_plan"),
+        _PipelineStage(
+            "Images and narration",
+            bool(visuals and narrations)
+            and all(
+                asset.review_status == AssetReviewStatus.APPROVED for asset in visuals + narrations
+            ),
+            bool(visuals or narrations),
+            any(
+                asset.review_status == AssetReviewStatus.PENDING_REVIEW
+                for asset in visuals + narrations
+            ),
         ),
-        (
-            "Research Brief",
-            "Finished" if brief_exists else "Not started",
-            "success" if brief_exists else "muted",
+        _version_stage(
+            "Production timeline",
+            ContentType.PRODUCTION_TIMELINE,
+            versions,
+            approvals,
+            "production_timeline",
         ),
-        (
-            "Research Approval",
-            research_approval,
-            "warning" if pending_research_approval else "muted",
+        _PipelineStage(
+            "Video render",
+            any(render.status == RenderStatus.APPROVED for render in renders),
+            bool(renders),
+            _pending(approvals, "final_video"),
         ),
-        ("Script", "Not available yet", "muted"),
-        ("Scene Planning", "Not available yet", "muted"),
-        ("Images", "Not available yet", "muted"),
-        ("Voice", "Not available yet", "muted"),
-        ("Video", "Not available yet", "muted"),
-        ("Thumbnail", "Not available yet", "muted"),
-        ("Safety Review", "Not available yet", "muted"),
-        ("Publishing", "Not available yet", "muted"),
+        _version_stage("Video metadata", ContentType.METADATA, versions, approvals, "metadata"),
+        _PipelineStage(
+            "Thumbnail",
+            any(asset.review_status == AssetReviewStatus.APPROVED for asset in thumbnails),
+            bool(thumbnails),
+            any(asset.review_status == AssetReviewStatus.PENDING_REVIEW for asset in thumbnails)
+            or _pending(approvals, "thumbnail"),
+        ),
+        _PipelineStage(
+            "Safety and publishing gate",
+            _approval_complete(approvals, "publishing"),
+            _has_version(versions, ContentType.COPYRIGHT_REPORT),
+            _pending(approvals, "publishing"),
+        ),
     ]
+
+
+def _version_stage(
+    name: str,
+    content_type: ContentType,
+    versions: list[ContentVersion],
+    approvals: list[Approval],
+    approval_type: str,
+) -> _PipelineStage:
+    return _PipelineStage(
+        name,
+        _approved_version(versions, content_type) or _approval_complete(approvals, approval_type),
+        _has_version(versions, content_type),
+        _pending(approvals, approval_type),
+    )
+
+
+def _has_version(versions: list[ContentVersion], content_type: ContentType) -> bool:
+    return any(version.content_type == content_type for version in versions)
+
+
+def _approved_version(versions: list[ContentVersion], content_type: ContentType) -> bool:
+    return any(
+        version.content_type == content_type and version.status == VersionStatus.APPROVED
+        for version in versions
+    )
+
+
+def _pending(approvals: list[Approval], approval_type: str) -> bool:
+    return any(
+        approval.approval_type.value == approval_type and approval.status == ApprovalStatus.PENDING
+        for approval in approvals
+    )
+
+
+def _approval_complete(approvals: list[Approval], approval_type: str) -> bool:
+    return any(
+        approval.approval_type.value == approval_type and approval.status == ApprovalStatus.APPROVED
+        for approval in approvals
+    )
+
+
+def _next_action(stage: _PipelineStage, pending: bool) -> tuple[str, str]:
+    if pending:
+        return "Review the pending approval.", "/approvals"
+    actions = {
+        "Research": ("Add sources and prepare the research brief.", "research"),
+        "Script": ("Generate or review the video script.", "script"),
+        "Scene plan": ("Create or review the scene plan.", "scenes"),
+        "Images and narration": ("Generate and review each scene's image and narration.", "assets"),
+        "Production timeline": ("Build and review the production timeline.", "timeline"),
+        "Video render": ("Create and review the video render.", "renders"),
+        "Video metadata": ("Create and review the title and description.", "metadata"),
+        "Thumbnail": ("Create and review the thumbnail.", "thumbnail"),
+        "Safety and publishing gate": ("Run the safety and publishing readiness checks.", "safety"),
+        "Complete": ("The local production workflow is complete.", "safety"),
+    }
+    message, suffix = actions[stage.name]
+    return message, suffix

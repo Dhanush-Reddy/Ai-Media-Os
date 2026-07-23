@@ -134,6 +134,8 @@ class DashboardQueries:
                     selectinload(VideoProject.approvals),
                     selectinload(VideoProject.jobs),
                     selectinload(VideoProject.content_versions),
+                    selectinload(VideoProject.assets),
+                    selectinload(VideoProject.renders),
                 )
                 .order_by(VideoProject.updated_at.desc())
             ).all()
@@ -172,6 +174,8 @@ class DashboardQueries:
             claims=list(project.claims),
             content_versions=list(project.content_versions),
             approvals=list(project.approvals),
+            assets=list(project.assets),
+            renders=list(project.renders),
         )
         return ProjectListItem(
             id=project.id,
@@ -200,6 +204,8 @@ class DashboardQueries:
                 claims=list(project.claims),
                 content_versions=list(project.content_versions),
                 approvals=list(project.approvals),
+                assets=list(project.assets),
+                renders=list(project.renders),
             )
         ]
 

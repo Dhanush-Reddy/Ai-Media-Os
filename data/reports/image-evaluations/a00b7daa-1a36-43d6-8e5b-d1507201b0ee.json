@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2566583,
+    "content_hash": "b153b0da669f9dd073aad472b4a52a0c2ed42d04c0d1cc708ab2654759cecdaa",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 92,
+    "perceived_sharpness_score": 98,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Clean abstract neutral technology background",
+      "Subtle grid present",
+      "One bright accent (yellow oval)",
+      "16:9 aspect ratio",
+      "Sharp focus on the main subject"
+    ],
+    "issues": [],
+    "recommendation": "Use as-is for vertical short video with kinetic text sequence START SMALL / MEASURE / THEN EXPAND"
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "e97fec01651a61b7f7bb89a74667f8b0c917c17c28378a8729fbde0cda544bda"
+}

@@ -1,0 +1,12 @@
+<nav class="project-nav" aria-label="Project workflow">
+  <a class="{{ 'active' if request.url.path == '/projects/' ~ project.id else '' }}" href="/projects/{{ project.id }}">Overview</a>
+  <a class="{{ 'active' if request.url.path.endswith('/research') else '' }}" href="/projects/{{ project.id }}/research"><span>1</span> Research</a>
+  <a class="{{ 'active' if request.url.path.endswith('/script') else '' }}" href="/projects/{{ project.id }}/script"><span>2</span> Script</a>
+  <a class="{{ 'active' if request.url.path.endswith('/scenes') else '' }}" href="/projects/{{ project.id }}/scenes"><span>3</span> Scenes</a>
+  <a class="{{ 'active' if request.url.path.endswith('/assets') else '' }}" href="/projects/{{ project.id }}/assets"><span>4</span> Media</a>
+  <a class="{{ 'active' if request.url.path.endswith('/timeline') else '' }}" href="/projects/{{ project.id }}/timeline"><span>5</span> Timeline</a>
+  <a class="{{ 'active' if '/renders' in request.url.path else '' }}" href="/projects/{{ project.id }}/renders"><span>6</span> Video</a>
+  <a class="{{ 'active' if request.url.path.endswith('/metadata') else '' }}" href="/projects/{{ project.id }}/metadata"><span>7</span> Details</a>
+  <a class="{{ 'active' if request.url.path.endswith('/thumbnail') else '' }}" href="/projects/{{ project.id }}/thumbnail"><span>8</span> Thumbnail</a>
+  <a class="{{ 'active' if request.url.path.endswith('/safety') else '' }}" href="/projects/{{ project.id }}/safety"><span>9</span> Safety</a>
+</nav>

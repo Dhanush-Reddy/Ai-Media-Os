@@ -1,0 +1,15 @@
+[15:56:03] Run ID: 20260718T102600Z
+[15:56:03] Project: cc71c9af-6215-4dac-85fa-bcb95b5c8a38
+[15:56:03] Generation seed: 1784370363
+[15:56:03] STAGE 1/12 - Provider health checks
+[15:56:03] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[15:56:16] STAGE 2/12 - Import and approve the new project script
+e07c8ddc-2250-4f2c-8580-d13c8ec25d68
+48d6d997-7e8d-4996-bdf4-13970b4a0392
+48d6d997-7e8d-4996-bdf4-13970b4a0392	script	pending	e07c8ddc-2250-4f2c-8580-d13c8ec25d68
+approved
+[15:56:25] STAGE 3/12 - Generate and approve a new scene plan
+e1d0f8b1-641d-4258-a8a1-7d327926cd2a

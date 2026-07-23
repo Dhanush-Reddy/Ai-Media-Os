@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2480029,
+    "content_hash": "cec50cc8390007008a7838d5006a64864bd13c205607fca5e01c7f950651bdff",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 75,
+    "composition_score": 85,
+    "perceived_sharpness_score": 92,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Clean, detailed mechanical design with clear focal subject",
+      "Good use of lighting and shadows for depth",
+      "Precise composition within 16:9 frame"
+    ],
+    "issues": [
+      "Abstract representation may not directly convey 'measured autonomy levels' as required by scene description",
+      "No visible text or logos, meeting end-screen requirements"
+    ],
+    "recommendation": "Adjust visual elements to better align with the narrative of an agent progressing through measured autonomy levels toward a human-approved checkpoint."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "a115f5ba73fa768a3dd011ee4392b80d182e256110e20e0077fb0a56254a9ecb"
+}

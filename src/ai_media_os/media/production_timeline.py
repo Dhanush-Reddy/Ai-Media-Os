@@ -12,7 +12,9 @@ from ai_media_os.schemas.production_timeline import (
     SubtitleStyle,
     TimelineLayerType,
     TransitionPreset,
+    VideoFormat,
 )
+from ai_media_os.schemas.style_profile import REFERENCE_MINIMAL_CHARACTER_MOTION_V1
 
 MOTION_PARAMETERS: dict[MotionPreset, dict[str, float | str]] = {
     MotionPreset.STATIC: {"zoom_start": 1.0, "zoom_end": 1.0, "axis": "none"},
@@ -34,6 +36,15 @@ MOTION_PARAMETERS: dict[MotionPreset, dict[str, float | str]] = {
     },
     MotionPreset.SUBTLE_FLOAT: {"zoom_start": 1.03, "zoom_end": 1.05, "axis": "up"},
     MotionPreset.PARALLAX_PUSH: {"zoom_start": 1.0, "zoom_end": 1.14, "axis": "center"},
+    MotionPreset.BEAT_PUNCH: {"zoom_start": 1.02, "zoom_end": 1.10, "axis": "center"},
+    MotionPreset.BACKGROUND_DRIFT: {"zoom_start": 1.02, "zoom_end": 1.04, "axis": "right"},
+    MotionPreset.CHARACTER_BOB: {"zoom_start": 1.0, "zoom_end": 1.0, "axis": "vertical"},
+    MotionPreset.CHARACTER_BOB_ALTERNATE: {
+        "zoom_start": 1.0,
+        "zoom_end": 1.0,
+        "axis": "vertical_alternate",
+    },
+    MotionPreset.REACTION_POP: {"zoom_start": 1.0, "zoom_end": 1.0, "axis": "reaction"},
 }
 
 TRANSITION_PARAMETERS: dict[TransitionPreset, dict[str, str | bool]] = {
@@ -78,10 +89,29 @@ def display_copy_from_description(description: str) -> str | None:
     return None
 
 
-def split_subtitle_text(text: str, *, max_characters: int = 42) -> list[str]:
+def split_subtitle_text(
+    text: str,
+    *,
+    max_characters: int = 42,
+    max_words: int | None = None,
+) -> list[str]:
     normalized = " ".join(text.split())
     if not normalized:
         return []
+    if max_words is not None:
+        words = normalized.split()
+        word_chunks: list[str] = []
+        current: list[str] = []
+        for word in words:
+            candidate = " ".join([*current, word])
+            if current and (len(current) >= max_words or len(candidate) > max_characters):
+                word_chunks.append(" ".join(current))
+                current = [word]
+            else:
+                current.append(word)
+        if current:
+            word_chunks.append(" ".join(current))
+        return word_chunks
     lines = wrap(
         normalized,
         width=max_characters,
@@ -99,7 +129,11 @@ def split_subtitle_text(text: str, *, max_characters: int = 42) -> list[str]:
 def scene_subtitle_cues(
     text: str, duration_seconds: float, style: SubtitleStyle
 ) -> list[SubtitleCue]:
-    chunks = split_subtitle_text(text, max_characters=style.max_characters_per_line)
+    chunks = split_subtitle_text(
+        text,
+        max_characters=style.max_characters_per_line,
+        max_words=style.max_words_per_cue,
+    )
     if not chunks:
         return []
     total_characters = sum(len(chunk.replace("\n", "")) for chunk in chunks)
@@ -192,6 +226,24 @@ def validate_production_timeline(
 ) -> list[TimelineQualityFinding]:
     findings: list[TimelineQualityFinding] = []
     asset_usage: dict[str, int] = {}
+    style_profile = str(timeline.render_settings.get("style_profile", "standard"))
+    if timeline.video_format == VideoFormat.SHORT_VERTICAL:
+        if timeline.width < 1080 or timeline.height < 1920:
+            findings.append(
+                TimelineQualityFinding(
+                    "BLOCK",
+                    "short_resolution",
+                    "Short-form production requires at least 1080x1920 output.",
+                )
+            )
+        if timeline.subtitle_style.max_lines != 1:
+            findings.append(
+                TimelineQualityFinding(
+                    "BLOCK",
+                    "short_subtitle_lines",
+                    "Short-form captions must use one readable line per visual beat.",
+                )
+            )
     for scene in timeline.scenes:
         visual_layers = [layer for layer in scene.layers if layer.asset_id]
         if not visual_layers:
@@ -201,7 +253,11 @@ def validate_production_timeline(
                 )
             )
         for layer in visual_layers:
-            if layer.asset_id:
+            if layer.asset_id and layer.layer_type in {
+                TimelineLayerType.BACKGROUND,
+                TimelineLayerType.IMAGE,
+                TimelineLayerType.VIDEO,
+            }:
                 asset_usage[layer.asset_id] = asset_usage.get(layer.asset_id, 0) + 1
         if scene.duration_seconds > 10 and all(
             layer.motion == MotionPreset.STATIC for layer in scene.layers
@@ -219,6 +275,30 @@ def validate_production_timeline(
                     "WARN", "missing_subtitles", f"Scene {scene.order} has no subtitles."
                 )
             )
+        if timeline.video_format == VideoFormat.SHORT_VERTICAL:
+            if not scene.visual_beats:
+                findings.append(
+                    TimelineQualityFinding(
+                        "BLOCK",
+                        "missing_visual_beats",
+                        f"Short-form scene {scene.order} has no visual beats.",
+                    )
+                )
+            elif (
+                max(
+                    (beat.end_seconds - beat.start_seconds for beat in scene.visual_beats),
+                    default=0,
+                )
+                > 1.75
+            ):
+                findings.append(
+                    TimelineQualityFinding(
+                        "WARN",
+                        "slow_visual_beats",
+                        f"Short-form scene {scene.order} has a visual beat longer "
+                        "than 1.75 seconds.",
+                    )
+                )
         for cue in scene.subtitle_cues:
             if any(
                 len(line) > timeline.subtitle_style.max_characters_per_line
@@ -239,6 +319,39 @@ def validate_production_timeline(
                         f"Scene {scene.order} subtitle exceeds line limit.",
                     )
                 )
+            if (
+                timeline.subtitle_style.max_words_per_cue is not None
+                and len(cue.text.split()) > timeline.subtitle_style.max_words_per_cue
+            ):
+                findings.append(
+                    TimelineQualityFinding(
+                        "BLOCK",
+                        "subtitle_words",
+                        f"Scene {scene.order} subtitle exceeds its phrase word limit.",
+                    )
+                )
+    if style_profile == REFERENCE_MINIMAL_CHARACTER_MOTION_V1:
+        if (timeline.width, timeline.height, timeline.frame_rate) != (1080, 1920, 30):
+            findings.append(
+                TimelineQualityFinding(
+                    "BLOCK",
+                    "reference_profile_format",
+                    "The reference motion profile requires 1080x1920 at 30 fps.",
+                )
+            )
+        if not any(
+            layer.layer_type in {TimelineLayerType.CHARACTER, TimelineLayerType.ICON}
+            for scene in timeline.scenes
+            for layer in scene.layers
+        ):
+            findings.append(
+                TimelineQualityFinding(
+                    "WARN",
+                    "reference_profile_layer_gap",
+                    "The timeline follows reference timing but has no executable character or "
+                    "icon layers; pose swaps and icon pops are not rendered yet.",
+                )
+            )
     repeated = [asset_id for asset_id, count in asset_usage.items() if count > 3]
     if repeated:
         findings.append(

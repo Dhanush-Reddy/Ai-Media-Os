@@ -1,7 +1,9 @@
 """Asset planning, generation, import, review, and verification services."""
 
+import os
 import re
 import wave
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -24,7 +26,7 @@ from ai_media_os.domain.enums import (
     VersionStatus,
 )
 from ai_media_os.infrastructure.database.base import utc_now
-from ai_media_os.infrastructure.database.models import Asset, ContentVersion, Scene
+from ai_media_os.infrastructure.database.models import Asset, ContentVersion, Scene, VideoProject
 from ai_media_os.infrastructure.settings import AppSettings, get_settings
 from ai_media_os.media.audio_processing import (
     AudioMetrics,
@@ -58,6 +60,122 @@ class AssetVerificationResult:
     ok: bool
     asset_id: str
     reason: str | None = None
+
+
+LAYERED_CHARACTER_PACK_ROLES = ("host", "support", "story_effect")
+
+
+class LayeredCharacterPackService:
+    """Import an original local cutout pack as approved project-owned assets."""
+
+    def __init__(
+        self,
+        session: Session,
+        settings: AppSettings | None = None,
+        storage: FileStorage | None = None,
+    ) -> None:
+        self.session = session
+        self.settings = settings or get_settings()
+        self.storage = storage or FileStorage(self.settings)
+
+    def ensure_pack(self, video_project_id: str, pack_root: Path) -> list[Asset]:
+        project = self.session.get(VideoProject, video_project_id)
+        if project is None:
+            raise AssetError("Video project not found.")
+        if _editorial_topic_category(f"{project.topic} {project.working_title}") != "technology":
+            return []
+        source_files = {
+            "host": pack_root / "host-cutout.png",
+            "support": pack_root / "engineer-cutout.png",
+            "story_effect": pack_root / "energy-surge-cutout.png",
+        }
+        assets: list[Asset] = []
+        for role, source_path in source_files.items():
+            existing = self._approved_pack_asset(video_project_id, role)
+            if existing is not None:
+                assets.append(existing)
+                continue
+            assets.append(self._import_original(video_project_id, role, source_path))
+        self.session.commit()
+        for asset in assets:
+            self.session.refresh(asset)
+        return assets
+
+    def _import_original(self, video_project_id: str, role: str, source_path: Path) -> Asset:
+        if not source_path.is_file():
+            raise AssetError(f"Layered character pack file not found: {source_path}")
+        if source_path.suffix.lower() != ".png":
+            raise AssetError("Layered character pack assets must be PNG files.")
+        if source_path.stat().st_size > self.settings.asset_max_file_bytes:
+            raise AssetError("Layered character pack asset exceeds configured size limit.")
+        try:
+            mime_type = validate_media_signature(source_path)
+        except MediaFileError as exc:
+            raise AssetError(str(exc)) from exc
+        if mime_type != "image/png":
+            raise AssetError("Layered character pack assets must contain valid PNG data.")
+        relative_path = (
+            Path("projects") / video_project_id / "images" / "characters" / f"{role}_v001.png"
+        )
+        destination = self.storage.resolve_inside(self.storage.data_root, relative_path)
+        content_hash = self.storage.atomic_write(destination, source_path.read_bytes())
+        asset = Asset(
+            video_project_id=video_project_id,
+            scene_id=None,
+            asset_type=AssetType.IMAGE,
+            asset_role=AssetRole.REFERENCE,
+            file_path=relative_path.as_posix(),
+            mime_type=mime_type,
+            provider="openai_imagegen_original",
+            model="layered-editorial-character-pack-v1",
+            prompt_version="layered-editorial-character-pack-v1",
+            content_hash=content_hash,
+            generation_status=AssetGenerationStatus.APPROVED,
+            review_status=AssetReviewStatus.APPROVED,
+            generation_metadata={
+                "layer_kind": "character" if role != "story_effect" else "story_effect",
+                "character_role": role,
+                "source_pack": "layered-editorial-v1",
+                "approval_basis": "user-approved layered animation proof",
+            },
+            license_status=LicenseStatus.SAFE,
+            source_url="original://ai-media-os/layered-editorial-v1",
+            creator="AI Media OS original generation",
+            license_name="Original project asset",
+            commercial_use_allowed=True,
+            attribution_required=False,
+            retrieved_at=utc_now(),
+        )
+        self.session.add(asset)
+        self.session.flush()
+        return asset
+
+    def _approved_pack_asset(self, video_project_id: str, role: str) -> Asset | None:
+        candidates = list(
+            self.session.scalars(
+                select(Asset)
+                .where(
+                    Asset.video_project_id == video_project_id,
+                    Asset.scene_id.is_(None),
+                    Asset.asset_role == AssetRole.REFERENCE,
+                    Asset.is_active.is_(True),
+                    Asset.review_status == AssetReviewStatus.APPROVED,
+                    Asset.generation_status == AssetGenerationStatus.APPROVED,
+                    Asset.license_status == LicenseStatus.SAFE,
+                )
+                .order_by(Asset.created_at.desc())
+            )
+        )
+        for asset in candidates:
+            if asset.generation_metadata.get("character_role") != role:
+                continue
+            try:
+                path = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+            except StorageError:
+                continue
+            if asset.content_hash and self.storage.verify_file_hash(path, asset.content_hash):
+                return asset
+        return None
 
 
 class AssetPlanningService:
@@ -224,12 +342,14 @@ class ImageAssetService:
         self.storage = storage or FileStorage(self.settings)
         self.cache = CacheService(session, self.storage)
         self.provider = provider or FakeImageGenerationProvider()
+        self.last_generation_resolution = "not_started"
 
     def generate_for_scene(
         self,
         scene_id: str,
         *,
         prompt_override: str | None = None,
+        revision_feedback: str | None = None,
         negative_prompt_override: str | None = None,
         width: int | None = None,
         height: int | None = None,
@@ -241,19 +361,61 @@ class ImageAssetService:
         sampler: str | None = None,
         scheduler: str | None = None,
         timeout_seconds: float | None = None,
+        text_free: bool = False,
+        visual_style: str = "standard",
+        stage_for_review: bool = False,
+        reuse_existing: bool = False,
     ) -> Asset:
+        self.last_generation_resolution = "checking"
         scene = self._scene(scene_id)
-        asset = self._writable_asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
-        prompt = (
-            prompt_override.strip()
-            if prompt_override and prompt_override.strip()
-            else asset.prompt or scene.image_prompt or scene.visual_description or scene.narration
-        )
+        asset = self._asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
+        if visual_style not in {"standard", "faceless_editorial"}:
+            raise AssetError(f"Unsupported visual style: {visual_style}")
+        if visual_style == "faceless_editorial":
+            prompt_source = (
+                prompt_override.strip()
+                if prompt_override and prompt_override.strip()
+                else scene.image_prompt or scene.visual_description or scene.narration
+            )
+            prompt_source = _apply_image_revision_feedback(prompt_source, revision_feedback)
+            project = self.session.get(VideoProject, scene.video_project_id)
+            project_context = (
+                f"{project.topic} {project.working_title}" if project is not None else prompt_source
+            )
+            prompt = _faceless_editorial_image_prompt(
+                prompt_source,
+                scene.scene_number,
+                project_context=project_context,
+            )
+        elif text_free:
+            prompt_source = (
+                prompt_override.strip()
+                if prompt_override and prompt_override.strip()
+                else scene.image_prompt or scene.visual_description or scene.narration
+            )
+            prompt_source = _apply_image_revision_feedback(prompt_source, revision_feedback)
+            prompt = _text_free_image_prompt(prompt_source)
+        else:
+            prompt = (
+                prompt_override.strip()
+                if prompt_override and prompt_override.strip()
+                else asset.prompt
+                or scene.image_prompt
+                or scene.visual_description
+                or scene.narration
+            )
+            prompt = _apply_image_revision_feedback(prompt, revision_feedback)
+        if visual_style == "faceless_editorial":
+            prompt_version = "image-prompt-faceless-editorial-v1"
+        else:
+            prompt_version = "image-prompt-text-free-v1" if text_free else "image-prompt-v1"
         negative_prompt = (
             negative_prompt_override.strip()
             if negative_prompt_override and negative_prompt_override.strip()
             else asset.negative_prompt or scene.negative_prompt
         )
+        if visual_style == "faceless_editorial":
+            negative_prompt = _faceless_editorial_negative_prompt(negative_prompt)
         provider_is_comfyui = self.provider.provider_name == "comfyui"
         resolved_width = width or (
             self.settings.comfyui_default_width
@@ -278,11 +440,42 @@ class ImageAssetService:
             cfg=cfg,
             sampler=sampler,
             scheduler=scheduler,
+            prompt_version=prompt_version,
         )
-        planned_destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         cache_key = self.cache.build_cache_key(request)
+        if self._is_reusable_generated_asset(
+            asset,
+            cache_key=None if reuse_existing else cache_key,
+        ):
+            if (
+                stage_for_review
+                and asset.review_status == AssetReviewStatus.PENDING_REVIEW
+                and not asset.generation_metadata.get("staged_for_review")
+            ):
+                asset = self._stage_pending_image(asset)
+            elif stage_for_review and asset.generation_metadata.get("staged_for_review"):
+                asset = self._normalize_staged_image(asset)
+            self.last_generation_resolution = "reused_active"
+            return asset
+        asset = self._writable_asset(scene, AssetRole.SCENE_VISUAL, AssetType.IMAGE)
+        stored_final_path = asset.generation_metadata.get("final_file_path")
+        final_relative_path = (
+            stored_final_path
+            if isinstance(stored_final_path, str) and stored_final_path
+            else asset.file_path
+        )
+        final_destination = _next_asset_revision_destination(
+            asset,
+            self.storage.resolve_inside(self.storage.data_root, final_relative_path),
+        )
+        planned_destination = (
+            self._image_staging_destination(asset, final_destination)
+            if stage_for_review
+            else final_destination
+        )
         cached = self.cache.lookup(cache_key)
         if cached.hit and cached.path is not None:
+            self.last_generation_resolution = "reused_cache"
             metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
             destination = planned_destination.with_suffix(
                 _image_extension(str(metadata.get("mime_type", "image/png")))
@@ -290,7 +483,7 @@ class ImageAssetService:
             self._copy_cached(cached.path, destination)
             output_hash = hash_file(destination)
         else:
-            planned_destination = _next_asset_revision_destination(asset, planned_destination)
+            self.last_generation_resolution = "generated"
             generation = self.provider.generate(
                 ImageGenerationRequest(
                     prompt=prompt,
@@ -299,7 +492,7 @@ class ImageAssetService:
                     height=resolved_height,
                     seed=seed,
                     scene_id=scene.id,
-                    prompt_version="image-prompt-v1",
+                    prompt_version=prompt_version,
                     input_hashes=[hash_text(scene.narration)],
                     project_id=scene.video_project_id,
                     checkpoint=checkpoint,
@@ -333,7 +526,7 @@ class ImageAssetService:
         asset.provider = str(metadata.get("provider", self.provider.provider_name))
         asset.model = str(metadata.get("model", self.provider.model_name))
         asset.model_version = str(metadata.get("model_version", self.provider.model_version))
-        asset.prompt_version = "image-prompt-v1"
+        asset.prompt_version = prompt_version
         asset.prompt = prompt
         asset.negative_prompt = negative_prompt
         asset.seed = seed
@@ -347,11 +540,71 @@ class ImageAssetService:
             if self.provider.provider_name == "comfyui"
             else LicenseStatus.SAFE
         )
-        asset.generation_metadata = metadata | {"cache_key": cache_key}
+        asset.generation_metadata = metadata | {
+            "cache_key": cache_key,
+            "embedded_text_policy": (
+                "forbid" if text_free or visual_style == "faceless_editorial" else "unspecified"
+            ),
+            "visual_style": visual_style,
+            "revision_feedback": revision_feedback.strip() if revision_feedback else None,
+            "staged_for_review": stage_for_review,
+            "final_file_path": (
+                self.storage.relative_to_data_root(
+                    final_destination.with_suffix(destination.suffix)
+                )
+                if stage_for_review
+                else None
+            ),
+        }
         asset.updated_at = utc_now()
         self.session.commit()
         self.session.refresh(asset)
         return asset
+
+    def regenerate_from_feedback(
+        self,
+        asset_id: str,
+        *,
+        feedback: str,
+        width: int | None = None,
+        height: int | None = None,
+        seed: int = 1,
+        checkpoint: str | None = None,
+        workflow_path: str | None = None,
+        steps: int | None = None,
+        cfg: float | None = None,
+        sampler: str | None = None,
+        scheduler: str | None = None,
+        timeout_seconds: float | None = None,
+        text_free: bool = False,
+        visual_style: str = "standard",
+        stage_for_review: bool = True,
+    ) -> Asset:
+        asset = self.session.get(Asset, asset_id)
+        cleaned_feedback = feedback.strip()
+        if asset is None or asset.scene_id is None:
+            raise AssetError(f"Scene image asset not found: {asset_id}")
+        if asset.asset_type != AssetType.IMAGE or asset.asset_role != AssetRole.SCENE_VISUAL:
+            raise AssetError("Only scene image assets can be regenerated from review feedback.")
+        if not cleaned_feedback:
+            raise AssetError("Image revision feedback cannot be empty.")
+        return self.generate_for_scene(
+            asset.scene_id,
+            revision_feedback=cleaned_feedback,
+            width=width,
+            height=height,
+            seed=seed,
+            checkpoint=checkpoint,
+            workflow_path=workflow_path,
+            steps=steps,
+            cfg=cfg,
+            sampler=sampler,
+            scheduler=scheduler,
+            timeout_seconds=timeout_seconds,
+            text_free=text_free,
+            visual_style=visual_style,
+            stage_for_review=stage_for_review,
+        )
 
     def import_manual(self, scene_id: str, source_path: Path) -> Asset:
         self._validate_source_path(source_path, self.settings.image_allowed_extensions)
@@ -382,6 +635,69 @@ class ImageAssetService:
         self.session.refresh(asset)
         return asset
 
+    def generate_for_project(
+        self,
+        video_project_id: str,
+        *,
+        prompt_override: str | None = None,
+        negative_prompt_override: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        seed: int = 1,
+        checkpoint: str | None = None,
+        workflow_path: str | None = None,
+        steps: int | None = None,
+        cfg: float | None = None,
+        sampler: str | None = None,
+        scheduler: str | None = None,
+        timeout_seconds: float | None = None,
+        text_free: bool = False,
+        visual_style: str = "standard",
+        progress_callback: Callable[[int, int, Scene, Asset], None] | None = None,
+        stage_for_review: bool = False,
+        reuse_existing: bool = False,
+    ) -> list[Asset]:
+        scene_plan = ContentVersionService(self.session).approved_version(
+            video_project_id, ContentType.SCENE_PLAN
+        )
+        if scene_plan is None:
+            raise AssetError("Project image generation requires an approved scene plan.")
+        scenes = list(
+            self.session.scalars(
+                select(Scene)
+                .where(Scene.scene_plan_version_id == scene_plan.id)
+                .order_by(Scene.scene_number.asc())
+            )
+        )
+        if not scenes:
+            raise AssetError("Approved scene plan has no image scenes.")
+        generated: list[Asset] = []
+        total = len(scenes)
+        for index, scene in enumerate(scenes, start=1):
+            asset = self.generate_for_scene(
+                scene.id,
+                prompt_override=prompt_override,
+                negative_prompt_override=negative_prompt_override,
+                width=width,
+                height=height,
+                seed=seed + scene.scene_number - 1,
+                checkpoint=checkpoint,
+                workflow_path=workflow_path,
+                steps=steps,
+                cfg=cfg,
+                sampler=sampler,
+                scheduler=scheduler,
+                timeout_seconds=timeout_seconds,
+                text_free=text_free,
+                visual_style=visual_style,
+                stage_for_review=stage_for_review,
+                reuse_existing=reuse_existing,
+            )
+            generated.append(asset)
+            if progress_callback is not None:
+                progress_callback(index, total, scene, asset)
+        return generated
+
     def _cache_request(
         self,
         *,
@@ -397,6 +713,7 @@ class ImageAssetService:
         cfg: float | None,
         sampler: str | None,
         scheduler: str | None,
+        prompt_version: str,
     ) -> CacheKeyRequest:
         effective_workflow = workflow_path or str(getattr(self.provider, "workflow_path", ""))
         workflow_hash = None
@@ -410,7 +727,7 @@ class ImageAssetService:
             model=self.provider.model_name,
             model_version=self.provider.model_version,
             prompt_hash=hash_text(prompt),
-            prompt_version="image-prompt-v1",
+            prompt_version=prompt_version,
             settings={
                 "scene_id": scene.id,
                 "negative_prompt": negative_prompt,
@@ -515,6 +832,100 @@ class ImageAssetService:
     def _copy_cached(self, source: Path, destination: Path) -> None:
         self.storage.atomic_write(destination, source.read_bytes())
 
+    def _image_staging_destination(self, asset: Asset, final_destination: Path) -> Path:
+        relative_final = Path(self.storage.relative_to_data_root(final_destination))
+        project_root = Path("projects") / asset.video_project_id
+        try:
+            within_project = relative_final.relative_to(project_root)
+            within_images = within_project.relative_to("images")
+        except ValueError as exc:
+            raise AssetError("Image destination is outside its project image directory.") from exc
+        return self.storage.resolve_inside(
+            self.storage.data_root,
+            project_root / "images" / ".pending" / within_images,
+        )
+
+    def _stage_pending_image(self, asset: Asset) -> Asset:
+        source = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        if (
+            not source.is_file()
+            or not asset.content_hash
+            or hash_file(source) != asset.content_hash
+        ):
+            raise AssetError("Existing pending image is missing or has changed.")
+        destination = self._image_staging_destination(asset, source)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(source, destination)
+        metadata = dict(asset.generation_metadata)
+        metadata["staged_for_review"] = True
+        metadata["final_file_path"] = asset.file_path
+        asset.file_path = self.storage.relative_to_data_root(destination)
+        asset.generation_metadata = metadata
+        asset.updated_at = utc_now()
+        self.session.commit()
+        self.session.refresh(asset)
+        return asset
+
+    def _normalize_staged_image(self, asset: Asset) -> Asset:
+        source = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        relative = Path(asset.file_path)
+        project_images = Path("projects") / asset.video_project_id / "images"
+        try:
+            within_images = relative.relative_to(project_images)
+        except ValueError as exc:
+            raise AssetError("Staged image is outside its project image directory.") from exc
+        parts = list(within_images.parts)
+        while parts and parts[0] == ".pending":
+            parts.pop(0)
+        if not parts:
+            raise AssetError("Staged image path has no scene destination.")
+        final_relative = project_images.joinpath(*parts)
+        staged_relative = project_images / ".pending" / Path(*parts)
+        destination = self.storage.resolve_inside(self.storage.data_root, staged_relative)
+        final_destination = self.storage.resolve_inside(self.storage.data_root, final_relative)
+        while destination != source and (destination.exists() or final_destination.exists()):
+            destination = _next_asset_revision_destination(asset, destination)
+            final_destination = final_destination.with_name(destination.name)
+        if destination != source:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(source, destination)
+        expected_file_path = self.storage.relative_to_data_root(destination)
+        expected_final_path = self.storage.relative_to_data_root(final_destination)
+        metadata = dict(asset.generation_metadata)
+        if (
+            asset.file_path == expected_file_path
+            and metadata.get("final_file_path") == expected_final_path
+        ):
+            return asset
+        metadata["final_file_path"] = expected_final_path
+        asset.file_path = expected_file_path
+        asset.generation_metadata = metadata
+        asset.updated_at = utc_now()
+        self.session.commit()
+        self.session.refresh(asset)
+        return asset
+
+    def _is_reusable_generated_asset(self, asset: Asset, cache_key: str | None) -> bool:
+        if asset.review_status in {
+            AssetReviewStatus.REJECTED,
+            AssetReviewStatus.CHANGES_REQUESTED,
+        }:
+            return False
+        if asset.generation_status not in {
+            AssetGenerationStatus.GENERATED,
+            AssetGenerationStatus.APPROVED,
+        }:
+            return False
+        if cache_key is not None and asset.generation_metadata.get("cache_key") != cache_key:
+            return False
+        if not asset.content_hash:
+            return False
+        try:
+            path = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+            return path.is_file() and hash_file(path) == asset.content_hash
+        except (OSError, StorageError):
+            return False
+
     def _ensure_mutable(self, asset: Asset) -> None:
         if (
             asset.review_status == AssetReviewStatus.APPROVED
@@ -586,6 +997,7 @@ class VoiceAssetService:
         reference_audio_path: Path | None = None,
         exaggeration: float | None = None,
         cfg_weight: float | None = None,
+        stage_for_review: bool = False,
     ) -> Asset:
         scene = self._scene(scene_id)
         image_service = ImageAssetService(self.session, self.settings, self.storage)
@@ -667,8 +1079,15 @@ class VoiceAssetService:
             exaggeration=resolved_exaggeration,
             cfg_weight=resolved_cfg_weight,
         )
-        destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
         cache_key = self.cache.build_cache_key(request)
+        final_destination = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        if asset.content_hash:
+            final_destination = _next_asset_revision_destination(asset, final_destination)
+        destination = (
+            self._audio_staging_destination(asset, final_destination)
+            if stage_for_review
+            else final_destination
+        )
         cached = self.cache.lookup(cache_key)
         duration = None
         if cached.hit and cached.path is not None:
@@ -677,7 +1096,6 @@ class VoiceAssetService:
             metadata = dict(cached.entry.metadata_json if cached.entry is not None else {})
             duration = _duration_from_metadata(metadata)
         else:
-            destination = _next_asset_revision_destination(asset, destination)
             generation = self.provider.synthesize(
                 VoiceGenerationRequest(
                     text=prepared.effective_text,
@@ -791,6 +1209,10 @@ class VoiceAssetService:
             "segment_end_seconds": (
                 (scene.start_seconds or 0.0) + (duration or scene.duration_seconds)
             ),
+            "staged_for_review": stage_for_review,
+            "final_file_path": (
+                self.storage.relative_to_data_root(final_destination) if stage_for_review else None
+            ),
         }
         asset.updated_at = utc_now()
         self.session.commit()
@@ -809,6 +1231,8 @@ class VoiceAssetService:
         reference_audio_path: Path | None = None,
         exaggeration: float | None = None,
         cfg_weight: float | None = None,
+        stage_for_review: bool = False,
+        reuse_existing: bool = False,
     ) -> list[Asset]:
         scene_plan = ContentVersionService(self.session).approved_version(
             video_project_id, ContentType.SCENE_PLAN
@@ -824,20 +1248,50 @@ class VoiceAssetService:
         )
         if not scenes:
             raise AssetError("Approved scene plan has no narration segments.")
-        return [
-            self.generate_for_scene(
-                scene.id,
-                voice_name=voice_name,
-                language=language,
-                speaking_rate=speaking_rate,
-                seed=seed,
-                pronunciation_overrides=pronunciation_overrides,
-                reference_audio_path=reference_audio_path,
-                exaggeration=exaggeration,
-                cfg_weight=cfg_weight,
+        assets: list[Asset] = []
+        for scene in scenes:
+            existing = self._reusable_narration(scene) if reuse_existing else None
+            if existing is not None:
+                assets.append(existing)
+                continue
+            assets.append(
+                self.generate_for_scene(
+                    scene.id,
+                    voice_name=voice_name,
+                    language=language,
+                    speaking_rate=speaking_rate,
+                    seed=seed,
+                    pronunciation_overrides=pronunciation_overrides,
+                    reference_audio_path=reference_audio_path,
+                    exaggeration=exaggeration,
+                    cfg_weight=cfg_weight,
+                    stage_for_review=stage_for_review,
+                )
             )
-            for scene in scenes
-        ]
+        return assets
+
+    def _reusable_narration(self, scene: Scene) -> Asset | None:
+        asset = self.session.scalar(
+            select(Asset).where(
+                Asset.scene_id == scene.id,
+                Asset.asset_role == AssetRole.SCENE_NARRATION,
+                Asset.is_active.is_(True),
+            )
+        )
+        if (
+            asset is None
+            or asset.generation_status
+            not in {AssetGenerationStatus.GENERATED, AssetGenerationStatus.APPROVED}
+            or asset.review_status
+            not in {AssetReviewStatus.PENDING_REVIEW, AssetReviewStatus.APPROVED}
+            or not asset.content_hash
+        ):
+            return None
+        try:
+            path = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        except StorageError:
+            return None
+        return asset if self.storage.verify_file_hash(path, asset.content_hash) else None
 
     def import_manual(self, scene_id: str, source_path: Path) -> Asset:
         ImageAssetService(self.session, self.settings, self.storage)._validate_source_path(
@@ -948,6 +1402,18 @@ class VoiceAssetService:
             return self.settings.chatterbox_request_timeout_seconds
         return self.settings.tts_request_timeout_seconds
 
+    def _audio_staging_destination(self, asset: Asset, final_destination: Path) -> Path:
+        project_root = Path("projects") / asset.video_project_id
+        relative_final = Path(self.storage.relative_to_data_root(final_destination))
+        try:
+            within_audio = relative_final.relative_to(project_root / "audio")
+        except ValueError as exc:
+            raise AssetError("Audio destination is outside its project audio directory.") from exc
+        return self.storage.resolve_inside(
+            self.storage.data_root,
+            project_root / "audio" / ".pending" / within_audio,
+        )
+
     def _asset(self, scene: Scene, role: AssetRole, asset_type: AssetType) -> Asset:
         return ImageAssetService(self.session, self.settings, self.storage)._asset(
             scene,
@@ -975,6 +1441,7 @@ class AssetReviewService:
         review_status: AssetReviewStatus,
         *,
         generation_status: AssetGenerationStatus | None = None,
+        feedback: str | None = None,
     ) -> Asset:
         asset = self._asset(asset_id)
         if (
@@ -982,6 +1449,8 @@ class AssetReviewService:
             and review_status != AssetReviewStatus.APPROVED
         ):
             raise AssetError("Approved asset decisions cannot be changed in place.")
+        if review_status == AssetReviewStatus.APPROVED:
+            self._promote_staged_asset(asset)
         asset.review_status = review_status
         if generation_status is not None:
             asset.generation_status = generation_status
@@ -990,9 +1459,68 @@ class AssetReviewService:
         elif review_status == AssetReviewStatus.REJECTED:
             asset.generation_status = AssetGenerationStatus.REJECTED
         asset.updated_at = utc_now()
+        if feedback and feedback.strip():
+            metadata = dict(asset.generation_metadata)
+            history = list(metadata.get("review_history", []))
+            history.append(
+                {
+                    "status": review_status.value,
+                    "feedback": feedback.strip(),
+                    "reviewed_at_utc": utc_now().isoformat(),
+                }
+            )
+            metadata["review_history"] = history
+            asset.generation_metadata = metadata
         self.session.commit()
         self.session.refresh(asset)
+        if review_status == AssetReviewStatus.REJECTED:
+            self._delete_rejected_staged_asset(asset)
         return asset
+
+    def _promote_staged_asset(self, asset: Asset) -> None:
+        metadata = dict(asset.generation_metadata)
+        if not metadata.get("staged_for_review"):
+            return
+        final_file_path = metadata.get("final_file_path")
+        if not isinstance(final_file_path, str) or not final_file_path:
+            raise AssetError("Staged asset is missing its final destination.")
+        source = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+        destination = self.storage.resolve_inside(self.storage.data_root, final_file_path)
+        if (
+            not source.is_file()
+            or not asset.content_hash
+            or hash_file(source) != asset.content_hash
+        ):
+            raise AssetError("Staged asset is missing or has changed.")
+        if destination.exists():
+            raise AssetError("Approved asset destination already exists.")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(source, destination)
+        metadata["staged_for_review"] = False
+        metadata["promoted_from_staging"] = True
+        asset.file_path = self.storage.relative_to_data_root(destination)
+        asset.generation_metadata = metadata
+
+    def _delete_rejected_staged_asset(self, asset: Asset) -> None:
+        metadata = dict(asset.generation_metadata)
+        if not metadata.get("staged_for_review") and asset.asset_type != AssetType.IMAGE:
+            return
+        try:
+            staged_path = self.storage.resolve_inside(self.storage.data_root, asset.file_path)
+            staged_path.unlink(missing_ok=True)
+        except (OSError, StorageError) as exc:
+            raise AssetError("Rejected staged asset could not be deleted safely.") from exc
+        cache_key = metadata.get("cache_key")
+        if isinstance(cache_key, str) and cache_key:
+            CacheService(self.session, self.storage).invalidate_entry(
+                cache_key,
+                "Generated staged asset was rejected during human review.",
+            )
+        metadata["rejected_file_deleted"] = True
+        asset.generation_metadata = metadata
+        asset.updated_at = utc_now()
+        self.session.commit()
+        self.session.refresh(asset)
 
     def record_provenance(
         self,
@@ -1119,6 +1647,18 @@ class AssetReviewService:
             )
         )
 
+    def latest_reference_asset(self, video_project_id: str) -> Asset | None:
+        statement = (
+            select(Asset)
+            .where(Asset.video_project_id == video_project_id)
+            .where(Asset.asset_type == AssetType.IMAGE)
+            .where(Asset.review_status == AssetReviewStatus.APPROVED)
+            .where(Asset.asset_role.in_((AssetRole.SCENE_VISUAL, AssetRole.REFERENCE)))
+            .options(selectinload(Asset.scene))
+            .order_by(Asset.created_at.desc(), Asset.id.desc())
+        )
+        return self.session.scalar(statement)
+
     def _asset(self, asset_id: str) -> Asset:
         asset = self.session.get(Asset, asset_id)
         if asset is None:
@@ -1136,6 +1676,243 @@ def estimate_wav_duration(path: Path) -> float | None:
             return round(frames / rate, 3) if rate else None
     except (wave.Error, OSError):
         return None
+
+
+def _text_free_image_prompt(prompt: str) -> str:
+    cleaned = " ".join(prompt.split())
+    patterns = (
+        r"\b(?:headline|title|caption|label)\s*:\s*[^.;]+[.;]?",
+        r"\bkinetic (?:text sequence|contrast)\s*:\s*[^.]+[.]?",
+        r"\bfour kinetic checklist items appear\s*:\s*[^.]+[.]?",
+        r"\beditorial qualification card\s*:\s*[^.]+[.]?",
+        r"\b(?:with|and)\s+(?:clean\s+)?(?:safe\s+)?(?:space|margins)\s+for\s+"
+        r"(?:large\s+)?(?:kinetic\s+)?typography\b",
+    )
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+    cleaned = " ".join(cleaned.split()).strip(" ;.")
+    return (
+        f"{cleaned}. Imagery only, with clean unmarked negative space. Do not render typography, "
+        "readable words, letters, numbers, labels, logos, watermarks, signatures, interface "
+        "copy, pseudo-text, or text-like marks anywhere in the image."
+    )
+
+
+def _apply_image_revision_feedback(prompt: str, feedback: str | None) -> str:
+    cleaned_prompt = " ".join(prompt.split())
+    cleaned_feedback = " ".join(feedback.split()) if feedback else ""
+    if not cleaned_feedback:
+        return cleaned_prompt
+    return f"{cleaned_prompt}. Revision requirements from human review: {cleaned_feedback}"
+
+
+def _faceless_editorial_image_prompt(
+    prompt: str,
+    scene_number: int,
+    *,
+    project_context: str = "technology",
+) -> str:
+    category, presenter, palette = _editorial_visual_identity(project_context)
+    cleaned = _sanitize_faceless_scene_content(
+        _strip_embedded_text_instructions(prompt),
+        category=category,
+    )
+    shot_types = (
+        "Exactly one character, centered waist-up direct-address pose, confident body language, "
+        "eye-level camera, complete head shoulders arms and hands visible inside the frame",
+        "Object-only topic insert: one key physical component from the scene centered in frame, "
+        "surrounded by three to five small contextual parts or icons; no humanoids, people, "
+        "heads, faces, bodies, silhouettes, or hands",
+        "Tight close-up of the recurring presenter's gloved hands manipulating one relevant "
+        "physical object from the scene; show only hands, matching sleeves, and the object",
+        "Exactly one character in an expressive reaction pose beside one simple circular visual "
+        "inset without labels; no other humanoid shapes",
+        "Exactly one character in a medium-wide explanatory pose using one physical prop, with "
+        "the complete silhouette inside the frame and generous negative space",
+    )
+    shot_index = (scene_number - 1) % len(shot_types)
+    shot = shot_types[shot_index]
+    semantic_object_only = _requires_object_only_scene(cleaned)
+    if semantic_object_only:
+        shot = (
+            "Object-only composition centered on one clear physical or geometric metaphor from "
+            "the scene content, fully inside the frame"
+        )
+        character = (
+            "Strictly inanimate mechanical still life using geometric objects and machinery. "
+        )
+    elif shot_index == 1:
+        character = (
+            "Object-only technical insert from the recurring guide's visual world. Do not show "
+            "a human, humanoid, person, figure, head, face, body, silhouette, or hands. "
+        )
+    elif shot_index == 2:
+        character = (
+            "Object-only insert from the recurring guide's visual world. Do not show a human, "
+            "humanoid, person, figure, head, face, body, or silhouette. "
+        )
+    else:
+        character = (
+            f"{presenter} Keep this exact presenter design and wardrobe consistent across every "
+            "character-led scene. Show exactly one presenter and never add unrelated workers, "
+            "assistants, mascots, or background people. "
+        )
+    if semantic_object_only:
+        subject_composition = (
+            "The primary object occupies 60 to 70 percent of the frame, with one obvious focal "
+            "point, high local contrast, sharp clean edges, and a fully resolved foreground. "
+            "Use only inanimate geometric or mechanical forms in a product-photography layout. "
+        )
+    else:
+        subject_composition = (
+            "The character or key object occupies 60 to 70 percent of the frame, with a strong "
+            "silhouette, one obvious focal point, high local contrast, sharp clean edges, and a "
+            "fully resolved foreground subject. Never repeat, clone, mirror, or multiply the "
+            "character. "
+        )
+    return (
+        f"{character}High-detail editorial graphic-novel illustration, precise crisp ink "
+        "linework, controlled cel shading, subtle material texture, muted uncluttered background, "
+        f"{palette}. Topic family: {category}. "
+        f"{shot}. {subject_composition}"
+        f"Scene content: {cleaned}. Imagery only, with clean unmarked negative space. Do not "
+        "render typography, readable words, letters, numbers, labels, logos, watermarks, "
+        "signatures, interface copy, pseudo-text, or text-like marks anywhere in the image."
+    )
+
+
+def _faceless_editorial_negative_prompt(existing: str | None) -> str:
+    style_negative = (
+        "photorealistic, 3d render, superhero, bodybuilder, oversized muscles, mascot logo, "
+        "busy background, collage, split screen, multiple panels, second person, multiple people, "
+        "duplicate character, cloned figure, crowd, extra limbs, malformed hands, distorted "
+        "anatomy, blurry, soft focus, low detail, text, letters, numbers, logo, watermark, "
+        "signature, pseudo-text"
+    )
+    return f"{existing}, {style_negative}" if existing else style_negative
+
+
+def _strip_embedded_text_instructions(prompt: str) -> str:
+    cleaned = " ".join(prompt.split())
+    patterns = (
+        r"\b(?:headline|title|caption|label)\s*:\s*[^.;]+[.;]?",
+        r"\bkinetic (?:text sequence|contrast)\s*:\s*[^.]+[.]?",
+        r"\bfour kinetic checklist items appear\s*:\s*[^.]+[.]?",
+        r"\beditorial qualification card\s*:\s*[^.]+[.]?",
+        r"\b(?:with|and)\s+(?:clean\s+)?(?:safe\s+)?(?:space|margins)\s+for\s+"
+        r"(?:large\s+)?(?:kinetic\s+)?typography\b",
+    )
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+    return " ".join(cleaned.split()).strip(" ;.")
+
+
+def _sanitize_faceless_scene_content(prompt: str, *, category: str = "technology") -> str:
+    if category != "technology":
+        return prompt
+    replacements = (
+        (r"\bAI agents?\b", "software process nodes"),
+        (r"\bagents?\b", "software process nodes"),
+        (r"\bAI models?\b", "glowing processor cores"),
+        (r"\bmodels?\b", "processor cores"),
+        (r"\busers?\b", "interface endpoints"),
+        (r"\bteams?\b", "engineering workflows"),
+        (r"\bhuman-approved\b", "manual approval"),
+        (r"\bhuman review\b", "manual review"),
+        (
+            r"\bthree-panel editorial montage\b",
+            "single continuous pathway with three abstract stations",
+        ),
+    )
+    cleaned = prompt
+    for pattern, replacement in replacements:
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
+def _requires_object_only_scene(prompt: str) -> bool:
+    object_patterns = (
+        r"\bchart\b",
+        r"\bdata visualization\b",
+        r"\bkinetic\b",
+        r"\btechnology background\b",
+        r"\brobotic hand\b",
+        r"\bstill life\b",
+        r"\bevaluation matrix\b",
+        r"\bpillars?\b",
+        r"\beditorial card\b",
+        r"\bmontage\b",
+        r"\bcontinuous pathway\b",
+        r"\bcheckpoint\b",
+        r"\bcutaway\b",
+        r"\bclose-up\b",
+        r"\bexploded view\b",
+        r"\bengine block\b",
+        r"\bcylinder head\b",
+        r"\bradiator\b",
+        r"\bthermostat\b",
+        r"\bvalve\b",
+        r"\bimpeller\b",
+        r"\b(?:cooling|radiator|failed) fan\b",
+        r"\bturbocharger\b",
+        r"\bbrake (?:disc|rotor|caliper)\b",
+        r"\bbattery pack\b",
+        r"\bdashboard gauge\b",
+    )
+    return any(re.search(pattern, prompt, flags=re.IGNORECASE) for pattern in object_patterns)
+
+
+def _editorial_topic_category(context: str) -> str:
+    lowered = context.casefold()
+    categories = (
+        ("automotive", ("car", "vehicle", "engine", "automotive", "turbo", "brake")),
+        ("health", ("health", "fitness", "body", "sleep", "nutrition", "hormone")),
+        ("finance", ("money", "finance", "invest", "business", "market", "economy")),
+        ("technology", ("ai", "software", "computer", "data", "robot", "technology")),
+    )
+    for category, keywords in categories:
+        if any(keyword in lowered for keyword in keywords):
+            return category
+    return "general"
+
+
+def _editorial_visual_identity(context: str) -> tuple[str, str, str]:
+    category = _editorial_topic_category(context)
+    identities = {
+        "automotive": (
+            "Original recurring faceless automotive presenter: a lean adult mechanic-guide in "
+            "clean charcoal workshop coveralls with one burnt-orange shoulder panel, fitted black "
+            "gloves, and a smooth matte helmet with a narrow warm-white visor; no logos or racing "
+            "sponsor marks.",
+            "Limited charcoal, steel blue, warm white, and burnt-orange palette",
+        ),
+        "health": (
+            "Original recurring faceless wellness presenter: an athletic but naturally "
+            "proportioned adult in a graphite training top with one sage-green shoulder panel "
+            "and a smooth featureless mask; no medical logos and no superhero proportions.",
+            "Limited graphite, pale blue-gray, sage, and coral palette",
+        ),
+        "finance": (
+            "Original recurring faceless financial presenter: a slim adult in a tailored charcoal "
+            "suit, off-white shirt, muted ochre tie, and smooth featureless mask; no company "
+            "marks.",
+            "Limited charcoal, paper white, muted green, and ochre palette",
+        ),
+        "technology": (
+            "Original recurring faceless AI analyst character: a slim adult silhouette with a "
+            "smooth porcelain-white featureless helmet, one horizontal amber light visor, and "
+            "dark graphite utility jacket with a single teal shoulder panel; no emblem.",
+            "Limited charcoal, teal, cool gray, and amber palette",
+        ),
+        "general": (
+            "Original recurring faceless editorial presenter: a slim adult in a neutral charcoal "
+            "jacket with one rust-colored shoulder panel and a smooth warm-white featureless mask; "
+            "no logos.",
+            "Limited charcoal, warm white, slate blue, and rust palette",
+        ),
+    }
+    presenter, palette = identities[category]
+    return category, presenter, palette
 
 
 def _duration_from_metadata(metadata: dict[str, object]) -> float | None:

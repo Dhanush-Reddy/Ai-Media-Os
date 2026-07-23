@@ -1,0 +1,167 @@
+[23.05.14] Run ID: 20260718T173511Z
+[23.05.14] Project: 427a25d0-c6bd-4beb-bcdb-209bf7ae9c11
+[23.05.14] Generation seed: 1784396114
+[23.05.14] STAGE 1/11 - Provider health checks
+[23.05.19] Dashboard started: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	comfyui	ComfyUI is ready.
+[23.05.59] STAGE 2/11 - Import and approve the new project script
+e6734629-39a3-4a12-987f-f75e89420235
+d36c2693-2533-4d40-ba97-9a027c4fe5de
+d36c2693-2533-4d40-ba97-9a027c4fe5de	script	pending	e6734629-39a3-4a12-987f-f75e89420235
+approved
+[23.06.23] STAGE 3/11 - Generate and approve a new scene plan
+7810b7de-7d7a-448a-bb50-566be3d8f1a6
+[23.06.25] Generating scene plan completed in 2s.
+46bb5a7c-cb2c-4829-a0e5-ac91cdc3f8b0	scene_plan	pending	7810b7de-7d7a-448a-bb50-566be3d8f1a6
+approved
+[23.44.22] STAGE 4/11 - Plan scene assets
+14
+[23.44.23] STAGE 5/11 - Generate Chatterbox narration revisions
+571c61bf-c162-463b-8195-43bfb6fa240c
+4736eb46-34c7-4070-baf4-7dccfaf8f84a
+9177d330-abd5-483b-99be-7d3fa72e4f29
+a4afc7e3-01b6-43b9-8957-6e678634bc96
+a47e3d3c-50c7-40e1-ad2f-072840239533
+7772d5c5-e67c-4500-a3ef-167e49291e4d
+b693c0c5-2c7b-4849-ba4f-06fe3fd8b49d
+[23.50.12] Generating Chatterbox narration completed in 348s.
+[23.50.12] STAGE 6/11 - Verify and review narration
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+[23.52.12] WhisperX skipped. Using narration duration for captions and visual beats.
+[23.52.12] STAGE 7/11 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Creating new image revisions with seed 1784396114; approved history is preserved.
+[1/7] Scene 1 GENERATED: c81fe8b5-d9c6-44c3-9a94-012f4209fbe6
+[2/7] Scene 2 GENERATED: fb3c02ae-345e-40b2-8ca9-58f0dfbaf108
+[3/7] Scene 3 GENERATED: 790d86c5-2838-4269-97ca-082fe954c116
+[4/7] Scene 4 GENERATED: 5dd09180-dab3-4d9d-8108-884a206c6573
+[5/7] Scene 5 GENERATED: e6729920-1b7e-4321-9e23-4c43a16449f0
+[6/7] Scene 6 GENERATED: 743d2543-5418-4aee-98a2-3d3852dc1066
+[7/7] Scene 7 GENERATED: 6ab80815-642f-43f7-b2f4-7cea6674127b
+Ollama evaluation skipped for visual c81fe8b5-d9c6-44c3-9a94-012f4209fbe6. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/c81fe8b5-d9c6-44c3-9a94-012f4209fbe6/preview
+Review visual c81fe8b5-d9c6-44c3-9a94-012f4209fbe6
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual fb3c02ae-345e-40b2-8ca9-58f0dfbaf108. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/fb3c02ae-345e-40b2-8ca9-58f0dfbaf108/preview
+Review visual fb3c02ae-345e-40b2-8ca9-58f0dfbaf108
+  1. Approve
+  2. Reject
+Enter 1 or 2.
+approved
+Ollama evaluation skipped for visual 790d86c5-2838-4269-97ca-082fe954c116. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/790d86c5-2838-4269-97ca-082fe954c116/preview
+Review visual 790d86c5-2838-4269-97ca-082fe954c116
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 5dd09180-dab3-4d9d-8108-884a206c6573. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/5dd09180-dab3-4d9d-8108-884a206c6573/preview
+Review visual 5dd09180-dab3-4d9d-8108-884a206c6573
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual e6729920-1b7e-4321-9e23-4c43a16449f0. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/e6729920-1b7e-4321-9e23-4c43a16449f0/preview
+Review visual e6729920-1b7e-4321-9e23-4c43a16449f0
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 743d2543-5418-4aee-98a2-3d3852dc1066. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/743d2543-5418-4aee-98a2-3d3852dc1066/preview
+Review visual 743d2543-5418-4aee-98a2-3d3852dc1066
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 6ab80815-642f-43f7-b2f4-7cea6674127b. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/6ab80815-642f-43f7-b2f4-7cea6674127b/preview
+Review visual 6ab80815-642f-43f7-b2f4-7cea6674127b
+  1. Approve
+  2. Reject
+approved
+Generating the 1080x1920 short production timeline...
+WARN	slow_visual_beats	Short-form scene 1 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 3 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 4 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 5 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 6 has a visual beat longer than 1.75 seconds.
+WARN	slow_visual_beats	Short-form scene 7 has a visual beat longer than 1.75 seconds.
+WARN	reference_profile_layer_gap	The timeline follows reference timing but has no executable character or icon layers; pose swaps and icon pops are not rendered yet.
+Review timeline a55f8db5-e0f1-4cd8-ad00-7b5e4453967e
+  1. Approve
+  2. Reject
+approved
+Rendering the approved short timeline...
+Traceback (most recent call last):
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\timelines.py", line 551, in compose_production_render
+    result = composer.compose(
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\providers\video_composition.py", line 153, in compose
+    self._run(
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\providers\video_composition.py", line 375, in _run
+    raise VideoCompositionError(diagnostic[-1000:])
+ai_media_os.providers.video_composition.VideoCompositionError: 4a / 0x6134706D), 24000 Hz, mono, fltp, 69 kb/s
+    Metadata:
+      encoder         : Lavc62.28.102 aac
+[aac @ 0000014b1e1b3400] Input contains (near) NaN/+-Inf
+[aost#0:1/aac @ 0000014b1e1b3180] [enc:aac @ 0000014b1ff35380] Error submitting audio frame to the encoder
+[aost#0:1/aac @ 0000014b1e1b3180] [enc:aac @ 0000014b1ff35380] Error encoding a frame: Invalid argument
+[aost#0:1/aac @ 0000014b1e1b3180] Task finished with error code: -22 (Invalid argument)
+[aost#0:1/aac @ 0000014b1e1b3180] Terminating thread with return code -22 (Invalid argument)
+[mp4 @ 0000014b1e198440] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 0000014b1e154b80] video:127KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.732202%
+frame=    7 fps=0.0 q=-1.0 Lsize=     128KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.01    
+[aac @ 0000014b1e1b3400] Qavg: nan
+[aac @ 0000014b1e1b3400] 2 frames left in the queue on closing
+Conversion failed!
+System.Management.Automation.RemoteException
+The above exception was the direct cause of the following exception:
+System.Management.Automation.RemoteException
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1948, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1704, in main
+    production_render = timeline_service.compose_production_render(production_render.id)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\timelines.py", line 570, in compose_production_render
+    raise TimelineError(str(exc)) from exc
+ai_media_os.application.timelines.TimelineError: 4a / 0x6134706D), 24000 Hz, mono, fltp, 69 kb/s
+    Metadata:
+      encoder         : Lavc62.28.102 aac
+[aac @ 0000014b1e1b3400] Input contains (near) NaN/+-Inf
+[aost#0:1/aac @ 0000014b1e1b3180] [enc:aac @ 0000014b1ff35380] Error submitting audio frame to the encoder
+[aost#0:1/aac @ 0000014b1e1b3180] [enc:aac @ 0000014b1ff35380] Error encoding a frame: Invalid argument
+[aost#0:1/aac @ 0000014b1e1b3180] Task finished with error code: -22 (Invalid argument)
+[aost#0:1/aac @ 0000014b1e1b3180] Terminating thread with return code -22 (Invalid argument)
+[mp4 @ 0000014b1e198440] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 0000014b1e154b80] video:127KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.732202%
+frame=    7 fps=0.0 q=-1.0 Lsize=     128KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.01    
+[aac @ 0000014b1e1b3400] Qavg: nan
+[aac @ 0000014b1e1b3400] 2 frames left in the queue on closing
+Conversion failed!
+AI Media OS command failed (1): render-timeline --timeline-version-id a55f8db5-e0f1-4cd8-ad00-7b5e4453967e
+At C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\scripts\run-short-production.ps1:61 char:9
++         throw "AI Media OS command failed ($LASTEXITCODE): $($Argumen ...
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (AI Media OS com...00-7b5e4453967e:String) [], RuntimeException
+    + FullyQualifiedErrorId : AI Media OS command failed (1): render-timeline --timeline-version-id a55f8db5-e0f1-4cd8-ad00-7b5e4453967e
+ 

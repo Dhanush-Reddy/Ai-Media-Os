@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "WARN",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 1893753,
+    "content_hash": "909c45d467765de8958d255e6385ffdae5457dc0b32ce7e497219a0b58b4d9e4",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 97,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": true,
+    "strengths": [
+      "Elegant AI control room setting with clear visual transition from green to red alerts",
+      "Polished demo dashboard turning into production alerts as per scene requirement",
+      "No logos or readable interface text, meeting the 'no logos, no readable interface text' criteria"
+    ],
+    "issues": [],
+    "recommendation": "This image perfectly meets the vertical short video requirements. It's a high-quality, clean asset with strong visual storytelling for the AI demo to production transition."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement.",
+    "The local vision model could not compare multiple images; character consistency requires human review."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "d127668374547b32565a7e37ef40ce67a94fcbd3d5afa7d56ff1d81827711e89"
+}

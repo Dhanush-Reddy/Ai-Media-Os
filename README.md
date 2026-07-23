@@ -1,5 +1,8 @@
 # AI Media OS
 
+Local narration word alignment and frame-level animation triggers are documented in
+`docs/runbooks/offline-narration-alignment.md`.
+
 AI Media OS is a local-first foundation for producing one monetization-safe YouTube channel before expanding into broader automation.
 
 The current implementation covers Milestones 1 through 8.5 and optional local providers through Milestone 9C:
@@ -321,6 +324,55 @@ python -m ai_media_os.cli render-timeline --timeline-version-id <approved-id>
 ```
 
 Timeline approval requests still require an explicit human approval decision through the existing approval CLI or dashboard. Production rendering accepts only active approved assets whose hashes still match.
+
+For the vertical faceless short format, generate an explicit 1080x1920 timeline with
+retention-paced caption beats and beat-synchronized camera emphasis:
+
+```powershell
+python -m ai_media_os.cli generate-timeline `
+  --project-id <id> `
+  --video-format short_vertical `
+  --style-profile faceless_editorial
+```
+
+The existing `long_horizontal` format remains the default. Long-form-specific pacing will be
+developed only after the short-form pilot is validated.
+
+For exact PowerShell commands to discover the newest timeline and approval IDs, review assets and
+renders with numbered menus, generate packaging, run the publishing gate, and locate local files,
+see `docs/runbooks/local-production-and-approval-commands.md`.
+
+## Offline image evaluation
+
+Generated vertical images can be checked locally with an Ollama vision model. The command
+verifies dimensions and hashes, then scores scene relevance, perceived sharpness,
+composition, artifacts, pseudo-text, and optional character-reference consistency.
+
+```powershell
+ollama pull qwen3-vl:4b
+ollama serve
+.\.venv\Scripts\python.exe -m ai_media_os.cli check-image-evaluator --model qwen3-vl:4b
+.\.venv\Scripts\python.exe -m ai_media_os.cli evaluate-image `
+  --asset-id <asset-id> `
+  --reference-asset-id <approved-character-reference-asset-id> `
+  --model qwen3-vl:4b
+```
+
+See `docs/architecture/offline-image-evaluation.md` for the complete 1080x1920 and native
+2160x3840 test commands. Ollama scores remain advisory and never approve an asset.
+
+To generate, evaluate, review, timeline, and render an entire approved short project through
+one interactive command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-short-production.ps1 `
+  -ProjectId <project-id> `
+  -Quality 1080p `
+  -VisionModel qwen3-vl:4b
+```
+
+The project must already have approved narration for every scene. The runner pauses for human
+visual, timeline, and final-render approval instead of bypassing the approval service.
 
 ## Verification
 

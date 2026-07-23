@@ -1,0 +1,54 @@
+[17.19.55] Run ID: 20260718T114949Z
+[17.19.55] Project: bbaf5681-5709-4d2a-88e7-9014d900460e
+[17.19.55] Generation seed: 1784375394
+[17.19.55] STAGE 1/12 - Provider health checks
+[17.19.55] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+[17.20.26] STAGE 2/12 - Import and approve the new project script
+e3d53f57-e35c-42bb-8c42-db6cf3826c4c
+c7bec252-fb5c-41ce-83c4-299313be9b9e
+c7bec252-fb5c-41ce-83c4-299313be9b9e	script	pending	e3d53f57-e35c-42bb-8c42-db6cf3826c4c
+approved
+[17.20.58] STAGE 3/12 - Generate and approve a new scene plan
+4225fabd-b518-4e5f-af93-ab5f1200e8bb
+[17.21.00] Generating scene plan completed in 2s.
+c5cbeb11-9379-41b8-8692-b44ae5f9377d	scene_plan	pending	4225fabd-b518-4e5f-af93-ab5f1200e8bb
+approved
+[17.21.28] STAGE 4/12 - Plan scene assets
+14
+[17.21.30] STAGE 5/12 - Generate Chatterbox narration revisions
+2a4113dd-2922-4215-9919-b47721ebb236
+77681ce7-4646-46fc-be1a-67d8c2bce80c
+605d7b6a-35d6-4d6f-a61e-3d6888f6a3aa
+bbad2796-bb7c-4da1-a24d-0c3b3f1e42b3
+afc8f352-d744-4644-97db-70d3f618871f
+6a2325d8-367f-416c-82a0-cfb340eea30f
+602ebe8b-4279-4744-b104-5f11869d182b
+[17.29.43] Generating Chatterbox narration completed in 493s.
+[17.29.43] STAGE 6/12 - Verify and review narration
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+OK
+approved
+[17.32.56] STAGE 7/12 - WhisperX narration alignment
+df84cf7f-d6d6-4c64-a819-b33020be2e67	pass	auto_usable=true
+[17.34.05] Aligning narration 1 of 7 completed in 69s.
+932f723e-6d56-4155-b994-c8f66c280389	pass	auto_usable=true
+[17.34.30] Aligning narration 2 of 7 completed in 24s.
+91c18c4c-ac6d-427b-8792-70062f16bba3	pass	auto_usable=true
+[17.35.04] Aligning narration 3 of 7 completed in 34s.
+e455ab5f-44d9-46e4-a45a-316e3b81d52e	pass	auto_usable=true
+[17.35.39] Aligning narration 4 of 7 completed in 35s.
+a339df84-7f17-4b4d-a395-405d9eceb638	block	auto_usable=false

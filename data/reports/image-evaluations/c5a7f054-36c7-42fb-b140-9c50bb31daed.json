@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2434040,
+    "content_hash": "b46de71438a13cb96c3fae0b1363715ac6f7093f57fbf5ef6e02fbd184857a4f",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 92,
+    "perceived_sharpness_score": 98,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Clear visual representation of evaluation matrix with test cases and pass/fail indicators",
+      "Clean dark editorial style as specified",
+      "No text or logos present, meeting generation prompt requirements",
+      "High perceived sharpness and detail in the mechanical subject"
+    ],
+    "issues": [],
+    "recommendation": "The image meets all criteria for a vertical short video scene. No adjustments needed."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "cb83d50e796d02feb850faba297ed60fa43a35305768ec8bb1d333044b4bf839"
+}

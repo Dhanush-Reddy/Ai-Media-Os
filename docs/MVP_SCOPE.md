@@ -1019,7 +1019,26 @@ streaming, publishing, Telegram, analytics, Shorts, translation, and dubbing rem
 
 ---
 
-### Milestone 9 — Telegram Approval
+### Milestone 9D - Motion Graphics And Production Timeline
+
+Status: implemented; final pilot closure is in progress.
+
+Deliverables:
+
+* Immutable production timelines
+* Approved-input selection and validation
+* Horizontal and vertical formats
+* Motion, transition, kinetic-text, and subtitle presets
+* Deterministic FFmpeg production rendering
+* Timeline and render approvals
+* Production-quality findings
+* 18-scene local production pilot
+
+---
+
+### Milestone 9E - Telegram Remote Approval
+
+Status: next milestone after Milestone 9D is closed.
 
 Deliverables:
 
@@ -1030,6 +1049,26 @@ Deliverables:
 * Final-video notification
 * Feedback capture
 * Error alerts
+
+The first implementation will use outbound Bot API long polling, an explicit reviewer allowlist,
+opaque idempotent callback tokens, and the existing application approval services. It will not
+require a public backend or perform publishing.
+
+---
+
+### Milestone 9F - Optional Remote Web Approval
+
+Deliverables:
+
+* Narrow authenticated approval API
+* Static Netlify review client
+* Identity-aware access gateway
+* Secure outbound tunnel to the local FastAPI backend
+* Signed short-lived media previews
+* CORS, CSRF, replay protection, rate limits, and audit logging
+
+The local dashboard and SQLite database must not be exposed directly. See
+`docs/architecture/remote-approval-access.md`.
 
 ---
 

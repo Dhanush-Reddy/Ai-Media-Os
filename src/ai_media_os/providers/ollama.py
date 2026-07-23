@@ -80,7 +80,8 @@ class UrllibOllamaTransport:
                 raise OllamaMissingModelError(
                     "The configured Ollama model is not installed."
                 ) from exc
-            raise OllamaConnectionError(f"Ollama returned HTTP {exc.code}.") from exc
+            suffix = f": {detail}" if detail else "."
+            raise OllamaConnectionError(f"Ollama returned HTTP {exc.code}{suffix}") from exc
         except URLError as exc:
             if isinstance(exc.reason, TimeoutError):
                 raise TextGenerationTimeoutError("Ollama request timed out.") from exc

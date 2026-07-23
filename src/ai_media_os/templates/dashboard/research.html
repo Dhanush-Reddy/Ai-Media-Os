@@ -11,6 +11,8 @@
     </div>
   </section>
 
+  {% include "dashboard/fragments/project_nav.html" %}
+
   <section class="metrics">
     <article class="metric"><span>Total sources</span><strong>{{ research.source_summary.total }}</strong></article>
     <article class="metric success"><span>Approved</span><strong>{{ research.source_summary.approved }}</strong></article>

@@ -1,0 +1,10 @@
+﻿[15:20:51] Run ID: 20260718T095048Z
+[15:20:51] Project: 330f3ab9-b9a0-442e-836b-221544a276b1
+[15:20:51] Generation seed: 1784368251
+[15:20:51] STAGE 1/12 - Provider health checks
+[15:20:52] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	whisperx	WhisperX offline alignment is ready.
+READY	comfyui	ComfyUI is ready.
+Ollama vision evaluator is ready.
+Ollama model is not installed: qwen3:8b

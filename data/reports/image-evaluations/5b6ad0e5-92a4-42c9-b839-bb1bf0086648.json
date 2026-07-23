@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2488877,
+    "content_hash": "0de889d0c4eb05dfe8741471b98885679e3dd7fdbc502c62b2e45d605b6c737c",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 98,
+    "perceived_sharpness_score": 99,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Highly relevant to the concept of automated workflows pausing at human review checkpoints",
+      "Clean, professional aesthetic with no visible defects or artifacts",
+      "Excellent composition and sharpness for a vertical short video"
+    ],
+    "issues": [],
+    "recommendation": "This image is ideal for the specified scene. It effectively communicates the need to escalate decisions before high-risk actions."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "0f823067342423cd77dd3210d7148792eaab036873777ad88a4d334ec97d36ee"
+}

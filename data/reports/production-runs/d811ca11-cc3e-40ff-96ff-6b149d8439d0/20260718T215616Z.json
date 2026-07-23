@@ -1,0 +1,33 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T215616Z",
+    "project_id":  "d811ca11-cc3e-40ff-96ff-6b149d8439d0",
+    "new_project":  false,
+    "working_title":  null,
+    "seed":  1784411776,
+    "started_at_utc":  "2026-07-18T21:56:16.3370376Z",
+    "completed_at_utc":  "2026-07-18T22:24:49.8378823Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+                                "b809d26f-e21d-4e37-b0bb-76597fa1b303",
+                                "23177f99-d370-4b0c-97dd-4bc071eada6a",
+                                "cb75419e-9eea-47e4-90e8-b314ad30f780",
+                                "b5f4ea69-e0a4-4e36-9003-21f0627ec115",
+                                "f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "narration_timing":  "duration_based",
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\d811ca11-cc3e-40ff-96ff-6b149d8439d0\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  "Short image/timeline/render runner failed (1)."
+}

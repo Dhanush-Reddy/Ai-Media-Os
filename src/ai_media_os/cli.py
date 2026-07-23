@@ -13,11 +13,16 @@ from ai_media_os.application.assets import (
     AssetPlanningService,
     AssetReviewService,
     ImageAssetService,
+    LayeredCharacterPackService,
     VoiceAssetService,
 )
 from ai_media_os.application.cache import CacheKeyRequest, CacheService
 from ai_media_os.application.content_versions import ContentVersionService
 from ai_media_os.application.job_queue import QueueService
+from ai_media_os.application.narration_alignment import (
+    NarrationAlignmentService,
+    TriggerRequest,
+)
 from ai_media_os.application.packaging import MetadataService, ThumbnailService
 from ai_media_os.application.projects import ProjectCatalogService
 from ai_media_os.application.prompt_templates import PromptTemplateService
@@ -38,6 +43,7 @@ from ai_media_os.application.scenes import ScenePlanService
 from ai_media_os.application.scripts import ScriptGenerationService
 from ai_media_os.application.timelines import TimelineService
 from ai_media_os.domain.enums import (
+    ApprovalStatus,
     ApprovalType,
     AssetReviewStatus,
     AssetRole,
@@ -54,7 +60,7 @@ from ai_media_os.domain.enums import (
     SourceType,
     VerificationStatus,
 )
-from ai_media_os.infrastructure.database.models import Asset, ContentVersion, Job
+from ai_media_os.infrastructure.database.models import Approval, Asset, ContentVersion, Job, Scene
 from ai_media_os.infrastructure.database.session import SessionLocal
 from ai_media_os.infrastructure.settings import get_settings
 from ai_media_os.media.production_timeline import (
@@ -67,7 +73,13 @@ from ai_media_os.media.production_timeline import (
 from ai_media_os.providers.chatterbox import ChatterboxVoiceGenerationProvider
 from ai_media_os.providers.comfyui import ComfyUIImageGenerationProvider
 from ai_media_os.providers.image_provider_factory import build_image_provider
+from ai_media_os.providers.narration_alignment import FakeNarrationAlignmentProvider
 from ai_media_os.providers.ollama import OllamaTextGenerationProvider
+from ai_media_os.providers.ollama_vision import (
+    ImageEvaluationRequest,
+    OllamaVisionEvaluationError,
+    OllamaVisionImageEvaluator,
+)
 from ai_media_os.providers.piper import PiperVoiceGenerationProvider
 from ai_media_os.providers.text_generation import TextGenerationError, TextGenerationRequest
 from ai_media_os.providers.text_provider_factory import (
@@ -76,7 +88,10 @@ from ai_media_os.providers.text_provider_factory import (
     build_thumbnail_concept_provider,
 )
 from ai_media_os.providers.voice_provider_factory import build_voice_provider
+from ai_media_os.providers.whisperx_alignment import WhisperXNarrationAlignmentProvider
+from ai_media_os.schemas.narration_alignment import NarrationAlignmentDocument
 from ai_media_os.schemas.production_timeline import SceneTemplate
+from ai_media_os.storage.filesystem import FileStorage
 from ai_media_os.workers.asset_handlers import asset_job_handlers
 from ai_media_os.workers.job_worker import JobWorker
 from ai_media_os.workers.packaging_handlers import packaging_job_handlers
@@ -84,6 +99,78 @@ from ai_media_os.workers.render_handlers import render_job_handlers
 from ai_media_os.workers.research_handlers import research_job_handlers
 from ai_media_os.workers.script_scene_handlers import script_scene_job_handlers
 from ai_media_os.workers.timeline_handlers import timeline_job_handlers
+
+
+def _resolve_asset_review_status(status: str | None) -> AssetReviewStatus:
+    if status is None:
+        print("Review decision:")
+        print("1. Approve")
+        print("2. Reject")
+        print("3. Request changes")
+        try:
+            status = input("Select 1, 2, or 3: ").strip()
+        except EOFError as error:
+            raise ValueError(
+                "Interactive input is unavailable; provide --status approved, rejected, "
+                "or changes_requested."
+            ) from error
+
+    aliases = {
+        "1": AssetReviewStatus.APPROVED,
+        "2": AssetReviewStatus.REJECTED,
+        "3": AssetReviewStatus.CHANGES_REQUESTED,
+    }
+    if status in aliases:
+        return aliases[status]
+    return AssetReviewStatus(status)
+
+
+def _resolve_approval_decision(decision: str | None) -> ApprovalStatus:
+    if decision is None:
+        print("Approval decision:")
+        print("1. Approve")
+        print("2. Reject")
+        print("3. Request changes")
+        try:
+            decision = input("Select 1, 2, or 3: ").strip()
+        except EOFError as error:
+            raise ValueError(
+                "Interactive input is unavailable; provide --decision approved, rejected, "
+                "or changes_requested."
+            ) from error
+
+    aliases = {
+        "1": ApprovalStatus.APPROVED,
+        "2": ApprovalStatus.REJECTED,
+        "3": ApprovalStatus.CHANGES_REQUESTED,
+    }
+    if decision in aliases:
+        return aliases[decision]
+    return ApprovalStatus(decision)
+
+
+def _resolve_render_review_status(status: str | None) -> RenderStatus:
+    if status is None:
+        print("Render review decision:")
+        print("1. Approve")
+        print("2. Reject")
+        print("3. Request changes")
+        try:
+            status = input("Select 1, 2, or 3: ").strip()
+        except EOFError as error:
+            raise ValueError(
+                "Interactive input is unavailable; provide --status approved, rejected, "
+                "or changes_requested."
+            ) from error
+
+    aliases = {
+        "1": RenderStatus.APPROVED,
+        "2": RenderStatus.REJECTED,
+        "3": RenderStatus.CHANGES_REQUESTED,
+    }
+    if status in aliases:
+        return aliases[status]
+    return RenderStatus(status)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -157,6 +244,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     request_approval.add_argument("--content-version-id")
     request_approval.add_argument("--job-id")
+
+    list_approvals = subcommands.add_parser("list-approvals")
+    list_approvals.add_argument("--project-id", required=True)
+    list_approvals.add_argument("--type", choices=[item.value for item in ApprovalType])
+    list_approvals.add_argument("--status", choices=[item.value for item in ApprovalStatus])
+
+    review_approval = subcommands.add_parser("review-approval")
+    review_approval.add_argument("approval_id")
+    review_approval.add_argument(
+        "--decision",
+        choices=[
+            ApprovalStatus.APPROVED.value,
+            ApprovalStatus.REJECTED.value,
+            ApprovalStatus.CHANGES_REQUESTED.value,
+            "1",
+            "2",
+            "3",
+        ],
+    )
+    review_approval.add_argument("--feedback")
 
     for command_name in ("approve", "reject", "request-changes"):
         command = subcommands.add_parser(command_name)
@@ -310,6 +417,59 @@ def build_parser() -> argparse.ArgumentParser:
     generate_image.add_argument("--sampler")
     generate_image.add_argument("--scheduler")
     generate_image.add_argument("--timeout-seconds", type=float)
+    generate_image.add_argument("--text-free", action="store_true")
+    generate_image.add_argument("--stage-for-review", action="store_true")
+    generate_image.add_argument(
+        "--visual-style",
+        choices=["standard", "faceless_editorial"],
+        default="standard",
+    )
+
+    regenerate_image = subcommands.add_parser("regenerate-image-revision")
+    regenerate_image.add_argument("--asset-id", required=True)
+    regenerate_image.add_argument("--feedback", required=True)
+    regenerate_image.add_argument("--width", type=int)
+    regenerate_image.add_argument("--height", type=int)
+    regenerate_image.add_argument("--seed", type=int, default=1)
+    regenerate_image.add_argument("--provider", choices=["fake", "comfyui"])
+    regenerate_image.add_argument("--model")
+    regenerate_image.add_argument("--workflow-path")
+    regenerate_image.add_argument("--steps", type=int)
+    regenerate_image.add_argument("--cfg", type=float)
+    regenerate_image.add_argument("--sampler")
+    regenerate_image.add_argument("--scheduler")
+    regenerate_image.add_argument("--timeout-seconds", type=float)
+    regenerate_image.add_argument("--text-free", action="store_true")
+    regenerate_image.add_argument("--stage-for-review", action="store_true")
+    regenerate_image.add_argument(
+        "--visual-style",
+        choices=["standard", "faceless_editorial"],
+        default="standard",
+    )
+
+    generate_project_images = subcommands.add_parser("generate-project-images")
+    generate_project_images.add_argument("--project-id", required=True)
+    generate_project_images.add_argument("--width", type=int)
+    generate_project_images.add_argument("--height", type=int)
+    generate_project_images.add_argument("--seed", type=int, default=1)
+    generate_project_images.add_argument("--provider", choices=["fake", "comfyui"])
+    generate_project_images.add_argument("--model")
+    generate_project_images.add_argument("--prompt")
+    generate_project_images.add_argument("--negative-prompt")
+    generate_project_images.add_argument("--workflow-path")
+    generate_project_images.add_argument("--steps", type=int)
+    generate_project_images.add_argument("--cfg", type=float)
+    generate_project_images.add_argument("--sampler")
+    generate_project_images.add_argument("--scheduler")
+    generate_project_images.add_argument("--timeout-seconds", type=float)
+    generate_project_images.add_argument("--text-free", action="store_true")
+    generate_project_images.add_argument(
+        "--visual-style",
+        choices=["standard", "faceless_editorial"],
+        default="standard",
+    )
+    generate_project_images.add_argument("--stage-for-review", action="store_true")
+    generate_project_images.add_argument("--reuse-existing", action="store_true")
 
     check_image_provider = subcommands.add_parser("check-image-provider")
     check_image_provider.add_argument("--provider", choices=["fake", "comfyui"], default="fake")
@@ -331,6 +491,7 @@ def build_parser() -> argparse.ArgumentParser:
     generate_voice.add_argument("--exaggeration", type=float)
     generate_voice.add_argument("--cfg-weight", type=float)
     generate_voice.add_argument("--pronunciation", action="append", default=[])
+    generate_voice.add_argument("--stage-for-review", action="store_true")
 
     generate_narration = subcommands.add_parser("generate-scene-narration")
     generate_narration.add_argument("--scene-id", required=True)
@@ -344,6 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
     generate_narration.add_argument("--speaking-rate", type=float)
     generate_narration.add_argument("--seed", type=int, default=1)
     generate_narration.add_argument("--pronunciation", action="append", default=[])
+    generate_narration.add_argument("--stage-for-review", action="store_true")
 
     generate_project_narration = subcommands.add_parser("generate-project-narration")
     generate_project_narration.add_argument("--project-id", required=True)
@@ -357,6 +519,8 @@ def build_parser() -> argparse.ArgumentParser:
     generate_project_narration.add_argument("--speaking-rate", type=float)
     generate_project_narration.add_argument("--seed", type=int, default=1)
     generate_project_narration.add_argument("--pronunciation", action="append", default=[])
+    generate_project_narration.add_argument("--stage-for-review", action="store_true")
+    generate_project_narration.add_argument("--reuse-existing", action="store_true")
 
     check_voice_provider = subcommands.add_parser("check-voice-provider")
     check_voice_provider.add_argument(
@@ -365,6 +529,28 @@ def build_parser() -> argparse.ArgumentParser:
     check_voice_provider.add_argument("--model-path")
     check_voice_provider.add_argument("--voice")
     check_voice_provider.add_argument("--reference-audio")
+
+    check_alignment_provider = subcommands.add_parser("check-alignment-provider")
+    check_alignment_provider.add_argument(
+        "--provider", choices=["fake", "whisperx"], default="fake"
+    )
+    check_alignment_provider.add_argument("--model-path")
+
+    align_narration = subcommands.add_parser("align-narration")
+    align_narration.add_argument("asset_id")
+    align_narration.add_argument("--provider", choices=["fake", "whisperx"])
+    align_narration.add_argument("--model-path")
+    align_narration.add_argument("--language", default="en")
+    align_narration.add_argument("--frame-rate", type=int, default=30)
+    align_narration.add_argument("--trigger", action="append", default=[])
+    align_narration.add_argument("--timeout-seconds", type=float)
+
+    show_alignment = subcommands.add_parser("show-narration-alignment")
+    show_alignment.add_argument("--project-id", required=True)
+    show_alignment.add_argument("--scene-id", required=True)
+
+    list_alignments = subcommands.add_parser("list-narration-alignments")
+    list_alignments.add_argument("--project-id", required=True)
 
     list_narration = subcommands.add_parser("list-narration-assets")
     list_narration.add_argument("--project-id", required=True)
@@ -386,9 +572,9 @@ def build_parser() -> argparse.ArgumentParser:
     review_asset.add_argument("asset_id")
     review_asset.add_argument(
         "--status",
-        required=True,
-        choices=[item.value for item in AssetReviewStatus],
+        choices=[item.value for item in AssetReviewStatus] + ["1", "2", "3"],
     )
+    review_asset.add_argument("--feedback")
 
     record_asset_provenance = subcommands.add_parser("record-asset-provenance")
     record_asset_provenance.add_argument("asset_id")
@@ -450,20 +636,55 @@ def build_parser() -> argparse.ArgumentParser:
     review_render.add_argument("render_id")
     review_render.add_argument(
         "--status",
-        required=True,
         choices=[
             RenderStatus.APPROVED.value,
             RenderStatus.REJECTED.value,
             RenderStatus.CHANGES_REQUESTED.value,
+            "1",
+            "2",
+            "3",
         ],
     )
 
     generate_timeline = subcommands.add_parser("generate-timeline")
     generate_timeline.add_argument("--project-id", required=True)
     generate_timeline.add_argument("--scene-plan-version-id")
-    generate_timeline.add_argument("--width", type=int, default=1920)
-    generate_timeline.add_argument("--height", type=int, default=1080)
+    generate_timeline.add_argument("--width", type=int)
+    generate_timeline.add_argument("--height", type=int)
     generate_timeline.add_argument("--frame-rate", type=int, default=30)
+    generate_timeline.add_argument(
+        "--video-format",
+        choices=["long_horizontal", "short_vertical"],
+        default="long_horizontal",
+    )
+    generate_timeline.add_argument(
+        "--style-profile",
+        choices=[
+            "standard",
+            "faceless_editorial",
+            "reference_minimal_character_motion_v1",
+        ],
+        default="standard",
+    )
+    generate_timeline.add_argument(
+        "--engagement-audio",
+        action="store_true",
+        help="Mix a quiet procedural music bed and reveal accents under narration.",
+    )
+    generate_timeline.add_argument(
+        "--duration-based-timing",
+        action="store_true",
+        help="Ignore stored word alignments and time captions from narration duration.",
+    )
+    generate_timeline.add_argument(
+        "--layered-characters",
+        action="store_true",
+        help="Compose approved project host/support cutouts over scene backgrounds.",
+    )
+
+    ensure_layer_pack = subcommands.add_parser("ensure-layered-character-pack")
+    ensure_layer_pack.add_argument("--project-id", required=True)
+    ensure_layer_pack.add_argument("--pack-root", type=Path, required=True)
 
     show_timeline = subcommands.add_parser("show-timeline")
     show_timeline.add_argument("--project-id")
@@ -541,8 +762,7 @@ def build_parser() -> argparse.ArgumentParser:
     review_thumbnail.add_argument("asset_id")
     review_thumbnail.add_argument(
         "--status",
-        required=True,
-        choices=[item.value for item in AssetReviewStatus],
+        choices=[item.value for item in AssetReviewStatus] + ["1", "2", "3"],
     )
 
     check_asset_rights = subcommands.add_parser("check-asset-rights")
@@ -597,6 +817,24 @@ def build_parser() -> argparse.ArgumentParser:
     test_llm.add_argument("--system-prompt")
     test_llm.add_argument("--json", action="store_true")
 
+    check_image_evaluator = subcommands.add_parser("check-image-evaluator")
+    check_image_evaluator.add_argument("--model")
+
+    evaluate_image = subcommands.add_parser("evaluate-image")
+    image_source = evaluate_image.add_mutually_exclusive_group(required=True)
+    image_source.add_argument("--asset-id")
+    image_source.add_argument("--image-path", type=Path)
+    evaluate_image.add_argument("--scene-id")
+    evaluate_image.add_argument("--scene-context")
+    evaluate_image.add_argument("--reference-asset-id", action="append", default=[])
+    evaluate_image.add_argument("--reference-project-id")
+    evaluate_image.add_argument("--reference-image", type=Path, action="append", default=[])
+    evaluate_image.add_argument("--model")
+    evaluate_image.add_argument("--minimum-width", type=int, default=1080)
+    evaluate_image.add_argument("--minimum-height", type=int, default=1920)
+    evaluate_image.add_argument("--target-aspect-ratio", type=float, default=9 / 16)
+    evaluate_image.add_argument("--output", type=Path)
+
     dashboard = subcommands.add_parser("dashboard")
     dashboard.add_argument("--host")
     dashboard.add_argument("--port", type=int)
@@ -643,8 +881,101 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"FAIL:{exc}")
             return 1
 
+    if args.command == "check-image-evaluator":
+        settings = get_settings()
+        evaluator = OllamaVisionImageEvaluator(
+            base_url=settings.ollama_base_url,
+            model_name=args.model or settings.ollama_vision_model,
+            request_timeout_seconds=settings.ollama_vision_timeout_seconds,
+        )
+        health = evaluator.check_health()
+        print(health.message)
+        return 0 if health.reachable and health.model_available else 1
+
     with SessionLocal() as session:
         queue = QueueService(session)
+        if args.command == "evaluate-image":
+            settings = get_settings()
+            storage = FileStorage(settings)
+            selected_asset = session.get(Asset, args.asset_id) if args.asset_id else None
+            if args.asset_id and selected_asset is None:
+                raise ValueError("Image asset not found.")
+            image_path = (
+                storage.resolve_inside(storage.data_root, selected_asset.file_path)
+                if selected_asset is not None
+                else args.image_path
+            )
+            if image_path is None:
+                raise ValueError("Image path is required.")
+            selected_scene_id = args.scene_id or (
+                selected_asset.scene_id if selected_asset is not None else None
+            )
+            scene = session.get(Scene, selected_scene_id) if selected_scene_id else None
+            scene_context = args.scene_context
+            if scene_context is None and scene is not None:
+                scene_context = (
+                    f"Narration: {scene.narration}\n"
+                    f"Visual description: {scene.visual_description or ''}\n"
+                    f"Generation prompt: {scene.image_prompt or ''}"
+                )
+            if not scene_context:
+                raise ValueError("Provide --scene-context or a valid --scene-id/--asset-id.")
+            reference_paths = list(args.reference_image)
+            for reference_asset_id in args.reference_asset_id:
+                reference_asset = session.get(Asset, reference_asset_id)
+                if reference_asset is None:
+                    raise ValueError(f"Reference asset not found: {reference_asset_id}")
+                reference_paths.append(
+                    storage.resolve_inside(storage.data_root, reference_asset.file_path)
+                )
+            if args.reference_project_id:
+                reference_asset = AssetReviewService(session).latest_reference_asset(
+                    args.reference_project_id
+                )
+                if reference_asset is None:
+                    raise ValueError(
+                        "Reference project does not contain an approved image reference."
+                    )
+                reference_paths.append(
+                    storage.resolve_inside(storage.data_root, reference_asset.file_path)
+                )
+            evaluator = OllamaVisionImageEvaluator(
+                base_url=settings.ollama_base_url,
+                model_name=args.model or settings.ollama_vision_model,
+                request_timeout_seconds=settings.ollama_vision_timeout_seconds,
+            )
+            try:
+                image_report = evaluator.evaluate(
+                    ImageEvaluationRequest(
+                        image_path=image_path,
+                        scene_context=scene_context,
+                        reference_image_paths=tuple(reference_paths),
+                        minimum_width=args.minimum_width,
+                        minimum_height=args.minimum_height,
+                        target_aspect_ratio=args.target_aspect_ratio,
+                        max_image_bytes=settings.ollama_vision_max_image_bytes,
+                        timeout_seconds=settings.ollama_vision_timeout_seconds,
+                    )
+                )
+            except (OllamaVisionEvaluationError, TextGenerationError) as exc:
+                print(f"FAIL:{exc}")
+                return 1
+            if (
+                selected_asset is not None
+                and selected_asset.content_hash
+                and image_report.objective.content_hash != selected_asset.content_hash
+            ):
+                print("FAIL:Image bytes do not match the selected asset hash.")
+                return 1
+            output_json = image_report.model_dump_json(indent=2)
+            if args.output is not None:
+                output_path = args.output.resolve()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary_path = output_path.with_suffix(output_path.suffix + ".tmp")
+                temporary_path.write_text(output_json, encoding="utf-8", newline="\n")
+                temporary_path.replace(output_path)
+            print(output_json)
+            return 2 if image_report.decision.value == "FAIL" else 0
         if args.command == "create-channel":
             channel = ProjectCatalogService(session).create_channel(
                 name=args.name,
@@ -655,8 +986,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(channel.id)
             return 0
         if args.command == "list-channels":
-            for channel in ProjectCatalogService(session).list_channels():
-                print(f"{channel.id}\t{channel.slug}\t{channel.name}\t{channel.status.value}")
+            channels = ProjectCatalogService(session).list_channels()
+            latest_id = max(channels, key=lambda item: item.created_at).id if channels else None
+            print("CHANNEL_ID\tSLUG\tNAME\tSTATUS\tCREATED_DATE\tTAG")
+            for channel in channels:
+                tag = "LATEST" if channel.id == latest_id else ""
+                print(
+                    f"{channel.id}\t{channel.slug}\t{channel.name}\t{channel.status.value}\t"
+                    f"{channel.created_at.date().isoformat()}\t{tag}"
+                )
             return 0
         if args.command == "create-project":
             project = ProjectCatalogService(session).create_project(
@@ -669,10 +1007,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(project.id)
             return 0
         if args.command == "list-projects":
-            for project in ProjectCatalogService(session).list_projects(args.channel_id):
+            projects = ProjectCatalogService(session).list_projects(args.channel_id)
+            latest_id = max(projects, key=lambda item: item.created_at).id if projects else None
+            print("PROJECT_ID\tCHANNEL_ID\tSTATUS\tWORKING_TITLE\tCREATED_DATE\tTAG")
+            for project in projects:
+                tag = "LATEST" if project.id == latest_id else ""
                 print(
                     f"{project.id}\t{project.channel_id}\t{project.status.value}\t"
-                    f"{project.working_title}"
+                    f"{project.working_title}\t{project.created_at.date().isoformat()}\t{tag}"
                 )
             return 0
         if args.command == "create-job":
@@ -738,6 +1080,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                 job_id=args.job_id,
             )
             print(approval.id)
+            return 0
+        if args.command == "list-approvals":
+            query = select(Approval).where(Approval.video_project_id == args.project_id)
+            if args.type:
+                query = query.where(Approval.approval_type == ApprovalType(args.type))
+            if args.status:
+                query = query.where(Approval.status == ApprovalStatus(args.status))
+            for approval in session.scalars(query.order_by(Approval.requested_at.desc())):
+                print(
+                    f"{approval.id}\t{approval.approval_type.value}\t"
+                    f"{approval.status.value}\t{approval.content_version_id or ''}"
+                )
+            return 0
+        if args.command == "review-approval":
+            decision = _resolve_approval_decision(args.decision)
+            approvals = ApprovalService(session)
+            if decision == ApprovalStatus.APPROVED:
+                reviewed = approvals.approve(args.approval_id, feedback=args.feedback)
+            elif decision == ApprovalStatus.REJECTED:
+                reviewed = approvals.reject(args.approval_id, feedback=args.feedback)
+            else:
+                reviewed = approvals.request_changes(args.approval_id, feedback=args.feedback)
+            print(reviewed.status.value)
             return 0
         if args.command == "approve":
             print(
@@ -965,8 +1330,73 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sampler=args.sampler,
                 scheduler=args.scheduler,
                 timeout_seconds=args.timeout_seconds,
+                text_free=args.text_free,
+                visual_style=args.visual_style,
+                stage_for_review=args.stage_for_review,
             )
             print(asset.id)
+            return 0
+        if args.command == "regenerate-image-revision":
+            default_service = ImageAssetService(session)
+            image_provider = build_image_provider(
+                default_service.settings, args.provider, args.model
+            )
+            asset = ImageAssetService(
+                session, default_service.settings, provider=image_provider
+            ).regenerate_from_feedback(
+                args.asset_id,
+                feedback=args.feedback,
+                width=args.width,
+                height=args.height,
+                seed=args.seed,
+                checkpoint=args.model,
+                workflow_path=args.workflow_path,
+                steps=args.steps,
+                cfg=args.cfg,
+                sampler=args.sampler,
+                scheduler=args.scheduler,
+                timeout_seconds=args.timeout_seconds,
+                text_free=args.text_free,
+                visual_style=args.visual_style,
+                stage_for_review=args.stage_for_review,
+            )
+            print(asset.id)
+            return 0
+        if args.command == "generate-project-images":
+            default_service = ImageAssetService(session)
+            image_provider = build_image_provider(
+                default_service.settings, args.provider, args.model
+            )
+            image_service = ImageAssetService(
+                session, default_service.settings, provider=image_provider
+            )
+            assets = image_service.generate_for_project(
+                args.project_id,
+                prompt_override=args.prompt,
+                negative_prompt_override=args.negative_prompt,
+                width=args.width,
+                height=args.height,
+                seed=args.seed,
+                checkpoint=args.model,
+                workflow_path=args.workflow_path,
+                steps=args.steps,
+                cfg=args.cfg,
+                sampler=args.sampler,
+                scheduler=args.scheduler,
+                timeout_seconds=args.timeout_seconds,
+                text_free=args.text_free,
+                visual_style=args.visual_style,
+                stage_for_review=args.stage_for_review,
+                reuse_existing=args.reuse_existing,
+                progress_callback=lambda current, total, scene, asset: print(
+                    "PROGRESS_IMAGE\t"
+                    f"{current}\t{total}\t{scene.scene_number}\t{asset.id}\t"
+                    f"{image_service.last_generation_resolution}",
+                    flush=True,
+                ),
+            )
+            for asset in assets:
+                print(asset.id)
             return 0
         if args.command == "check-image-provider":
             image_provider = build_image_provider(get_settings(), args.provider, args.model)
@@ -1013,6 +1443,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reference_audio_path=(Path(args.reference_audio) if args.reference_audio else None),
                 exaggeration=args.exaggeration,
                 cfg_weight=args.cfg_weight,
+                stage_for_review=args.stage_for_review,
             )
             print(asset.id)
             return 0
@@ -1037,6 +1468,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reference_audio_path=(Path(args.reference_audio) if args.reference_audio else None),
                 exaggeration=args.exaggeration,
                 cfg_weight=args.cfg_weight,
+                stage_for_review=args.stage_for_review,
+                reuse_existing=args.reuse_existing,
             )
             for asset in assets:
                 print(asset.id)
@@ -1061,6 +1494,64 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{voice_provider.provider_name}\t{voice_health.message}"
             )
             return 0 if voice_health.available else 1
+        if args.command == "check-alignment-provider":
+            alignment_provider = _build_alignment_provider(args.provider, args.model_path)
+            if isinstance(alignment_provider, FakeNarrationAlignmentProvider):
+                print("READY\tfake_alignment\tdeterministic test timing only")
+                return 0
+            alignment_health = alignment_provider.check_health()
+            print(
+                f"{'READY' if alignment_health.available else 'NOT_READY'}\t"
+                f"{alignment_provider.provider_name}\t{alignment_health.message}"
+            )
+            return 0 if alignment_health.available else 1
+        if args.command == "align-narration":
+            settings = get_settings()
+            narration_alignment_provider = _build_alignment_provider(args.provider, args.model_path)
+            alignment_version = NarrationAlignmentService(
+                session, narration_alignment_provider, settings
+            ).align_asset(
+                args.asset_id,
+                language=args.language,
+                frame_rate=args.frame_rate,
+                triggers=_parse_triggers(args.trigger),
+                timeout_seconds=args.timeout_seconds or settings.whisperx_request_timeout_seconds,
+            )
+            alignment_document = NarrationAlignmentDocument.model_validate_json(
+                alignment_version.content
+            )
+            print(
+                f"{alignment_version.id}\t{alignment_document.verification.decision.value}\t"
+                f"auto_usable={str(alignment_document.verification.auto_usable).lower()}"
+            )
+            for trigger in alignment_document.triggers:
+                print(
+                    f"TRIGGER\t{trigger.name}\t{trigger.word}\t"
+                    f"{trigger.start_seconds:.3f}s\tframe={trigger.start_frame}"
+                )
+            return 0 if alignment_document.verification.auto_usable else 2
+        if args.command == "show-narration-alignment":
+            lookup_alignment_provider = FakeNarrationAlignmentProvider()
+            found_alignment_version = NarrationAlignmentService(
+                session, lookup_alignment_provider
+            ).latest_for_scene(args.project_id, args.scene_id)
+            print(
+                found_alignment_version.content if found_alignment_version is not None else "NONE"
+            )
+            return 0 if found_alignment_version is not None else 1
+        if args.command == "list-narration-alignments":
+            versions = ContentVersionService(session).version_history(
+                args.project_id, ContentType.NARRATION_ALIGNMENT
+            )
+            print("VERSION_ID\tVERSION\tSCENE_ID\tDECISION\tAUTO_USABLE")
+            for version in versions:
+                listed_alignment = NarrationAlignmentDocument.model_validate_json(version.content)
+                print(
+                    f"{version.id}\t{version.version_number}\t{listed_alignment.scene_id}\t"
+                    f"{listed_alignment.verification.decision.value}\t"
+                    f"{str(listed_alignment.verification.auto_usable).lower()}"
+                )
+            return 0
         if args.command == "import-scene-audio":
             asset = VoiceAssetService(session).import_manual(args.scene_id, Path(args.file))
             print(asset.id)
@@ -1084,9 +1575,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
             return 0
         if args.command == "review-asset":
+            review_status = _resolve_asset_review_status(args.status)
             asset = AssetReviewService(session).review_asset(
                 args.asset_id,
-                AssetReviewStatus(args.status),
+                review_status,
+                feedback=args.feedback,
             )
             print(asset.review_status.value)
             return 0
@@ -1171,7 +1664,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "review-render":
             render = RenderReviewService(session).review_render(
                 args.render_id,
-                RenderStatus(args.status),
+                _resolve_render_review_status(args.status),
             )
             print(render.status.value)
             return 0
@@ -1182,8 +1675,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 width=args.width,
                 height=args.height,
                 frame_rate=args.frame_rate,
+                style_profile=args.style_profile,
+                video_format=args.video_format,
+                engagement_audio=args.engagement_audio,
+                use_narration_alignment=not args.duration_based_timing,
+                layered_characters=args.layered_characters,
             )
             print(timeline_version.id)
+            return 0
+        if args.command == "ensure-layered-character-pack":
+            layer_assets = LayeredCharacterPackService(session).ensure_pack(
+                args.project_id, args.pack_root
+            )
+            if not layer_assets:
+                print("SKIPPED\tThe bundled technology cast does not match this project topic.")
+            for layer_asset in layer_assets:
+                print(
+                    f"{layer_asset.id}\t{layer_asset.generation_metadata.get('character_role', '')}"
+                )
             return 0
         if args.command == "show-timeline":
             service = TimelineService(session)
@@ -1320,7 +1829,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "review-thumbnail":
             asset = ThumbnailService(session).review_thumbnail(
                 args.asset_id,
-                AssetReviewStatus(args.status),
+                _resolve_asset_review_status(args.status),
             )
             print(asset.review_status.value)
             return 0
@@ -1353,12 +1862,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(len(findings))
             return 0
         if args.command == "decide-ai-disclosure":
-            decision = ContentSafetyService(session).decide_ai_disclosure(args.project_id)
+            disclosure_decision = ContentSafetyService(session).decide_ai_disclosure(
+                args.project_id
+            )
             print(
                 {
-                    "required": decision.required,
-                    "reasons": decision.reasons,
-                    "suggested_text": decision.suggested_text,
+                    "required": disclosure_decision.required,
+                    "reasons": disclosure_decision.reasons,
+                    "suggested_text": disclosure_decision.suggested_text,
                 }
             )
             return 0
@@ -1418,6 +1929,43 @@ def _parse_pronunciations(values: list[str]) -> dict[str, str]:
             raise ValueError("Pronunciation overrides must use TERM=SPOKEN form.")
         result[source.strip()] = spoken.strip()
     return result
+
+
+def _parse_triggers(values: list[str]) -> list[TriggerRequest]:
+    triggers: list[TriggerRequest] = []
+    for value in values:
+        name, separator, word_spec = value.partition("=")
+        if not separator or not name.strip() or not word_spec.strip():
+            raise ValueError("Triggers must use NAME=WORD or NAME=WORD:OCCURRENCE form.")
+        word, occurrence_separator, occurrence_text = word_spec.rpartition(":")
+        occurrence = 1
+        if occurrence_separator:
+            try:
+                occurrence = int(occurrence_text)
+            except ValueError as exc:
+                raise ValueError("Trigger occurrence must be an integer.") from exc
+        else:
+            word = word_spec
+        triggers.append(TriggerRequest(name.strip(), word.strip(), occurrence))
+    return triggers
+
+
+def _build_alignment_provider(
+    provider_name: str | None, model_path: str | None
+) -> FakeNarrationAlignmentProvider | WhisperXNarrationAlignmentProvider:
+    settings = get_settings()
+    selected = provider_name or settings.alignment_default_provider
+    if selected == "fake":
+        return FakeNarrationAlignmentProvider()
+    return WhisperXNarrationAlignmentProvider(
+        python_path=settings.whisperx_python_path,
+        model_path=Path(model_path) if model_path else settings.whisperx_model_path,
+        device=settings.whisperx_device,
+        compute_type=settings.whisperx_compute_type,
+        ffmpeg_path=settings.ffmpeg_path,
+        expected_runtime_version=settings.whisperx_expected_runtime_version,
+        request_timeout_seconds=settings.whisperx_request_timeout_seconds,
+    )
 
 
 if __name__ == "__main__":

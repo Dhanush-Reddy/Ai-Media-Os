@@ -9,18 +9,19 @@
     <script src="/static/js/app.js" defer></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <header class="topbar">
-      <div>
+      <div class="brand-lockup">
         <a class="brand" href="/">AI Media OS</a>
-        <p>Local Operations Dashboard</p>
+        <p>Create, review, and finish one video at a time</p>
       </div>
       <nav aria-label="Main navigation">
-        <a href="/projects">Projects</a>
-        <a href="/approvals">Approvals</a>
-        <a href="/jobs">Jobs</a>
+        <a class="{{ 'active' if request.url.path.startswith('/projects') else '' }}" href="/projects">Projects</a>
+        <a class="{{ 'active' if request.url.path.startswith('/approvals') else '' }}" href="/approvals">Review queue</a>
+        <a class="{{ 'active' if request.url.path.startswith('/jobs') else '' }}" href="/jobs">System jobs</a>
       </nav>
     </header>
-    <main class="page">
+    <main class="page" id="main-content">
       {% if error %}
         <div class="notice error" role="alert">{{ error }}</div>
       {% endif %}
@@ -29,5 +30,6 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
+    <footer class="footer">Local-only production workspace. Publishing always requires a human decision.</footer>
   </body>
 </html>

@@ -1,0 +1,165 @@
+[03.26.16] Run ID: 20260718T215616Z
+[03.26.16] Project: d811ca11-cc3e-40ff-96ff-6b149d8439d0
+[03.26.16] Generation seed: 1784411776
+[03.26.16] STAGE 1/9 - Provider health checks
+[03.26.16] Dashboard already running: http://127.0.0.1:8000
+READY	chatterbox	Chatterbox Multilingual V3 is configured for offline local synthesis.
+READY	comfyui	ComfyUI is ready.
+fa936450-0e75-4235-998f-d6c6fbfc7dea	v1	approved
+[03.26.56] STAGE 2/9 - Plan scene assets
+24
+[03.26.58] STAGE 3/9 - Reuse existing Chatterbox narration
+04b1290d-3585-40b7-9299-4bb5b75705a9	1	scene_visual	planned	pending_review
+b809d26f-e21d-4e37-b0bb-76597fa1b303	1	scene_narration	approved	approved
+9d02600c-5eb6-4348-872b-f282b4ebfa51	2	scene_visual	planned	pending_review
+23177f99-d370-4b0c-97dd-4bc071eada6a	2	scene_narration	approved	approved
+80f14f53-8582-4f6b-a571-90a7957b91bb	3	scene_visual	planned	pending_review
+cb75419e-9eea-47e4-90e8-b314ad30f780	3	scene_narration	approved	approved
+01501340-bbd5-4007-9a7a-c182c3c90d3b	4	scene_visual	planned	pending_review
+b5f4ea69-e0a4-4e36-9003-21f0627ec115	4	scene_narration	approved	approved
+7187c777-80cf-4021-839f-e71b09f00a4e	5	scene_visual	planned	pending_review
+f3fefdfa-fb71-457a-b1dc-bbcc972f1c3f	5	scene_narration	generated	pending_review
+3e5b112b-bb43-4e93-8741-27409a0dd874	6	scene_visual	planned	pending_review
+f8cf7f53-cdc4-4919-9531-720196944006	6	scene_narration	planned	pending_review
+37e0de48-28b6-4421-bc52-1fe266079e36	7	scene_visual	planned	pending_review
+b31d587c-798d-4e73-88bc-0ee5f0fc4192	7	scene_narration	planned	pending_review
+c82aae4e-c639-4476-87ed-391e39ecbd7a	8	scene_visual	planned	pending_review
+2cd9bda6-a6f6-4733-ba7c-43ff769791d2	8	scene_narration	planned	pending_review
+76645959-9fbb-4fbd-b6f4-670c6253f139	9	scene_visual	planned	pending_review
+f0975503-a666-4dd7-a3cf-34b1683c7111	9	scene_narration	planned	pending_review
+592ed01a-352c-4cea-aed6-b1b6cb331588	10	scene_visual	planned	pending_review
+8c2de968-8b52-4fc6-a259-127ccfbefc94	10	scene_narration	planned	pending_review
+db3268f6-b9ff-4fa7-ab24-20b9205e8adb	11	scene_visual	planned	pending_review
+967c8312-df2f-44e9-bad5-7b11fc5a5635	11	scene_narration	planned	pending_review
+daca81a9-ec6e-4f02-a859-5603fba1cc07	12	scene_visual	planned	pending_review
+2e647f15-4654-4182-8f80-6f4ba5fb0bf9	12	scene_narration	planned	pending_review
+[03.26.59] Reusing 5 existing narration assets.
+[03.26.59] STAGE 4/9 - Verify and review narration
+OK
+[03.27.01] Narration b809d26f-e21d-4e37-b0bb-76597fa1b303 is already approved; skipping review.
+OK
+[03.27.03] Narration 23177f99-d370-4b0c-97dd-4bc071eada6a is already approved; skipping review.
+OK
+[03.27.04] Narration cb75419e-9eea-47e4-90e8-b314ad30f780 is already approved; skipping review.
+OK
+[03.27.06] Narration b5f4ea69-e0a4-4e36-9003-21f0627ec115 is already approved; skipping review.
+OK
+approved
+[03.30.23] WhisperX skipped. Using narration duration for captions and visual beats.
+[03.30.23] STAGE 5/9 - Generate, evaluate, and approve scene images
+Processing scene visuals sequentially at 1080x1920...
+Matching verified assets are reused; only missing or changed scenes are generated.
+[1/12] Scene 1 GENERATED: 04b1290d-3585-40b7-9299-4bb5b75705a9
+[2/12] Scene 2 GENERATED: 9d02600c-5eb6-4348-872b-f282b4ebfa51
+[3/12] Scene 3 GENERATED: 80f14f53-8582-4f6b-a571-90a7957b91bb
+[4/12] Scene 4 GENERATED: 01501340-bbd5-4007-9a7a-c182c3c90d3b
+[5/12] Scene 5 GENERATED: 7187c777-80cf-4021-839f-e71b09f00a4e
+[6/12] Scene 6 GENERATED: 3e5b112b-bb43-4e93-8741-27409a0dd874
+[7/12] Scene 7 GENERATED: 37e0de48-28b6-4421-bc52-1fe266079e36
+[8/12] Scene 8 GENERATED: c82aae4e-c639-4476-87ed-391e39ecbd7a
+[9/12] Scene 9 GENERATED: 76645959-9fbb-4fbd-b6f4-670c6253f139
+[10/12] Scene 10 GENERATED: 592ed01a-352c-4cea-aed6-b1b6cb331588
+[11/12] Scene 11 GENERATED: db3268f6-b9ff-4fa7-ab24-20b9205e8adb
+[12/12] Scene 12 GENERATED: daca81a9-ec6e-4f02-a859-5603fba1cc07
+Ollama evaluation skipped for visual 04b1290d-3585-40b7-9299-4bb5b75705a9. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/04b1290d-3585-40b7-9299-4bb5b75705a9/preview
+Review visual 04b1290d-3585-40b7-9299-4bb5b75705a9
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 9d02600c-5eb6-4348-872b-f282b4ebfa51. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/9d02600c-5eb6-4348-872b-f282b4ebfa51/preview
+Review visual 9d02600c-5eb6-4348-872b-f282b4ebfa51
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 80f14f53-8582-4f6b-a571-90a7957b91bb. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/80f14f53-8582-4f6b-a571-90a7957b91bb/preview
+Review visual 80f14f53-8582-4f6b-a571-90a7957b91bb
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 01501340-bbd5-4007-9a7a-c182c3c90d3b. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/01501340-bbd5-4007-9a7a-c182c3c90d3b/preview
+Review visual 01501340-bbd5-4007-9a7a-c182c3c90d3b
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 7187c777-80cf-4021-839f-e71b09f00a4e. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/7187c777-80cf-4021-839f-e71b09f00a4e/preview
+Review visual 7187c777-80cf-4021-839f-e71b09f00a4e
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 3e5b112b-bb43-4e93-8741-27409a0dd874. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/3e5b112b-bb43-4e93-8741-27409a0dd874/preview
+Review visual 3e5b112b-bb43-4e93-8741-27409a0dd874
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 37e0de48-28b6-4421-bc52-1fe266079e36. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/37e0de48-28b6-4421-bc52-1fe266079e36/preview
+Review visual 37e0de48-28b6-4421-bc52-1fe266079e36
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual c82aae4e-c639-4476-87ed-391e39ecbd7a. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/c82aae4e-c639-4476-87ed-391e39ecbd7a/preview
+Review visual c82aae4e-c639-4476-87ed-391e39ecbd7a
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 76645959-9fbb-4fbd-b6f4-670c6253f139. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/76645959-9fbb-4fbd-b6f4-670c6253f139/preview
+Review visual 76645959-9fbb-4fbd-b6f4-670c6253f139
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual 592ed01a-352c-4cea-aed6-b1b6cb331588. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/592ed01a-352c-4cea-aed6-b1b6cb331588/preview
+Review visual 592ed01a-352c-4cea-aed6-b1b6cb331588
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual db3268f6-b9ff-4fa7-ab24-20b9205e8adb. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/db3268f6-b9ff-4fa7-ab24-20b9205e8adb/preview
+Review visual db3268f6-b9ff-4fa7-ab24-20b9205e8adb
+  1. Approve
+  2. Reject
+approved
+Ollama evaluation skipped for visual daca81a9-ec6e-4f02-a859-5603fba1cc07. Human review is still required.
+Preview URL: http://127.0.0.1:8000/assets/daca81a9-ec6e-4f02-a859-5603fba1cc07/preview
+Review visual daca81a9-ec6e-4f02-a859-5603fba1cc07
+  1. Approve
+  2. Reject
+approved
+Generating the 1080x1920 short production timeline...
+Registering the approved layered host, support character, and story effect...
+SKIPPED	The bundled technology cast does not match this project topic.
+Using topic-aware scene art without the incompatible technology cast.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1970, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\cli.py", line 1670, in main
+    timeline_version = TimelineService(session).generate_timeline(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\timelines.py", line 172, in generate_timeline
+    narration = self._approved_asset(scene, AssetRole.SCENE_NARRATION)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\src\ai_media_os\application\timelines.py", line 932, in _approved_asset
+    raise TimelineError(f"Scene {scene.scene_number} is missing approved {role.value}.")
+ai_media_os.application.timelines.TimelineError: Scene 6 is missing approved scene_narration.
+AI Media OS command failed (1): generate-timeline --project-id d811ca11-cc3e-40ff-96ff-6b149d8439d0 
+--video-format short_vertical --style-profile reference_minimal_character_motion_v1 --engagement-audio 
+--duration-based-timing
+At C:\Users\gspra\OneDrive\Desktop\Dhanush\Ai-Media-Os\scripts\run-short-production.ps1:62 char:9
++         throw "AI Media OS command failed ($LASTEXITCODE): $($Argumen ...
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (AI Media OS com...on-based-timing:String) [], RuntimeException
+    + FullyQualifiedErrorId : AI Media OS command failed (1): generate-timeline --project-id d811ca11-cc3e-40ff-9 
+   6ff-6b149d8439d0 --video-format short_vertical --style-profile reference_minimal_character_motion_v1 --engage  
+  ment-audio --duration-based-timing
+ 

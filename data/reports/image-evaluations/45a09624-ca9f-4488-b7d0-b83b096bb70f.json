@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "rubric_version": "image-evaluation-v1",
+  "decision": "PASS",
+  "objective": {
+    "mime_type": "image/png",
+    "width": 1080,
+    "height": 1920,
+    "file_size_bytes": 2290239,
+    "content_hash": "533d76d347ab64679f461ee3ad5283dd62d99d3fe624621d410091434cfb2c4a",
+    "meets_minimum_dimensions": true,
+    "matches_target_aspect_ratio": true
+  },
+  "vision": {
+    "scene_relevance_score": 95,
+    "composition_score": 92,
+    "perceived_sharpness_score": 98,
+    "character_consistency_score": null,
+    "artifact_risk_score": 0,
+    "text_artifact_detected": false,
+    "character_present": false,
+    "strengths": [
+      "Cohesive cinematic style with clear visual hierarchy",
+      "Effective use of three-step narrative structure (workflow, stress test, human checkpoint)",
+      "Precise technical details in mechanical elements without clutter"
+    ],
+    "issues": [],
+    "recommendation": "Highly suitable for vertical short video; maintains focus on core workflow and testing phases."
+  },
+  "warnings": [
+    "Ollama visual scores are advisory and require human review.",
+    "Perceived sharpness is not an objective frequency-domain measurement."
+  ],
+  "provider": "ollama_vision",
+  "model": "qwen3-vl:4b",
+  "fingerprint": "2f63161c33e39a0ab972d9ca06ddf09767044ec6c45474762bc50fbfd4729299"
+}

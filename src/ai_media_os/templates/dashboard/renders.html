@@ -12,6 +12,8 @@
     </div>
   </section>
 
+  {% include "dashboard/fragments/project_nav.html" %}
+
   <section class="metrics">
     <article class="metric"><span>Total</span><strong>{{ renders.renders|length }}</strong></article>
     <article class="metric success"><span>Rendered</span><strong>{{ renders.rendered_count }}</strong></article>

@@ -1,0 +1,34 @@
+﻿{
+    "schema_version":  "1.0",
+    "run_id":  "20260718T114949Z",
+    "project_id":  "bbaf5681-5709-4d2a-88e7-9014d900460e",
+    "new_project":  true,
+    "working_title":  "ai data center",
+    "seed":  1784375394,
+    "started_at_utc":  "2026-07-18T11:49:54.9492103Z",
+    "completed_at_utc":  "2026-07-18T12:06:06.9295952Z",
+    "status":  "failed",
+    "narration_asset_ids":  [
+                                "2a4113dd-2922-4215-9919-b47721ebb236",
+                                "77681ce7-4646-46fc-be1a-67d8c2bce80c",
+                                "605d7b6a-35d6-4d6f-a61e-3d6888f6a3aa",
+                                "bbad2796-bb7c-4da1-a24d-0c3b3f1e42b3",
+                                "afc8f352-d744-4644-97db-70d3f618871f",
+                                "6a2325d8-367f-416c-82a0-cfb340eea30f",
+                                "602ebe8b-4279-4744-b104-5f11869d182b"
+                            ],
+    "alignment_version_ids":  [
+
+                              ],
+    "render_id":  null,
+    "metadata_version_id":  null,
+    "thumbnail_concept_version_id":  null,
+    "thumbnail_asset_id":  null,
+    "publishing_gate_status":  null,
+    "dashboard_url":  "http://127.0.0.1:8000",
+    "dashboard_process_id":  null,
+    "review_package_root":  "C:\\Users\\gspra\\OneDrive\\Desktop\\Dhanush\\Ai-Media-Os\\data\\reports\\production-runs\\bbaf5681-5709-4d2a-88e7-9014d900460e\\review-package",
+    "reference_asset_id":  "",
+    "reference_project_id":  "",
+    "error":  "AI Media OS command failed (2): align-narration afc8f352-d744-4644-97db-70d3f618871f --provider whisperx --language en --frame-rate 30"
+}

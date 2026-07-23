@@ -1,0 +1,585 @@
+﻿{
+    "schema_version":  "1.0",
+    "collection":  "techkeyfi-2aoLsF3-2gI",
+    "created_at_utc":  "2026-07-18T20:03:52.9683227Z",
+    "source":  {
+                   "url":  "https://www.youtube.com/watch?v=2aoLsF3-2gI",
+                   "creator":  "TechKeyFi",
+                   "audio_file":  "C:\\Users\\gspra\\Downloads\\audioPlaytracksvideoplayback.m4a",
+                   "video_file":  "C:\\Users\\gspra\\Downloads\\vidssave.com Best Sound Effects __That Will make Your Videos More Engaging🚀 1080p.mp4",
+                   "license":  "UNKNOWN",
+                   "commercial_use_confirmed":  false,
+                   "safety_state":  "UNKNOWN"
+               },
+    "clip_count":  35,
+    "clips":  [
+                  {
+                      "id":  "sfx-01-whoosh",
+                      "label":  "whoosh",
+                      "category":  "transition",
+                      "tags":  [
+                                   "whoosh",
+                                   "movement",
+                                   "scene_open"
+                               ],
+                      "source_start_seconds":  1.25,
+                      "source_end_seconds":  2,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-01-whoosh.wav",
+                      "sha256":  "150502c3886cd3171d773226fddebcdc91758b81d4a0a8a47bb147ea13570d97",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-02-gear",
+                      "label":  "gear",
+                      "category":  "mechanical",
+                      "tags":  [
+                                   "gear",
+                                   "machine",
+                                   "process"
+                               ],
+                      "source_start_seconds":  2,
+                      "source_end_seconds":  3.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-02-gear.wav",
+                      "sha256":  "3ad62b6ec05f8dfc1871db8401fc1f0129221a76d6dcd2b1e46a71e3cea6f8e1",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-03-click",
+                      "label":  "click",
+                      "category":  "ui",
+                      "tags":  [
+                                   "click",
+                                   "selection",
+                                   "interface"
+                               ],
+                      "source_start_seconds":  3.75,
+                      "source_end_seconds":  4.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-03-click.wav",
+                      "sha256":  "3a0704ef355081ae0475961480660499db51f7e5427e681930141b0acc289ace",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-04-pop",
+                      "label":  "pop",
+                      "category":  "ui",
+                      "tags":  [
+                                   "pop",
+                                   "appearance",
+                                   "emphasis"
+                               ],
+                      "source_start_seconds":  4.75,
+                      "source_end_seconds":  6,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-04-pop.wav",
+                      "sha256":  "ffd683997aef0fd850dba541a6103f0fe3290e49c29cb7960892dd8327723c26",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-05-cash-register",
+                      "label":  "cash-register",
+                      "category":  "money",
+                      "tags":  [
+                                   "money",
+                                   "cost",
+                                   "revenue",
+                                   "price"
+                               ],
+                      "source_start_seconds":  6,
+                      "source_end_seconds":  7.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-05-cash-register.wav",
+                      "sha256":  "14cdb427877537f4f0a4a0138e3d5151dbb0390ebb0eb2563c7454641a82a33e",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-06-aww",
+                      "label":  "aww",
+                      "category":  "reaction",
+                      "tags":  [
+                                   "aww",
+                                   "emotional",
+                                   "cute"
+                               ],
+                      "source_start_seconds":  7.25,
+                      "source_end_seconds":  9,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-06-aww.wav",
+                      "sha256":  "ddf3a7bd90f4cb952e09a5e6c67aa8253f63a41b57d0cbbfb494f67667091836",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-07-wrong-answer",
+                      "label":  "wrong-answer",
+                      "category":  "reaction",
+                      "tags":  [
+                                   "wrong",
+                                   "failure",
+                                   "warning"
+                               ],
+                      "source_start_seconds":  9.25,
+                      "source_end_seconds":  11.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-07-wrong-answer.wav",
+                      "sha256":  "464ca9861932b663495cc10ce6b137509e9cac0c803c44ff676bc77f629f307e",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-08-fire-whoosh",
+                      "label":  "fire-whoosh",
+                      "category":  "transition",
+                      "tags":  [
+                                   "whoosh",
+                                   "fire",
+                                   "fast_transition"
+                               ],
+                      "source_start_seconds":  11.5,
+                      "source_end_seconds":  13.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-08-fire-whoosh.wav",
+                      "sha256":  "20cae04df73ec7ad9066a07997d45595fba32fec696f3ed819110b8ddad1437b",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-09-game-point",
+                      "label":  "game-point",
+                      "category":  "ui",
+                      "tags":  [
+                                   "point",
+                                   "score",
+                                   "success"
+                               ],
+                      "source_start_seconds":  13.75,
+                      "source_end_seconds":  14.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-09-game-point.wav",
+                      "sha256":  "5695ac5206812a4758d5707b1f051827e973ab894c7b2efc2cb0ae8f50104240",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-10-discord-join",
+                      "label":  "discord-join",
+                      "category":  "notification",
+                      "tags":  [
+                                   "discord",
+                                   "join",
+                                   "notification"
+                               ],
+                      "source_start_seconds":  14.5,
+                      "source_end_seconds":  15.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-10-discord-join.wav",
+                      "sha256":  "3db3a97ff93ba0ee4c5eb70d8b1e35c6d8c662776d9d473ed8934e06fcd97ae2",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-11-discord-leave",
+                      "label":  "discord-leave",
+                      "category":  "notification",
+                      "tags":  [
+                                   "discord",
+                                   "leave",
+                                   "notification"
+                               ],
+                      "source_start_seconds":  15.5,
+                      "source_end_seconds":  16.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-11-discord-leave.wav",
+                      "sha256":  "e552be848c64d5f5281cdf63bb74d5806b5a044bf411b1bf769f31822bec8915",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-12-iphone-send",
+                      "label":  "iphone-send",
+                      "category":  "notification",
+                      "tags":  [
+                                   "phone",
+                                   "send",
+                                   "message"
+                               ],
+                      "source_start_seconds":  16.75,
+                      "source_end_seconds":  17.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-12-iphone-send.wav",
+                      "sha256":  "d9fee9eeeafed08d292259028f90f9ee44243c71ed37f50024382fafafe14b24",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-13-iphone-receive",
+                      "label":  "iphone-receive",
+                      "category":  "notification",
+                      "tags":  [
+                                   "phone",
+                                   "receive",
+                                   "message"
+                               ],
+                      "source_start_seconds":  17.75,
+                      "source_end_seconds":  18.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-13-iphone-receive.wav",
+                      "sha256":  "e4954217ca9d41fc73a8f78ba2588d27f25a7a00ba4237dd13f88178119769e1",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-14-apple-notification",
+                      "label":  "apple-notification",
+                      "category":  "notification",
+                      "tags":  [
+                                   "apple",
+                                   "notification",
+                                   "message"
+                               ],
+                      "source_start_seconds":  18.75,
+                      "source_end_seconds":  19.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-14-apple-notification.wav",
+                      "sha256":  "2d3818b59336cf0cb8ca2c5dbf1efb411a58a6ede41b7ee657a45caaad0ba34c",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-15-anime-wow",
+                      "label":  "anime-wow",
+                      "category":  "reaction",
+                      "tags":  [
+                                   "wow",
+                                   "surprise",
+                                   "reveal"
+                               ],
+                      "source_start_seconds":  20,
+                      "source_end_seconds":  23,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-15-anime-wow.wav",
+                      "sha256":  "ece7383f24d41b762bfc529acf584fd9f71ce69b38ae4b4e32cdf8e67c4a6b12",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-16-bone-crack",
+                      "label":  "bone-crack",
+                      "category":  "impact",
+                      "tags":  [
+                                   "crack",
+                                   "break",
+                                   "impact"
+                               ],
+                      "source_start_seconds":  23.25,
+                      "source_end_seconds":  24.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-16-bone-crack.wav",
+                      "sha256":  "466f3a4f450aec66d33d1426bcdf7754ec570a7cd0a6a37b6f83faa1174ba481",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-17-slap",
+                      "label":  "slap",
+                      "category":  "impact",
+                      "tags":  [
+                                   "slap",
+                                   "hit",
+                                   "comedy"
+                               ],
+                      "source_start_seconds":  24.5,
+                      "source_end_seconds":  25.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-17-slap.wav",
+                      "sha256":  "6d64667aa991127066371fee74a50ae40413e681990b90962d45e1d230f6d585",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-18-camera-shutter",
+                      "label":  "camera-shutter",
+                      "category":  "camera",
+                      "tags":  [
+                                   "camera",
+                                   "photo",
+                                   "snapshot"
+                               ],
+                      "source_start_seconds":  25.5,
+                      "source_end_seconds":  26.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-18-camera-shutter.wav",
+                      "sha256":  "d0ad371aca379c6502d5be1fdc0ebc469e25dbe58b79f81bac00e93175d975b8",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-19-whoosh-2",
+                      "label":  "whoosh-2",
+                      "category":  "transition",
+                      "tags":  [
+                                   "whoosh",
+                                   "movement",
+                                   "transition"
+                               ],
+                      "source_start_seconds":  26.5,
+                      "source_end_seconds":  27.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-19-whoosh-2.wav",
+                      "sha256":  "147bdc8de508bb7c0cd2bb6aada81396128682d26558a8d999a43bd4c7d3d361",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-20-paper",
+                      "label":  "paper",
+                      "category":  "foley",
+                      "tags":  [
+                                   "paper",
+                                   "document",
+                                   "page"
+                               ],
+                      "source_start_seconds":  27.75,
+                      "source_end_seconds":  29.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-20-paper.wav",
+                      "sha256":  "3c77fe6e15df3e6a91f8c0da81bf125f6c8432a86c8ee29bee01afd9ea2a870e",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-21-kids-cheer",
+                      "label":  "kids-cheer",
+                      "category":  "crowd",
+                      "tags":  [
+                                   "kids",
+                                   "cheer",
+                                   "celebration",
+                                   "success"
+                               ],
+                      "source_start_seconds":  29.75,
+                      "source_end_seconds":  33.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-21-kids-cheer.wav",
+                      "sha256":  "238b850cc4d45552b46601185d6af1a9928e264812e32076ef0a12e8fbf42cd0",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-22-display-digits",
+                      "label":  "display-digits",
+                      "category":  "technology",
+                      "tags":  [
+                                   "digits",
+                                   "data",
+                                   "counter",
+                                   "technology"
+                               ],
+                      "source_start_seconds":  33.75,
+                      "source_end_seconds":  35.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-22-display-digits.wav",
+                      "sha256":  "d2fc3082ea0a1c3fb5868840c17c35c005dd50c5aa28e8275af93d662554f9a8",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-23-party-horn",
+                      "label":  "party-horn",
+                      "category":  "celebration",
+                      "tags":  [
+                                   "party",
+                                   "celebration",
+                                   "success"
+                               ],
+                      "source_start_seconds":  36.25,
+                      "source_end_seconds":  37.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-23-party-horn.wav",
+                      "sha256":  "d4d19861efa59b28abd0a107df15519f39ac2c95164f6a4697791cde4782b441",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-24-glitch-1",
+                      "label":  "glitch-1",
+                      "category":  "technology",
+                      "tags":  [
+                                   "glitch",
+                                   "error",
+                                   "digital"
+                               ],
+                      "source_start_seconds":  37.75,
+                      "source_end_seconds":  39,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-24-glitch-1.wav",
+                      "sha256":  "28e9ff44cb7f0854bfe94b7022edaf4f64c71bffa2a500f7428d9708ec904904",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-25-anvil",
+                      "label":  "anvil",
+                      "category":  "impact",
+                      "tags":  [
+                                   "anvil",
+                                   "metal",
+                                   "impact"
+                               ],
+                      "source_start_seconds":  39.25,
+                      "source_end_seconds":  40.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-25-anvil.wav",
+                      "sha256":  "c7e623fcc104bdfa3f3c32cf751ef2917883efbadc14372924cb41b94ca49e73",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-26-cinematic-hit",
+                      "label":  "cinematic-hit",
+                      "category":  "impact",
+                      "tags":  [
+                                   "cinematic",
+                                   "impact",
+                                   "reveal",
+                                   "important"
+                               ],
+                      "source_start_seconds":  40.5,
+                      "source_end_seconds":  44.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-26-cinematic-hit.wav",
+                      "sha256":  "bbc4484b811a44dc4fe11c4ee644e4d7fe0749d04c43b593fca16978ba931938",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-27-in-and-out",
+                      "label":  "in-and-out",
+                      "category":  "transition",
+                      "tags":  [
+                                   "in",
+                                   "out",
+                                   "transition",
+                                   "movement"
+                               ],
+                      "source_start_seconds":  45,
+                      "source_end_seconds":  46.25,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-27-in-and-out.wav",
+                      "sha256":  "18778aa8792030838e4a344d06b6b634b4ab97cab7447b4251a29d816bbba703",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-28-sudden-suspense",
+                      "label":  "sudden-suspense",
+                      "category":  "suspense",
+                      "tags":  [
+                                   "suspense",
+                                   "question",
+                                   "tension"
+                               ],
+                      "source_start_seconds":  46.5,
+                      "source_end_seconds":  47.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-28-sudden-suspense.wav",
+                      "sha256":  "ea160f7093d716c52d14499c3a1aa33232b95464f4c97497de7e7fe443a8eede",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-29-boom",
+                      "label":  "boom",
+                      "category":  "impact",
+                      "tags":  [
+                                   "boom",
+                                   "impact",
+                                   "reveal"
+                               ],
+                      "source_start_seconds":  48,
+                      "source_end_seconds":  49.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-29-boom.wav",
+                      "sha256":  "b5d77a901f2a988300b9868c2ed8fd94eccd08c146f76edc59557a0ed6c0dbc0",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-30-glass-shatter",
+                      "label":  "glass-shatter",
+                      "category":  "impact",
+                      "tags":  [
+                                   "glass",
+                                   "shatter",
+                                   "break"
+                               ],
+                      "source_start_seconds":  49.75,
+                      "source_end_seconds":  51,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-30-glass-shatter.wav",
+                      "sha256":  "e698d77c6f25701f3ded296cd23f4494ddd18775693e4cf8798f019125b161a0",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-31-clock-ticking",
+                      "label":  "clock-ticking",
+                      "category":  "time",
+                      "tags":  [
+                                   "clock",
+                                   "time",
+                                   "deadline",
+                                   "waiting"
+                               ],
+                      "source_start_seconds":  51.5,
+                      "source_end_seconds":  53.5,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-31-clock-ticking.wav",
+                      "sha256":  "717105a06df4bcc9f976e06206b05dce787a1663f2a3b20ce2fe4d9a47e80b89",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-32-mario-coin",
+                      "label":  "mario-coin",
+                      "category":  "game",
+                      "tags":  [
+                                   "coin",
+                                   "game",
+                                   "reward"
+                               ],
+                      "source_start_seconds":  53.75,
+                      "source_end_seconds":  55,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-32-mario-coin.wav",
+                      "sha256":  "adae817f8fe6355f16716c1e7c214f8474bcdd6c58ae4ad11dc78c6978f86b8b",
+                      "safety_state":  "BLOCKED",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-33-crumpled-paper",
+                      "label":  "crumpled-paper",
+                      "category":  "foley",
+                      "tags":  [
+                                   "paper",
+                                   "discard",
+                                   "failure",
+                                   "revision"
+                               ],
+                      "source_start_seconds":  55.25,
+                      "source_end_seconds":  57.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-33-crumpled-paper.wav",
+                      "sha256":  "c42513d40e9d7df83dad1c6be02d8325ac34514b01ff94e2dabcb76521635358",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-34-ding",
+                      "label":  "ding",
+                      "category":  "ui",
+                      "tags":  [
+                                   "ding",
+                                   "complete",
+                                   "success"
+                               ],
+                      "source_start_seconds":  57.75,
+                      "source_end_seconds":  59,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-34-ding.wav",
+                      "sha256":  "1d8d2b284c2fd8abd91d245c7be53ac314cb793554745bf56a391f3a6d92ad2d",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  },
+                  {
+                      "id":  "sfx-35-glitch-2",
+                      "label":  "glitch-2",
+                      "category":  "technology",
+                      "tags":  [
+                                   "glitch",
+                                   "error",
+                                   "digital",
+                                   "failure"
+                               ],
+                      "source_start_seconds":  59.25,
+                      "source_end_seconds":  61.75,
+                      "file_path":  "inputs/sfx-library/quarantine/techkeyfi-2aoLsF3-2gI/sfx-35-glitch-2.wav",
+                      "sha256":  "8d5f5171203f77111046d9e00aa5d97cfc24f332db0d74350c5c1405b1a3b762",
+                      "safety_state":  "UNKNOWN",
+                      "auto_usable":  false
+                  }
+              ]
+}
